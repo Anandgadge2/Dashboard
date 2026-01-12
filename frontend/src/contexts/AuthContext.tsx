@@ -43,8 +43,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
+    const startTime = Date.now();
+    const minDelay = 800; // Minimum 800ms delay to prevent flash of errors
+    
     try {
       const response = await authAPI.login(credentials);
+      
+      // Ensure minimum delay has passed
+      const elapsed = Date.now() - startTime;
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
       
       if (response.success) {
         const { user, accessToken, refreshToken } = response.data;
@@ -75,8 +84,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Login failed';
-      toast.error(message);
+      // Ensure minimum delay has passed before showing error
+      const elapsed = Date.now() - startTime;
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+      
+      const message = error.response?.data?.message || error.message || 'Login failed. Please check your credentials.';
+      
+      // Only show error if it's a real API error, not a network error that might resolve
+      if (error.response?.status === 401) {
+        toast.error('Invalid email or password. Please try again.', {
+          duration: 4000,
+          position: 'top-center'
+        });
+      } else if (error.response?.status) {
+        toast.error(message, {
+          duration: 4000,
+          position: 'top-center'
+        });
+      } else {
+        // Network or other errors
+        toast.error('Unable to connect to server. Please check your connection and try again.', {
+          duration: 4000,
+          position: 'top-center'
+        });
+      }
       throw error;
     }
   };

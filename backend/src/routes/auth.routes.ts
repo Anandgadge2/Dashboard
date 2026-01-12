@@ -22,19 +22,36 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log('🔐 Login attempt for email:', normalizedEmail);
+
     // Find user with password (include soft-deleted check)
     const user = await User.findOne({ 
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       isDeleted: false 
     }).select('+password');
 
     if (!user) {
+      console.log('❌ User not found for email:', normalizedEmail);
+      // Check if user exists but is deleted
+      const deletedUser = await User.findOne({ email: normalizedEmail }).select('+password');
+      if (deletedUser) {
+        console.log('⚠️ User exists but is marked as deleted');
+      }
       res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
       return;
     }
+
+    console.log('✅ User found:', {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      hasPassword: !!user.password
+    });
 
     // Check if user is active
     if (!user.isActive) {
@@ -57,12 +74,15 @@ router.post('/login', async (req: Request, res: Response) => {
     const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
+      console.log('❌ Password validation failed for user:', user.email);
       res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
       return;
     }
+
+    console.log('✅ Password validated successfully for user:', user.email);
 
     // Update last login
     user.lastLogin = new Date();

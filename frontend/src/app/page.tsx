@@ -29,14 +29,33 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (!email.trim() || !password.trim()) {
+      toast.error('Please enter both email and password', {
+        duration: 3000,
+        position: 'top-center'
+      });
+      return;
+    }
+
     setLoading(true);
+    let errorOccurred = false;
 
     try {
-      await login({ email, password });
+      await login({ email: email.trim(), password });
     } catch (error) {
       // Error is handled in AuthContext with toast
+      errorOccurred = true;
+      // Don't reset loading immediately to prevent flash
+      setTimeout(() => {
+        setLoading(false);
+      }, 500);
     } finally {
-      setLoading(false);
+      // Only reset loading if error wasn't handled in catch
+      if (!errorOccurred) {
+        setLoading(false);
+      }
     }
   };
 

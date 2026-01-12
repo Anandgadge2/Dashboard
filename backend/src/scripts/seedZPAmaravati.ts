@@ -15,14 +15,14 @@ const seedZPAmaravati = async () => {
     }
 
     // Check if ZP Amaravati company already exists
-    const existingCompany = await Company.findOne({ name: 'ZP Amaravati' });
-    if (existingCompany) {
-      console.log('✅ ZP Amaravati company already exists');
-      return;
+    let zpCompany = await Company.findOne({ name: 'ZP Amaravati' });
+    if (zpCompany) {
+      console.log('✅ ZP Amaravati company already exists:', zpCompany.companyId);
     }
 
-    // Create ZP Amaravati company
-    const zpCompany = await Company.create({
+    // Create ZP Amaravati company if it doesn't exist
+    if (!zpCompany) {
+      zpCompany = await Company.create({
       name: 'ZP Amaravati',
       companyType: CompanyType.GOVERNMENT,
       contactEmail: 'contact@zpamaravati.gov.in',
@@ -43,9 +43,9 @@ const seedZPAmaravati = async () => {
       isActive: true,
       isSuspended: false,
       isDeleted: false
-    });
-
-    console.log('✅ ZP Amaravati company created:', zpCompany.companyId);
+      });
+      console.log('✅ ZP Amaravati company created:', zpCompany.companyId);
+    }
 
     // Create departments
     const departments = [
@@ -109,14 +109,25 @@ const seedZPAmaravati = async () => {
 
     const createdDepartments = [];
     for (const dept of departments) {
-      const department = await Department.create({
-        ...dept,
+      // Check if department already exists
+      let department = await Department.findOne({
         companyId: zpCompany._id,
-        isActive: true,
+        name: dept.name,
         isDeleted: false
       });
+
+      if (!department) {
+        department = await Department.create({
+          ...dept,
+          companyId: zpCompany._id,
+          isActive: true,
+          isDeleted: false
+        });
+        console.log(`✅ Department created: ${department.name} (${department.departmentId})`);
+      } else {
+        console.log(`✅ Department already exists: ${department.name} (${department.departmentId})`);
+      }
       createdDepartments.push(department);
-      console.log(`✅ Department created: ${department.name} (${department.departmentId})`);
     }
 
     // Create department admins
@@ -147,40 +158,64 @@ const seedZPAmaravati = async () => {
     for (const admin of departmentAdmins) {
       const department = createdDepartments.find(d => d.name === admin.departmentName);
       if (department) {
-        const hashedPassword = await bcrypt.hash('Admin@123', 10);
+        // Check if department admin already exists
+        let user = await User.findOne({ email: admin.email }).select('+password');
         
-        const user = await User.create({
-          firstName: admin.firstName,
-          lastName: admin.lastName,
-          email: admin.email,
-          password: hashedPassword,
-          phone: admin.phone,
-          role: UserRole.DEPARTMENT_ADMIN,
-          companyId: zpCompany._id,
-          departmentId: department._id,
-          isActive: true,
-          isEmailVerified: true
-        });
-        
-        console.log(`✅ Department admin created: ${user.firstName} ${user.lastName} (${user.email})`);
+        if (!user) {
+          user = await User.create({
+            firstName: admin.firstName,
+            lastName: admin.lastName,
+            email: admin.email,
+            password: 'Admin@123', // Pre-save hook will hash it
+            phone: admin.phone,
+            role: UserRole.DEPARTMENT_ADMIN,
+            companyId: zpCompany._id,
+            departmentId: department._id,
+            isActive: true,
+            isEmailVerified: true,
+            isDeleted: false
+          });
+          console.log(`✅ Department admin created: ${user.firstName} ${user.lastName} (${user.email})`);
+        } else {
+          // Update existing admin to ensure correct settings
+          user.password = 'Admin@123'; // Pre-save hook will hash it
+          user.isActive = true;
+          user.isDeleted = false;
+          user.companyId = zpCompany._id;
+          user.departmentId = department._id;
+          await user.save();
+          console.log(`✅ Department admin updated: ${user.firstName} ${user.lastName} (${user.email})`);
+        }
       }
     }
 
-    // Create company admin
-    const companyAdminPassword = await bcrypt.hash('Admin@123', 10);
-    const companyAdmin = await User.create({
-      firstName: 'Anand',
-      lastName: 'Jadhav',
-      email: 'ceo@zpamaravati.gov.in',
-      password: companyAdminPassword,
-      phone: '+91-9876543200',
-      role: UserRole.COMPANY_ADMIN,
-      companyId: zpCompany._id,
-      isActive: true,
-      isEmailVerified: true
-    });
-
-    console.log(`✅ Company admin created: ${companyAdmin.firstName} ${companyAdmin.lastName} (${companyAdmin.email})`);
+    // Create or update company admin
+    const adminEmail = 'ceo@zpamaravati.gov.in';
+    let companyAdmin = await User.findOne({ email: adminEmail }).select('+password');
+    
+    if (!companyAdmin) {
+      companyAdmin = await User.create({
+        firstName: 'Anand',
+        lastName: 'Jadhav',
+        email: adminEmail,
+        password: 'Admin@123', // Pre-save hook will hash it
+        phone: '+91-9876543200',
+        role: UserRole.COMPANY_ADMIN,
+        companyId: zpCompany._id,
+        isActive: true,
+        isEmailVerified: true,
+        isDeleted: false
+      });
+      console.log(`✅ Company admin created: ${companyAdmin.firstName} ${companyAdmin.lastName} (${companyAdmin.email})`);
+    } else {
+      // Update existing admin to ensure it's active and has correct password
+      companyAdmin.password = 'Admin@123'; // Pre-save hook will hash it
+      companyAdmin.isActive = true;
+      companyAdmin.isDeleted = false;
+      companyAdmin.companyId = zpCompany._id;
+      await companyAdmin.save();
+      console.log(`✅ Company admin updated: ${companyAdmin.firstName} ${companyAdmin.lastName} (${companyAdmin.email})`);
+    }
 
     console.log('\n🎉 ZP Amaravati seeding completed successfully!');
     console.log('\n📋 Login Credentials:');

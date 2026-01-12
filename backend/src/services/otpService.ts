@@ -57,18 +57,18 @@ export async function verifyOTP(phoneNumber: string, providedOTP: string): Promi
 }
 
 // Send OTP via WhatsApp
-export async function sendOTP(company: any, phoneNumber: string, language: string = 'en'): Promise<boolean> {
+export async function sendOTP(company: any, phoneNumber: string, language: string = 'en'): Promise<string> {
   const otp = await createOTP(phoneNumber);
 
   const messages: Record<string, string> = {
-    en: `Your verification code is: *${otp}*\n\nThis code will expire in 10 minutes.\n\nPlease enter this code to continue.`,
-    hi: `आपका सत्यापन कोड है: *${otp}*\n\nयह कोड 10 मिनट में समाप्त हो जाएगा।\n\nकृपया जारी रखने के लिए इस कोड को दर्ज करें।`,
-    mr: `तुमचा सत्यापन कोड आहे: *${otp}*\n\nहा कोड 10 मिनिटांत कालबाह्य होईल.\n\nकृपया सुरू ठेवण्यासाठी हा कोड प्रविष्ट करा.`
+    en: `🔐 *Verification Code*\n\nYour 6-digit verification code is:\n\n*${otp}*\n\n*Validity:* 10 minutes\n\nPlease enter this code to continue with the service.`,
+    hi: `🔐 *सत्यापन कोड*\n\nआपका 6-अंकीय सत्यापन कोड है:\n\n*${otp}*\n\n*वैधता:* 10 मिनट\n\nकृपया सेवा जारी रखने के लिए इस कोड को दर्ज करें।`,
+    mr: `🔐 *सत्यापन कोड*\n\nतुमचा 6-अंकीय सत्यापन कोड आहे:\n\n*${otp}*\n\n*वैधता:* 10 मिनिटे\n\nकृपया सेवा सुरू ठेवण्यासाठी हा कोड प्रविष्ट करा.`
   };
 
   const message = messages[language] || messages.en;
   const result = await sendWhatsAppMessage(company, phoneNumber, message);
-  return result.success;
+  return result.success ? otp : '';
 }
 
 // Check if phone number is verified

@@ -166,9 +166,9 @@ async function handleIncomingMessage(message: any, metadata: any) {
     } else if (messageType === 'document') {
       messageText = message.document?.caption || '';
       mediaUrl = message.document?.id || '';
-    } else if (messageType === 'audio') {
-      mediaUrl = message.audio?.id || '';
-      messageText = 'Audio message';
+    } else if (messageType === 'audio' || messageType === 'voice') {
+      mediaUrl = message.audio?.id || message.voice?.id || '';
+      messageText = ''; // Will be transcribed
     } else if (messageType === 'video') {
       messageText = message.video?.caption || '';
       mediaUrl = message.video?.id || '';

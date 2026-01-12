@@ -34,9 +34,9 @@ class APIClient {
         if (error.response?.status === 401) {
           // Token expired or invalid
           this.removeToken();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
         }
         return Promise.reject(error);
       }

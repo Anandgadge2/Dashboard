@@ -15,9 +15,12 @@ import { appointmentAPI, Appointment } from '@/lib/api/appointment';
 import CreateDepartmentDialog from '@/components/department/CreateDepartmentDialog';
 import CreateUserDialog from '@/components/user/CreateUserDialog';
 import { ProtectedButton } from '@/components/ui/ProtectedButton';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Permission } from '@/lib/permissions';
 import toast from 'react-hot-toast';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import GrievanceDetailDialog from '@/components/grievance/GrievanceDetailDialog';
+import AppointmentDetailDialog from '@/components/appointment/AppointmentDetailDialog';
 
 const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -25,22 +28,33 @@ interface DashboardStats {
   grievances: {
     total: number;
     pending: number;
+    assigned?: number;
     inProgress: number;
     resolved: number;
+    closed?: number;
     last7Days: number;
     last30Days: number;
     resolutionRate: number;
+    slaBreached?: number;
+    slaComplianceRate?: number;
+    avgResolutionDays?: number;
+    byPriority?: Array<{ priority: string; count: number }>;
     daily: Array<{ date: string; count: number }>;
+    monthly?: Array<{ month: string; count: number; resolved: number }>;
   };
   appointments: {
     total: number;
     pending: number;
     confirmed: number;
     completed: number;
+    cancelled?: number;
+    noShow?: number;
     last7Days: number;
     last30Days: number;
     completionRate: number;
+    byDepartment?: Array<{ departmentId: string; departmentName: string; count: number; completed: number }>;
     daily: Array<{ date: string; count: number }>;
+    monthly?: Array<{ month: string; count: number; completed: number }>;
   };
   departments: number;
   users: number;
@@ -60,9 +74,31 @@ export default function Dashboard() {
   const [company, setCompany] = useState<Company | null>(null);
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [showUserDialog, setShowUserDialog] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'danger'
+  });
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingGrievances, setLoadingGrievances] = useState(false);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [performanceData, setPerformanceData] = useState<any>(null);
+  const [hourlyData, setHourlyData] = useState<any>(null);
+  const [categoryData, setCategoryData] = useState<any>(null);
+  const [selectedGrievance, setSelectedGrievance] = useState<Grievance | null>(null);
+  const [showGrievanceDetail, setShowGrievanceDetail] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -70,7 +106,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push('/');
     } else if (!loading && user && user.role === 'SUPER_ADMIN') {
       router.push('/superadmin/dashboard');
     }
@@ -88,6 +124,47 @@ export default function Dashboard() {
       }
     }
   }, [mounted, user]);
+
+  useEffect(() => {
+    if (mounted && user && activeTab === 'analytics') {
+      fetchPerformanceData();
+      fetchHourlyData();
+      fetchCategoryData();
+    }
+  }, [mounted, user, activeTab]);
+
+  const fetchPerformanceData = async () => {
+    try {
+      const response = await apiClient.get('/analytics/performance');
+      if (response.success) {
+        setPerformanceData(response.data);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch performance data:', error);
+    }
+  };
+
+  const fetchHourlyData = async () => {
+    try {
+      const response = await apiClient.get('/analytics/hourly?days=7');
+      if (response.success) {
+        setHourlyData(response.data);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch hourly data:', error);
+    }
+  };
+
+  const fetchCategoryData = async () => {
+    try {
+      const response = await apiClient.get('/analytics/category');
+      if (response.success) {
+        setCategoryData(response.data);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch category data:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     setLoadingStats(true);
@@ -251,7 +328,104 @@ export default function Dashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            {/* Company Info (for Company Admin) */}
+            {/* Stats Grid - Moved to top */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {stats && (
+                <>
+                  <Card 
+                    className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                    onClick={() => {
+                      setActiveTab('grievances');
+                      // Filter to show all grievances
+                    }}
+                  >
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center justify-between">
+                        <span>Total Grievances</span>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-4xl font-bold">{stats.grievances.total}</p>
+                      <p className="text-blue-100 text-sm mt-2">
+                        {stats.grievances.pending} pending
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card 
+                    className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                    onClick={() => {
+                      setActiveTab('grievances');
+                      // Could filter to show only resolved
+                    }}
+                  >
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center justify-between">
+                        <span>Resolved</span>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-4xl font-bold">{stats.grievances.resolved}</p>
+                      <p className="text-green-100 text-sm mt-2">
+                        {stats.grievances.inProgress} in progress
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card 
+                    className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                    onClick={() => {
+                      setActiveTab('appointments');
+                    }}
+                  >
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center justify-between">
+                        <span>Appointments</span>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-4xl font-bold">{stats.appointments.total}</p>
+                      <p className="text-purple-100 text-sm mt-2">
+                        {stats.appointments.confirmed} confirmed
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {(isCompanyAdmin || isDepartmentAdmin) && (
+                    <Card 
+                      className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                      onClick={() => {
+                        setActiveTab('departments');
+                      }}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-white text-lg flex items-center justify-between">
+                          <span>Departments</span>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-4xl font-bold">{stats.departments}</p>
+                        <p className="text-orange-100 text-sm mt-2">Active departments</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Company Info (for Company Admin) - Moved below tiles */}
             {isCompanyAdmin && company && (
               <Card>
                 <CardHeader>
@@ -279,61 +453,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats && (
-                <>
-                  <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg">Total Grievances</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-4xl font-bold">{stats.grievances.total}</p>
-                      <p className="text-blue-100 text-sm mt-2">
-                        {stats.grievances.pending} pending
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg">Resolved</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-4xl font-bold">{stats.grievances.resolved}</p>
-                      <p className="text-green-100 text-sm mt-2">
-                        {stats.grievances.inProgress} in progress
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg">Appointments</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-4xl font-bold">{stats.appointments.total}</p>
-                      <p className="text-purple-100 text-sm mt-2">
-                        {stats.appointments.confirmed} confirmed
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  {(isCompanyAdmin || isDepartmentAdmin) && (
-                    <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0">
-                      <CardHeader>
-                        <CardTitle className="text-white text-lg">Departments</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-4xl font-bold">{stats.departments}</p>
-                        <p className="text-orange-100 text-sm mt-2">Active departments</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
-              )}
-            </div>
 
             {/* Quick Actions */}
             <Card>
@@ -418,16 +537,70 @@ export default function Dashboard() {
                       {departments.map((dept) => (
                         <div key={dept._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-semibold text-lg">{dept.name}</h4>
+                            <div className="flex-1">
+                              <h4 
+                                className="font-semibold text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                onClick={() => {
+                                  setSelectedDepartmentId(dept._id);
+                                  router.push(`/superadmin/department/${dept._id}?companyId=${typeof dept.companyId === 'object' ? dept.companyId._id : dept.companyId}`);
+                                }}
+                              >
+                                {dept.name}
+                              </h4>
                               <p className="text-sm text-gray-500">{dept.departmentId}</p>
                               {dept.description && (
                                 <p className="text-sm text-gray-600 mt-1">{dept.description}</p>
                               )}
                             </div>
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Active
-                            </span>
+                            <div className="flex items-center space-x-2">
+                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Active
+                              </span>
+                              {isCompanyAdmin && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-blue-600 hover:text-blue-900"
+                                    onClick={() => {
+                                      setEditingDepartment(dept);
+                                      setShowDepartmentDialog(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-900"
+                                    onClick={() => {
+                                      setConfirmDialog({
+                                        isOpen: true,
+                                        title: 'Delete Department',
+                                        message: `Are you sure you want to delete "${dept.name}"? This action cannot be undone and will delete all associated users, grievances, and appointments.`,
+                                        onConfirm: async () => {
+                                          try {
+                                            const response = await departmentAPI.delete(dept._id);
+                                            if (response.success) {
+                                              toast.success('Department deleted successfully');
+                                              fetchDepartments();
+                                              setConfirmDialog({ ...confirmDialog, isOpen: false });
+                                            } else {
+                                              toast.error('Failed to delete department');
+                                            }
+                                          } catch (error: any) {
+                                            toast.error(error.message || 'Failed to delete department');
+                                          }
+                                        },
+                                        variant: 'danger'
+                                      });
+                                    }}
+                                  >
+                                    Delete
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -536,28 +709,61 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     {grievances.map((grievance) => (
                       <div key={grievance._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold text-lg">{grievance.citizenName}</h4>
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-3 flex-wrap">
+                              <h4 
+                                className="font-semibold text-lg text-gray-900 hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                                onClick={async () => {
+                                  try {
+                                    const response = await grievanceAPI.getById(grievance._id);
+                                    if (response.success) {
+                                      setSelectedGrievance(response.data.grievance);
+                                      setShowGrievanceDetail(true);
+                                    }
+                                  } catch (error: any) {
+                                    toast.error('Failed to load grievance details');
+                                  }
+                                }}
+                              >
+                                {grievance.citizenName}
+                              </h4>
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
                                 {grievance.grievanceId}
-                              </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                grievance.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-                                grievance.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {grievance.status}
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 mb-2">{grievance.citizenPhone}</p>
-                            <p className="text-gray-700">{grievance.description}</p>
+                            <p className="text-gray-700 line-clamp-2 mb-2">{grievance.description}</p>
                             {grievance.category && (
                               <span className="inline-block mt-2 px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">
                                 {grievance.category}
                               </span>
                             )}
+                          </div>
+                          <div className="flex-shrink-0">
+                            <select
+                              value={grievance.status}
+                              onChange={async (e) => {
+                                try {
+                                  const response = await grievanceAPI.updateStatus(grievance._id, e.target.value);
+                                  if (response.success) {
+                                    toast.success('Status updated successfully');
+                                    fetchGrievances();
+                                  } else {
+                                    toast.error('Failed to update status');
+                                  }
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Failed to update status');
+                                }
+                              }}
+                              className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[140px]"
+                            >
+                              <option value="PENDING">PENDING</option>
+                              <option value="ASSIGNED">ASSIGNED</option>
+                              <option value="IN_PROGRESS">IN_PROGRESS</option>
+                              <option value="RESOLVED">RESOLVED</option>
+                              <option value="CLOSED">CLOSED</option>
+                            </select>
                           </div>
                         </div>
                       </div>
@@ -589,19 +795,27 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     {appointments.map((appointment) => (
                       <div key={appointment._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold text-lg">{appointment.citizenName}</h4>
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-3 flex-wrap">
+                              <h4 
+                                className="font-semibold text-lg text-gray-900 hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                                onClick={async () => {
+                                  try {
+                                    const response = await appointmentAPI.getById(appointment._id);
+                                    if (response.success) {
+                                      setSelectedAppointment(response.data.appointment);
+                                      setShowAppointmentDetail(true);
+                                    }
+                                  } catch (error: any) {
+                                    toast.error('Failed to load appointment details');
+                                  }
+                                }}
+                              >
+                                {appointment.citizenName}
+                              </h4>
+                              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
                                 {appointment.appointmentId}
-                              </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                appointment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                appointment.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {appointment.status}
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 mb-2">
@@ -611,6 +825,31 @@ export default function Dashboard() {
                               <span className="font-medium">Date:</span> {new Date(appointment.appointmentDate).toLocaleDateString()} at {appointment.appointmentTime}
                             </p>
                             <p className="text-sm text-gray-600">{appointment.citizenPhone}</p>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <select
+                              value={appointment.status}
+                              onChange={async (e) => {
+                                try {
+                                  const response = await appointmentAPI.updateStatus(appointment._id, e.target.value);
+                                  if (response.success) {
+                                    toast.success('Status updated successfully');
+                                    fetchAppointments();
+                                  } else {
+                                    toast.error('Failed to update status');
+                                  }
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Failed to update status');
+                                }
+                              }}
+                              className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[140px]"
+                            >
+                              <option value="PENDING">PENDING</option>
+                              <option value="CONFIRMED">CONFIRMED</option>
+                              <option value="COMPLETED">COMPLETED</option>
+                              <option value="CANCELLED">CANCELLED</option>
+                              <option value="NO_SHOW">NO_SHOW</option>
+                            </select>
                           </div>
                         </div>
                       </div>
@@ -756,6 +995,96 @@ export default function Dashboard() {
                       </Card>
                     </div>
 
+                    {/* Additional Analytics Charts */}
+                    {stats.grievances.byPriority && stats.grievances.byPriority.length > 0 && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Grievances by Priority</CardTitle>
+                            <CardDescription>Distribution of grievances by priority level</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <BarChart data={stats.grievances.byPriority}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="priority" />
+                                <YAxis />
+                                <Tooltip />
+                                <Bar dataKey="count" fill="#8884d8" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </CardContent>
+                        </Card>
+
+                        {stats.appointments.byDepartment && stats.appointments.byDepartment.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Appointments by Department</CardTitle>
+                              <CardDescription>Distribution of appointments across departments</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={stats.appointments.byDepartment}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="departmentName" angle={-45} textAnchor="end" height={100} />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Bar dataKey="count" fill="#00C49F" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* SLA and Performance Metrics */}
+                    {stats.grievances.slaComplianceRate !== undefined && (
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">SLA Compliance</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-center">
+                              <p className="text-4xl font-bold text-green-600">
+                                {stats.grievances.slaComplianceRate?.toFixed(1)}%
+                              </p>
+                              <p className="text-sm text-gray-500 mt-2">Compliance Rate</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Avg Resolution Time</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-center">
+                              <p className="text-4xl font-bold text-blue-600">
+                                {stats.grievances.avgResolutionDays?.toFixed(1)}
+                              </p>
+                              <p className="text-sm text-gray-500 mt-2">Days</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Resolution Rate</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-center">
+                              <p className="text-4xl font-bold text-purple-600">
+                                {stats.grievances.resolutionRate.toFixed(1)}%
+                              </p>
+                              <p className="text-sm text-gray-500 mt-2">Success Rate</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
                     {/* Time Series Charts */}
                     {stats.grievances.daily && stats.grievances.daily.length > 0 && (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -811,9 +1140,17 @@ export default function Dashboard() {
 
                     {/* Performance Metrics */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                      <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                      <Card 
+                        className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all cursor-pointer transform hover:scale-105"
+                        onClick={() => setActiveTab('grievances')}
+                      >
                         <CardHeader>
-                          <CardTitle className="text-sm font-medium text-green-800">Resolution Rate</CardTitle>
+                          <CardTitle className="text-sm font-medium text-green-800 flex items-center justify-between">
+                            <span>Resolution Rate</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-3xl font-bold text-green-700">{stats.grievances.resolutionRate}%</div>
@@ -823,9 +1160,17 @@ export default function Dashboard() {
                         </CardContent>
                       </Card>
 
-                      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                      <Card 
+                        className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all cursor-pointer transform hover:scale-105"
+                        onClick={() => setActiveTab('appointments')}
+                      >
                         <CardHeader>
-                          <CardTitle className="text-sm font-medium text-blue-800">Completion Rate</CardTitle>
+                          <CardTitle className="text-sm font-medium text-blue-800 flex items-center justify-between">
+                            <span>Completion Rate</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-3xl font-bold text-blue-700">{stats.appointments.completionRate}%</div>
@@ -835,26 +1180,255 @@ export default function Dashboard() {
                         </CardContent>
                       </Card>
 
-                      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                        <CardHeader>
-                          <CardTitle className="text-sm font-medium text-purple-800">Last 7 Days</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-3xl font-bold text-purple-700">{stats.grievances.last7Days}</div>
-                          <p className="text-xs text-purple-600 mt-1">New grievances</p>
-                        </CardContent>
-                      </Card>
+                      {stats.grievances.slaComplianceRate !== undefined && (
+                        <Card 
+                          className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all cursor-pointer transform hover:scale-105"
+                          onClick={() => setActiveTab('analytics')}
+                        >
+                          <CardHeader>
+                            <CardTitle className="text-sm font-medium text-purple-800 flex items-center justify-between">
+                              <span>SLA Compliance</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-purple-700">{stats.grievances.slaComplianceRate}%</div>
+                            <p className="text-xs text-purple-600 mt-1">
+                              {stats.grievances.slaBreached || 0} breaches
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
 
-                      <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+                      {stats.grievances.avgResolutionDays !== undefined && (
+                        <Card 
+                          className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all cursor-pointer transform hover:scale-105"
+                          onClick={() => setActiveTab('analytics')}
+                        >
+                          <CardHeader>
+                            <CardTitle className="text-sm font-medium text-orange-800 flex items-center justify-between">
+                              <span>Avg Resolution Time</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-orange-700">{stats.grievances.avgResolutionDays}</div>
+                            <p className="text-xs text-orange-600 mt-1">Days</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+
+                    {/* Grievance Priority and Department Distribution */}
+                    {(stats.grievances.byPriority || stats.appointments.byDepartment) && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {stats.grievances.byPriority && stats.grievances.byPriority.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Grievances by Priority</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={250}>
+                                <BarChart data={stats.grievances.byPriority}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="priority" />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Bar dataKey="count" fill="#8884d8" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {stats.appointments.byDepartment && stats.appointments.byDepartment.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Appointments by Department</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={250}>
+                                <BarChart data={stats.appointments.byDepartment}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="departmentName" angle={-45} textAnchor="end" height={100} />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Bar dataKey="count" fill="#00C49F" name="Total" />
+                                  <Bar dataKey="completed" fill="#0088FE" name="Completed" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Monthly Trends */}
+                    {(stats.grievances.monthly || stats.appointments.monthly) && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {stats.grievances.monthly && stats.grievances.monthly.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Grievance Trends (Last 6 Months)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <LineChart data={stats.grievances.monthly}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Line type="monotone" dataKey="count" stroke="#8884d8" name="Total" />
+                                  <Line type="monotone" dataKey="resolved" stroke="#00C49F" name="Resolved" />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {stats.appointments.monthly && stats.appointments.monthly.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Appointment Trends (Last 6 Months)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <LineChart data={stats.appointments.monthly}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Line type="monotone" dataKey="count" stroke="#00C49F" name="Total" />
+                                  <Line type="monotone" dataKey="completed" stroke="#0088FE" name="Completed" />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Hourly Distribution */}
+                    {hourlyData && (hourlyData.grievances?.length > 0 || hourlyData.appointments?.length > 0) && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {hourlyData.grievances && hourlyData.grievances.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Grievance Distribution by Hour</CardTitle>
+                              <CardDescription>Peak hours for grievance submissions (Last 7 Days)</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={hourlyData.grievances}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="hour" label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }} />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Bar dataKey="count" fill="#8884d8" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {hourlyData.appointments && hourlyData.appointments.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Appointment Distribution by Hour</CardTitle>
+                              <CardDescription>Peak hours for appointment bookings (Last 7 Days)</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={hourlyData.appointments}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="hour" label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }} />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Bar dataKey="count" fill="#00C49F" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Performance Metrics */}
+                    {performanceData && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {performanceData.topDepartments && performanceData.topDepartments.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Top Performing Departments</CardTitle>
+                              <CardDescription>Departments with highest resolution rates</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={performanceData.topDepartments}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="departmentName" angle={-45} textAnchor="end" height={100} />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Bar dataKey="total" fill="#8884d8" name="Total" />
+                                  <Bar dataKey="resolved" fill="#00C49F" name="Resolved" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {performanceData.topOperators && performanceData.topOperators.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Top Performing Operators</CardTitle>
+                              <CardDescription>Operators with most resolved grievances</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={performanceData.topOperators}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="userName" angle={-45} textAnchor="end" height={100} />
+                                  <YAxis />
+                                  <Tooltip />
+                                  <Bar dataKey="resolved" fill="#0088FE" />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Category Distribution */}
+                    {categoryData && categoryData.length > 0 && (
+                      <Card>
                         <CardHeader>
-                          <CardTitle className="text-sm font-medium text-orange-800">Last 7 Days</CardTitle>
+                          <CardTitle className="text-lg">Grievance Distribution by Category</CardTitle>
+                          <CardDescription>Breakdown of grievances by category</CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="text-3xl font-bold text-orange-700">{stats.appointments.last7Days}</div>
-                          <p className="text-xs text-orange-600 mt-1">New appointments</p>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={categoryData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="count" fill="#8884d8" name="Total" />
+                              <Bar dataKey="resolved" fill="#00C49F" name="Resolved" />
+                            </BarChart>
+                          </ResponsiveContainer>
                         </CardContent>
                       </Card>
-                    </div>
+                    )}
 
                     {/* Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -880,11 +1454,23 @@ export default function Dashboard() {
                               <span className="text-green-600">Resolved:</span>
                               <span className="font-semibold">{stats.grievances.resolved}</span>
                             </div>
+                            {stats.grievances.closed !== undefined && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Closed:</span>
+                                <span className="font-semibold">{stats.grievances.closed}</span>
+                              </div>
+                            )}
                             <div className="mt-4 pt-4 border-t">
                               <div className="flex justify-between items-center">
                                 <span className="text-gray-600">Last 30 Days:</span>
                                 <span className="font-semibold">{stats.grievances.last30Days}</span>
                               </div>
+                              {stats.grievances.avgResolutionDays !== undefined && (
+                                <div className="flex justify-between items-center mt-2">
+                                  <span className="text-gray-600">Avg Resolution:</span>
+                                  <span className="font-semibold">{stats.grievances.avgResolutionDays} days</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -912,6 +1498,12 @@ export default function Dashboard() {
                               <span className="text-green-600">Completed:</span>
                               <span className="font-semibold">{stats.appointments.completed}</span>
                             </div>
+                            {stats.appointments.cancelled !== undefined && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-red-600">Cancelled:</span>
+                                <span className="font-semibold">{stats.appointments.cancelled}</span>
+                              </div>
+                            )}
                             <div className="mt-4 pt-4 border-t">
                               <div className="flex justify-between items-center">
                                 <span className="text-gray-600">Last 30 Days:</span>
@@ -938,11 +1530,24 @@ export default function Dashboard() {
           <>
             <CreateDepartmentDialog
               isOpen={showDepartmentDialog}
-              onClose={() => setShowDepartmentDialog(false)}
+              onClose={() => {
+                setShowDepartmentDialog(false);
+                setEditingDepartment(null);
+              }}
               onDepartmentCreated={() => {
                 fetchDepartments();
                 fetchDashboardData();
+                setEditingDepartment(null);
               }}
+              editingDepartment={editingDepartment}
+            />
+            <ConfirmDialog
+              isOpen={confirmDialog.isOpen}
+              title={confirmDialog.title}
+              message={confirmDialog.message}
+              onConfirm={confirmDialog.onConfirm}
+              onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+              variant={confirmDialog.variant}
             />
             <CreateUserDialog
               isOpen={showUserDialog}
@@ -954,6 +1559,25 @@ export default function Dashboard() {
             />
           </>
         )}
+
+        {/* Detail Dialogs */}
+        <GrievanceDetailDialog
+          isOpen={showGrievanceDetail}
+          grievance={selectedGrievance}
+          onClose={() => {
+            setShowGrievanceDetail(false);
+            setSelectedGrievance(null);
+          }}
+        />
+
+        <AppointmentDetailDialog
+          isOpen={showAppointmentDetail}
+          appointment={selectedAppointment}
+          onClose={() => {
+            setShowAppointmentDetail(false);
+            setSelectedAppointment(null);
+          }}
+        />
       </main>
     </div>
   );

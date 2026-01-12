@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { departmentAPI } from '@/lib/api/department';
+import { departmentAPI, Department } from '@/lib/api/department';
 import { companyAPI, Company } from '@/lib/api/company';
 import toast from 'react-hot-toast';
 
@@ -13,9 +13,10 @@ interface CreateDepartmentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onDepartmentCreated: () => void;
+  editingDepartment?: Department | null;
 }
 
-const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen, onClose, onDepartmentCreated }) => {
+const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen, onClose, onDepartmentCreated, editingDepartment }) => {
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [formData, setFormData] = useState({
@@ -30,8 +31,29 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
   useEffect(() => {
     if (isOpen) {
       fetchCompanies();
+      if (editingDepartment) {
+        setFormData({
+          name: editingDepartment.name || '',
+          description: editingDepartment.description || '',
+          contactPerson: editingDepartment.contactPerson || '',
+          contactEmail: editingDepartment.contactEmail || '',
+          contactPhone: editingDepartment.contactPhone || '',
+          companyId: typeof editingDepartment.companyId === 'object' 
+            ? editingDepartment.companyId._id 
+            : editingDepartment.companyId || ''
+        });
+      } else {
+        setFormData({
+          name: '',
+          description: '',
+          contactPerson: '',
+          contactEmail: '',
+          contactPhone: '',
+          companyId: ''
+        });
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editingDepartment]);
 
   const fetchCompanies = async () => {
     try {
@@ -54,9 +76,24 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
 
     setLoading(true);
     try {
-      const response = await departmentAPI.create(formData);
+      let response;
+      if (editingDepartment) {
+        response = await departmentAPI.update(editingDepartment._id, formData);
+        if (response.success) {
+          toast.success('Department updated successfully!');
+        } else {
+          toast.error('Failed to update department');
+        }
+      } else {
+        response = await departmentAPI.create(formData);
+        if (response.success) {
+          toast.success('Department created successfully!');
+        } else {
+          toast.error('Failed to create department');
+        }
+      }
+      
       if (response.success) {
-        toast.success('Department created successfully!');
         setFormData({
           name: '',
           description: '',
@@ -67,12 +104,11 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
         });
         onClose();
         onDepartmentCreated();
-      } else {
-        toast.error('Failed to create department');
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to create department';
-      console.error('Department creation error:', error.response?.data);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 
+        (editingDepartment ? 'Failed to update department' : 'Failed to create department');
+      console.error('Department error:', error.response?.data);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -93,8 +129,8 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <CardHeader>
-          <CardTitle>Create New Department</CardTitle>
-          <CardDescription>Add a new department to the platform</CardDescription>
+          <CardTitle>{editingDepartment ? 'Edit Department' : 'Create New Department'}</CardTitle>
+          <CardDescription>{editingDepartment ? 'Update department information' : 'Add a new department to the platform'}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -185,7 +221,7 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'Creating...' : 'Create Department'}
+                {loading ? (editingDepartment ? 'Updating...' : 'Creating...') : (editingDepartment ? 'Update Department' : 'Create Department')}
               </Button>
             </div>
           </form>

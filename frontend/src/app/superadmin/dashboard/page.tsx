@@ -13,6 +13,7 @@ import { apiClient } from '@/lib/api/client';
 import CreateCompanyDialog from '@/components/company/CreateCompanyDialog';
 import CreateDepartmentDialog from '@/components/department/CreateDepartmentDialog';
 import CreateUserDialog from '@/components/user/CreateUserDialog';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 
@@ -48,9 +49,23 @@ export default function SuperAdminDashboard() {
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [showUserDialog, setShowUserDialog] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'danger'
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -143,22 +158,55 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleDeleteCompany = async (companyId: string) => {
-    if (!confirm('Are you sure you want to delete this company?')) {
-      return;
-    }
+  const handleDeleteCompany = (company: Company) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Company',
+      message: `Are you sure you want to delete "${company.name}"? This action cannot be undone and will delete all associated departments, users, grievances, and appointments.`,
+      onConfirm: async () => {
+        try {
+          const response = await companyAPI.delete(company._id);
+          if (response.success) {
+            toast.success('Company deleted successfully');
+            fetchCompanies();
+            setConfirmDialog({ ...confirmDialog, isOpen: false });
+          } else {
+            toast.error('Failed to delete company');
+          }
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to delete company');
+        }
+      },
+      variant: 'danger'
+    });
+  };
 
-    try {
-      const response = await companyAPI.delete(companyId);
-      if (response.success) {
-        toast.success('Company deleted successfully');
-        fetchCompanies();
-      } else {
-        toast.error('Failed to delete company');
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete company');
-    }
+  const handleDeleteDepartment = (department: Department) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Department',
+      message: `Are you sure you want to delete "${department.name}"? This action cannot be undone and will delete all associated users, grievances, and appointments.`,
+      onConfirm: async () => {
+        try {
+          const response = await departmentAPI.delete(department._id);
+          if (response.success) {
+            toast.success('Department deleted successfully');
+            fetchDepartments();
+            setConfirmDialog({ ...confirmDialog, isOpen: false });
+          } else {
+            toast.error('Failed to delete department');
+          }
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to delete department');
+        }
+      },
+      variant: 'danger'
+    });
+  };
+
+  const handleEditDepartment = (department: Department) => {
+    setEditingDepartment(department);
+    setShowDepartmentDialog(true);
   };
 
   const handleEditCompany = (company: Company) => {
@@ -238,13 +286,21 @@ export default function SuperAdminDashboard() {
           <TabsContent value="overview" className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-lg transition-shadow cursor-pointer">
+              <Card 
+                className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('companies')}
+              >
                 <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  <CardTitle className="text-white text-lg flex items-center justify-between">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Total Companies
+                    </div>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    Total Companies
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -253,13 +309,21 @@ export default function SuperAdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 hover:shadow-lg transition-shadow cursor-pointer">
+              <Card 
+                className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('users')}
+              >
                 <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  <CardTitle className="text-white text-lg flex items-center justify-between">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                      Total Users
+                    </div>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    Total Users
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -268,13 +332,21 @@ export default function SuperAdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-lg transition-shadow cursor-pointer">
+              <Card 
+                className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('departments')}
+              >
                 <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  <CardTitle className="text-white text-lg flex items-center justify-between">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Departments
+                    </div>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    Departments
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -283,7 +355,7 @@ export default function SuperAdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-lg transition-shadow cursor-pointer">
+              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="text-white text-lg flex items-center">
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -476,7 +548,7 @@ export default function SuperAdminDashboard() {
                               variant="ghost" 
                               size="sm" 
                               className="text-red-600 hover:text-red-900"
-                              onClick={() => handleDeleteCompany(company._id)}
+                              onClick={() => handleDeleteCompany(company)}
                             >
                               Delete
                             </Button>
@@ -553,7 +625,7 @@ export default function SuperAdminDashboard() {
                               variant="ghost" 
                               size="sm" 
                               className="text-blue-600 hover:text-blue-900 mr-2"
-                              onClick={() => {/* TODO: Implement edit department */}}
+                              onClick={() => handleEditDepartment(department)}
                             >
                               Edit
                             </Button>
@@ -561,7 +633,7 @@ export default function SuperAdminDashboard() {
                               variant="ghost" 
                               size="sm" 
                               className="text-red-600 hover:text-red-900"
-                              onClick={() => {/* TODO: Implement delete department */}}
+                              onClick={() => handleDeleteDepartment(department)}
                             >
                               Delete
                             </Button>
@@ -1011,8 +1083,23 @@ export default function SuperAdminDashboard() {
         />
         <CreateDepartmentDialog 
           isOpen={showDepartmentDialog}
-          onClose={() => setShowDepartmentDialog(false)}
-          onDepartmentCreated={fetchDepartments}
+          onClose={() => {
+            setShowDepartmentDialog(false);
+            setEditingDepartment(null);
+          }}
+          onDepartmentCreated={() => {
+            fetchDepartments();
+            setEditingDepartment(null);
+          }}
+          editingDepartment={editingDepartment}
+        />
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+          variant={confirmDialog.variant}
         />
         <CreateUserDialog 
           isOpen={showUserDialog}

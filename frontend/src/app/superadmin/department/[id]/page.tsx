@@ -12,6 +12,8 @@ import { userAPI, User } from '@/lib/api/user';
 import { apiClient } from '@/lib/api/client';
 import { grievanceAPI, Grievance } from '@/lib/api/grievance';
 import { appointmentAPI, Appointment } from '@/lib/api/appointment';
+import GrievanceDetailDialog from '@/components/grievance/GrievanceDetailDialog';
+import AppointmentDetailDialog from '@/components/appointment/AppointmentDetailDialog';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -40,6 +42,10 @@ export default function DepartmentDrillDown() {
   });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedGrievance, setSelectedGrievance] = useState<Grievance | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showGrievanceDetail, setShowGrievanceDetail] = useState(false);
+  const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
 
   useEffect(() => {
     if (user?.role !== 'SUPER_ADMIN') {
@@ -180,9 +186,17 @@ export default function DepartmentDrillDown() {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+              <Card 
+                className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('users')}
+              >
                 <CardHeader>
-                  <CardTitle className="text-white text-lg">Total Users</CardTitle>
+                  <CardTitle className="text-white text-lg flex items-center justify-between">
+                    <span>Total Users</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-4xl font-bold">{stats.totalUsers}</p>
@@ -190,9 +204,17 @@ export default function DepartmentDrillDown() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+              <Card 
+                className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('grievances')}
+              >
                 <CardHeader>
-                  <CardTitle className="text-white text-lg">Grievances</CardTitle>
+                  <CardTitle className="text-white text-lg flex items-center justify-between">
+                    <span>Grievances</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-4xl font-bold">{stats.totalGrievances}</p>
@@ -200,9 +222,17 @@ export default function DepartmentDrillDown() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0">
+              <Card 
+                className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('appointments')}
+              >
                 <CardHeader>
-                  <CardTitle className="text-white text-lg">Appointments</CardTitle>
+                  <CardTitle className="text-white text-lg flex items-center justify-between">
+                    <span>Appointments</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-4xl font-bold">{stats.totalAppointments}</p>
@@ -316,18 +346,47 @@ export default function DepartmentDrillDown() {
                     {grievances.slice(0, 20).map((g) => (
                       <div key={g._id} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold">{g.citizenName}</h4>
+                          <div className="flex-1">
+                            <h4 
+                              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              onClick={async () => {
+                                const response = await grievanceAPI.getById(g._id);
+                                if (response.success) {
+                                  setSelectedGrievance(response.data.grievance);
+                                  setShowGrievanceDetail(true);
+                                }
+                              }}
+                            >
+                              {g.citizenName}
+                            </h4>
                             <p className="text-sm text-gray-500">{g.citizenPhone}</p>
-                            <p className="text-sm text-gray-700 mt-1">{g.description}</p>
+                            <p className="text-sm text-gray-700 mt-1 line-clamp-2">{g.description}</p>
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            g.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-                            g.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {g.status}
-                          </span>
+                          <div className="flex items-center space-x-3 ml-4">
+                            <select
+                              value={g.status}
+                              onChange={async (e) => {
+                                try {
+                                  const response = await grievanceAPI.updateStatus(g._id, e.target.value);
+                                  if (response.success) {
+                                    toast.success('Status updated successfully');
+                                    fetchData();
+                                  } else {
+                                    toast.error('Failed to update status');
+                                  }
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Failed to update status');
+                                }
+                              }}
+                              className="px-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="PENDING">PENDING</option>
+                              <option value="ASSIGNED">ASSIGNED</option>
+                              <option value="IN_PROGRESS">IN_PROGRESS</option>
+                              <option value="RESOLVED">RESOLVED</option>
+                              <option value="CLOSED">CLOSED</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -350,20 +409,49 @@ export default function DepartmentDrillDown() {
                     {appointments.slice(0, 20).map((a) => (
                       <div key={a._id} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold">{a.citizenName}</h4>
+                          <div className="flex-1">
+                            <h4 
+                              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              onClick={async () => {
+                                const response = await appointmentAPI.getById(a._id);
+                                if (response.success) {
+                                  setSelectedAppointment(response.data.appointment);
+                                  setShowAppointmentDetail(true);
+                                }
+                              }}
+                            >
+                              {a.citizenName}
+                            </h4>
                             <p className="text-sm text-gray-500">{a.purpose}</p>
                             <p className="text-sm text-gray-500">
                               {new Date(a.appointmentDate).toLocaleDateString()} at {a.appointmentTime}
                             </p>
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            a.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                            a.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {a.status}
-                          </span>
+                          <div className="flex items-center space-x-3 ml-4">
+                            <select
+                              value={a.status}
+                              onChange={async (e) => {
+                                try {
+                                  const response = await appointmentAPI.updateStatus(a._id, e.target.value);
+                                  if (response.success) {
+                                    toast.success('Status updated successfully');
+                                    fetchData();
+                                  } else {
+                                    toast.error('Failed to update status');
+                                  }
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Failed to update status');
+                                }
+                              }}
+                              className="px-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="PENDING">PENDING</option>
+                              <option value="CONFIRMED">CONFIRMED</option>
+                              <option value="COMPLETED">COMPLETED</option>
+                              <option value="CANCELLED">CANCELLED</option>
+                              <option value="NO_SHOW">NO_SHOW</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -374,6 +462,85 @@ export default function DepartmentDrillDown() {
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
+            {/* Key Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card 
+                className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('grievances')}
+              >
+                <CardHeader>
+                  <CardTitle className="text-white text-sm flex items-center justify-between">
+                    <span>Total Grievances</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{stats.totalGrievances}</p>
+                  <p className="text-blue-100 text-sm mt-1">{stats.pendingGrievances} pending</p>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('grievances')}
+              >
+                <CardHeader>
+                  <CardTitle className="text-white text-sm flex items-center justify-between">
+                    <span>Resolved</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{stats.resolvedGrievances}</p>
+                  <p className="text-green-100 text-sm mt-1">
+                    {stats.totalGrievances > 0 
+                      ? Math.round((stats.resolvedGrievances / stats.totalGrievances) * 100) 
+                      : 0}% rate
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('appointments')}
+              >
+                <CardHeader>
+                  <CardTitle className="text-white text-sm flex items-center justify-between">
+                    <span>Total Appointments</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{stats.totalAppointments}</p>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                onClick={() => setActiveTab('users')}
+              >
+                <CardHeader>
+                  <CardTitle className="text-white text-sm flex items-center justify-between">
+                    <span>Active Users</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{stats.activeUsers}</p>
+                  <p className="text-orange-100 text-sm mt-1">of {stats.totalUsers} total</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -419,9 +586,95 @@ export default function DepartmentDrillDown() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Grievance and Appointment Lists */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Grievances</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {grievances.length === 0 ? (
+                    <p className="text-center py-8 text-gray-500">No grievances found</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {grievances.slice(0, 5).map((g) => (
+                        <div key={g._id} className="border rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm">{g.citizenName}</h4>
+                              <p className="text-xs text-gray-500 truncate">{g.description}</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              g.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
+                              g.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {g.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Appointments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {appointments.length === 0 ? (
+                    <p className="text-center py-8 text-gray-500">No appointments found</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {appointments.slice(0, 5).map((a) => (
+                        <div key={a._id} className="border rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm">{a.citizenName}</h4>
+                              <p className="text-xs text-gray-500">{a.purpose}</p>
+                              <p className="text-xs text-gray-400">
+                                {new Date(a.appointmentDate).toLocaleDateString()} at {a.appointmentTime}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              a.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                              a.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {a.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Detail Dialogs */}
+      <GrievanceDetailDialog
+        isOpen={showGrievanceDetail}
+        grievance={selectedGrievance}
+        onClose={() => {
+          setShowGrievanceDetail(false);
+          setSelectedGrievance(null);
+        }}
+      />
+      <AppointmentDetailDialog
+        isOpen={showAppointmentDetail}
+        appointment={selectedAppointment}
+        onClose={() => {
+          setShowAppointmentDetail(false);
+          setSelectedAppointment(null);
+        }}
+      />
     </div>
   );
 }

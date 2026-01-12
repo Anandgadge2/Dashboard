@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import toast from 'react-hot-toast';
 
 export default function SuperAdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -17,14 +18,29 @@ export default function SuperAdminLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (!email.trim() || !password.trim()) {
+      return;
+    }
+
     setLoading(true);
+    let errorOccurred = false;
 
     try {
-      await login({ email, password });
+      await login({ email: email.trim(), password });
     } catch (error) {
       // Error is handled in AuthContext with toast
+      errorOccurred = true;
+      // Don't reset loading immediately to prevent flash
+      setTimeout(() => {
+        setLoading(false);
+      }, 500);
     } finally {
-      setLoading(false);
+      // Only reset loading if error wasn't handled in catch
+      if (!errorOccurred) {
+        setLoading(false);
+      }
     }
   };
 

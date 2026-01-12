@@ -15,6 +15,8 @@
     "seed:superadmin": "ts-node src/scripts/seedSuperAdmin.ts",
     "ensure:superadmin": "ts-node src/scripts/ensureSuperAdmin.ts",
     "seed:zpamaravati": "ts-node src/scripts/seedZPAmaravati.ts",
+    "seed:zpamaravati:data": "ts-node src/scripts/seedZPAmaravatiData.ts",
+    "fix:zpadmin": "ts-node src/scripts/fixZPAdminPassword.ts",
     "seed:departments": "ts-node src/scripts/seedDepartments.ts",
     "seed:users": "ts-node src/scripts/seedUsers.ts",
     "migrate": "ts-node src/scripts/migrate.ts"
@@ -35,6 +37,7 @@
     "cors": "^2.8.5",
     "date-fns": "^3.0.6",
     "dotenv": "^16.3.1",
+    "form-data": "^4.0.0",
     "express": "^4.18.2",
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^7.1.5",
