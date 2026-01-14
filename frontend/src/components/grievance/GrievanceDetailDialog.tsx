@@ -292,7 +292,7 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
                             {format(new Date(history.changedAt), 'MMM dd, yyyy • hh:mm a')}
                           </span>
                         </div>
-                        {history.remarks && <p className="text-sm text-gray-600 mt-1 italic">"{history.remarks}"</p>}
+                        {history.remarks && <p className="text-sm text-gray-600 mt-1 italic">&ldquo;{history.remarks}&rdquo;</p>}
                       </div>
                     </div>
                   );

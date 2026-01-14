@@ -51,6 +51,7 @@ export default function DepartmentDetail() {
       return;
     }
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [departmentId, user]);
 
   const fetchData = async () => {

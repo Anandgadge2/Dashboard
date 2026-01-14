@@ -53,6 +53,7 @@ export default function DepartmentDrillDown() {
       return;
     }
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [departmentId, companyId, user]);
 
   const fetchData = async () => {

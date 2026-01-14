@@ -164,6 +164,7 @@ export default function Dashboard() {
         fetchCompany();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, user]);
 
   useEffect(() => {

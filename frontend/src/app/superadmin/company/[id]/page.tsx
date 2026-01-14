@@ -52,6 +52,7 @@ export default function CompanyDrillDown() {
       return;
     }
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, user]);
 
   const fetchData = async () => {

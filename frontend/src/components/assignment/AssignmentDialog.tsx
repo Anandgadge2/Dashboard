@@ -47,6 +47,7 @@ export default function AssignmentDialog({
       // Reset when dialog closes
       setUsers([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, companyId]);
 
   // Auto-select first department or current department
@@ -58,7 +59,7 @@ export default function AssignmentDialog({
         setSelectedDepartment(departments[0]._id);
       }
     }
-  }, [departments, currentDepartmentId]);
+  }, [departments, currentDepartmentId, selectedDepartment]);
 
   const fetchDepartments = async () => {
     try {
