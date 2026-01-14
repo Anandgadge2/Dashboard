@@ -49,31 +49,40 @@ app.use(helmet({
 }));
 
 // CORS - Allow WhatsApp webhook requests
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, WhatsApp webhooks)
-    if (!origin) return callback(null, true);
+// app.use(cors({
+//   origin: function (origin, callback) {
+//     // Allow requests with no origin (like mobile apps, curl, WhatsApp webhooks)
+//     if (!origin) return callback(null, true);
     
-    const allowedOrigins = [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      'https://graph.facebook.com',
-      'https://*.facebook.com',
-      'https://*.whatsapp.com'
-    ];
+//     const allowedOrigins = [
+//       process.env.FRONTEND_URL || 'http://localhost:3000',
+//       'https://graph.facebook.com',
+//       'https://*.facebook.com',
+//       'https://*.whatsapp.com'
+//     ];
     
-    // Check if origin matches any allowed pattern
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (allowed.includes('*')) {
-        const pattern = allowed.replace('*', '.*');
-        return new RegExp(pattern).test(origin);
-      }
-      return origin === allowed;
-    });
+//     // Check if origin matches any allowed pattern
+//     const isAllowed = allowedOrigins.some(allowed => {
+//       if (allowed.includes('*')) {
+//         const pattern = allowed.replace('*', '.*');
+//         return new RegExp(pattern).test(origin);
+//       }
+//       return origin === allowed;
+//     });
     
-    callback(null, isAllowed);
-  },
-  credentials: true
-}));
+//     callback(null, isAllowed);
+//   },
+//   credentials: true
+// }));
+
+app.use(
+  cors({
+    origin: true,        // reflect origin
+    credentials: true
+  })
+);
+
+app.options("*", cors());
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
