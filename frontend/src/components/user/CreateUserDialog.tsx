@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { userAPI } from '@/lib/api/user';
 import { companyAPI, Company } from '@/lib/api/company';
 import { departmentAPI, Department } from '@/lib/api/department';
+import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 interface CreateUserDialogProps {
@@ -17,6 +18,7 @@ interface CreateUserDialogProps {
 }
 
 const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, onUserCreated }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -35,8 +37,17 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
     if (isOpen) {
       fetchCompanies();
       fetchDepartments();
+      
+      // Auto-select company for company admins when creating new user
+      const userCompanyId = user?.companyId 
+        ? (typeof user.companyId === 'object' ? user.companyId._id : user.companyId)
+        : '';
+      
+      if (userCompanyId && (user?.role === 'COMPANY_ADMIN' || user?.role === 'DEPARTMENT_ADMIN')) {
+        setFormData(prev => ({ ...prev, companyId: userCompanyId }));
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   useEffect(() => {
     // Reset dependent fields when role changes
@@ -247,7 +258,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {formData.role !== 'SUPER_ADMIN' && (
                 <div>
                   <Label htmlFor="companyId">Company {formData.role === 'COMPANY_ADMIN' || formData.role === 'DEPARTMENT_ADMIN' || formData.role === 'OPERATOR' || formData.role === 'ANALYTICS_VIEWER' ? '*' : ''}</Label>
@@ -258,6 +269,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
                     onChange={handleChange}
                     className="w-full p-2 border rounded-md"
                     required={formData.role === 'COMPANY_ADMIN' || formData.role === 'DEPARTMENT_ADMIN' || formData.role === 'OPERATOR' || formData.role === 'ANALYTICS_VIEWER'}
+                    disabled={user?.role === 'COMPANY_ADMIN' || user?.role === 'DEPARTMENT_ADMIN'}
                   >
                     <option value="">Select a company</option>
                     {companies.map((company) => (
@@ -267,7 +279,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
                     ))}
                   </select>
                 </div>
-              )}
+              )} */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {(formData.role === 'DEPARTMENT_ADMIN' || formData.role === 'OPERATOR' || formData.role === 'ANALYTICS_VIEWER') && (
                 <div>
                   <Label htmlFor="departmentId">Department *</Label>

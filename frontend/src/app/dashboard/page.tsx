@@ -385,7 +385,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {isCompanyAdmin && 'Company Admin Dashboard'}
+                {isCompanyAdmin && 'Zilla Parishad Admin Dashboard'}
                 {isDepartmentAdmin && 'Department Admin Dashboard'}
                 {isOperator && 'Operator Dashboard'}
                 {isAnalyticsViewer && 'Analytics Dashboard'}
@@ -982,7 +982,7 @@ export default function Dashboard() {
                                     </div>
                                     <div className="flex items-center text-xs text-gray-500 font-medium ml-1">
                                       <Building className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
-                                      {typeof u.departmentId === 'object' ? u.departmentId.name : 'All Company Access'}
+                                      {typeof u.departmentId === 'object' && u.departmentId ? u.departmentId.name : 'All Company Access'}
                                     </div>
                                   </div>
                                 </td>
@@ -1174,7 +1174,7 @@ export default function Dashboard() {
                             <td className="px-4 py-4">
                               <div className="flex flex-col">
                                 <span className="text-xs font-semibold text-gray-700">
-                                  {typeof grievance.departmentId === 'object' ? (grievance.departmentId as any).name : 'General'}
+                                  {typeof grievance.departmentId === 'object' && grievance.departmentId ? (grievance.departmentId as any).name : 'General'}
                                 </span>
                                 <span className="text-[10px] text-blue-500 uppercase">{grievance.category}</span>
                               </div>
@@ -1362,7 +1362,7 @@ export default function Dashboard() {
                             <td className="px-4 py-4">
                               <div className="flex flex-col max-w-[150px]">
                                 <span className="text-xs font-semibold text-gray-700 truncate">
-                                  {typeof appointment.departmentId === 'object' ? (appointment.departmentId as any).name : 'General'}
+                                  {typeof appointment.departmentId === 'object' && appointment.departmentId ? (appointment.departmentId as any).name : 'General'}
                                 </span>
                                 <span className="text-[10px] text-gray-500 truncate italic">{appointment.purpose}</span>
                               </div>

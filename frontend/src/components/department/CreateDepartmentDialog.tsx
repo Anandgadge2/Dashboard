@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { departmentAPI, Department } from '@/lib/api/department';
 import { companyAPI, Company } from '@/lib/api/company';
+import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 interface CreateDepartmentDialogProps {
@@ -17,6 +18,7 @@ interface CreateDepartmentDialogProps {
 }
 
 const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen, onClose, onDepartmentCreated, editingDepartment }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [formData, setFormData] = useState({
@@ -43,17 +45,22 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
             : editingDepartment.companyId || ''
         });
       } else {
+        // Auto-select company for company admins when creating new department
+        const userCompanyId = user?.companyId 
+          ? (typeof user.companyId === 'object' ? user.companyId._id : user.companyId)
+          : '';
+        
         setFormData({
           name: '',
           description: '',
           contactPerson: '',
           contactEmail: '',
           contactPhone: '',
-          companyId: ''
+          companyId: userCompanyId
         });
       }
     }
-  }, [isOpen, editingDepartment]);
+  }, [isOpen, editingDepartment, user]);
 
   const fetchCompanies = async () => {
     try {
@@ -147,24 +154,37 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
               />
             </div>
 
-            <div>
-              <Label htmlFor="companyId">Company *</Label>
-              <select
-                id="companyId"
-                name="companyId"
-                value={formData.companyId}
-                onChange={(e) => setFormData(prev => ({ ...prev, companyId: e.target.value }))}
-                className="w-full p-2 border rounded-md"
-                required
-              >
-                <option value="">Select a company</option>
-                {companies.map((company) => (
-                  <option key={company._id} value={company._id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+           {/* <div>
+              <Label htmlFor="companyId">Company *</Label> 
+              {user?.role === 'COMPANY_ADMIN' && !editingDepartment ? (
+                <>
+                  <Input
+                    id="companyId"
+                    type="text"
+                    value={companies.find(c => c._id === formData.companyId)?.name || 'Loading...'}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                  <input type="hidden" name="companyId" value={formData.companyId} />
+                </>
+              ) : (
+                <select
+                  id="companyId"
+                  name="companyId"
+                  value={formData.companyId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, companyId: e.target.value }))}
+                  className="w-full p-2 border rounded-md"
+                  required
+                >
+                  <option value="">Select a company</option>
+                  {companies.map((company) => (
+                    <option key={company._id} value={company._id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div> */}
 
             <div>
               <Label htmlFor="description">Description</Label>

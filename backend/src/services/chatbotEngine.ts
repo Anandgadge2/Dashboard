@@ -1355,7 +1355,14 @@ async function createAppointment(
     const appointmentDate = new Date(session.data.appointmentDate);
     const appointmentTime = session.data.appointmentTime;
     
+    // Manually generate appointmentId (pre-save hook not firing reliably)
+    const appointmentCount = await Appointment.countDocuments({ companyId: company._id });
+    const appointmentId = `APT${String(appointmentCount + 1).padStart(8, '0')}`;
+    
+    console.log('🆔 Generated appointmentId:', appointmentId);
+    
     const appointmentData = {
+      appointmentId: appointmentId,  // Add the generated ID
       companyId: company._id,
       departmentId: session.data.departmentId,
       citizenName: session.data.citizenName,
@@ -1369,7 +1376,9 @@ async function createAppointment(
 
     console.log('📝 Appointment data:', JSON.stringify(appointmentData, null, 2));
 
-    const appointment = await Appointment.create(appointmentData);
+    // Use new + save instead of create to trigger pre-save hook for appointmentId generation
+    const appointment = new Appointment(appointmentData);
+    await appointment.save();
     
     console.log('✅ Appointment created:', { appointmentId: appointment.appointmentId, _id: appointment._id });
     
