@@ -435,7 +435,7 @@ export default function Dashboard() {
               {stats && (
                 <>
                   <Card 
-                    className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-blue-200/50 transition-all duration-300 cursor-pointer"
+                    className="bg-gradient-to-br from-blue-400 to-blue-500 text-white border-0 shadow-lg hover:shadow-blue-200/50 transition-all duration-300 cursor-pointer"
                     onClick={() => {
                       setActiveTab('grievances');
                       // Filter to show all grievances
@@ -458,7 +458,7 @@ export default function Dashboard() {
                   </Card>
 
                   <Card 
-                    className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-lg hover:shadow-green-200/50 transition-all duration-300 cursor-pointer"
+                    className="bg-gradient-to-br from-green-300 to-green-400 text-white border-0 shadow-lg hover:shadow-green-200/50 transition-all duration-300 cursor-pointer"
                     onClick={() => {
                       setActiveTab('grievances');
                       // Could filter to show only resolved
@@ -481,7 +481,7 @@ export default function Dashboard() {
                   </Card>
 
                   <Card 
-                    className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-lg hover:shadow-purple-200/50 transition-all duration-300 cursor-pointer"
+                    className="bg-gradient-to-br from-purple-300 to-purple-400 text-white border-0 shadow-lg hover:shadow-purple-200/50 transition-all duration-300 cursor-pointer"
                     onClick={() => {
                       setActiveTab('appointments');
                     }}
@@ -504,7 +504,7 @@ export default function Dashboard() {
 
                   {isCompanyAdmin && (
                     <Card 
-                      className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-lg hover:shadow-orange-200/50 transition-all duration-300 cursor-pointer"
+                      className="bg-gradient-to-br from-orange-300 to-orange-400 text-white border-0 shadow-lg hover:shadow-orange-200/50 transition-all duration-300 cursor-pointer"
                       onClick={() => {
                         setActiveTab('departments');
                       }}
@@ -1176,7 +1176,7 @@ export default function Dashboard() {
                                 <span className="text-xs font-semibold text-gray-700">
                                   {typeof grievance.departmentId === 'object' && grievance.departmentId ? (grievance.departmentId as any).name : 'General'}
                                 </span>
-                                <span className="text-[10px] text-blue-500 uppercase">{grievance.category}</span>
+                                <span className="text-[10px] text-orange-400 uppercase">{grievance.category}</span>
                               </div>
                             </td>
                             <td className="px-4 py-4">
@@ -1778,7 +1778,9 @@ export default function Dashboard() {
                       </Card>
                     </div>
 
+
                     {/* Additional Analytics Charts */}
+                    {/* Priority chart commented out
                     {stats.grievances.byPriority && stats.grievances.byPriority.length > 0 && (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <Card>
@@ -1825,6 +1827,33 @@ export default function Dashboard() {
                             </CardContent>
                           </Card>
                         )}
+                      </div>
+                    )}
+                    */}
+                    
+                    {/* Show only Appointments by Department chart */}
+                    {stats.appointments.byDepartment && stats.appointments.byDepartment.length > 0 && (
+                      <div className="grid grid-cols-1 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-base">Appointments by Department</CardTitle>
+                            <CardDescription>Distribution of appointments across departments</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponsiveContainer width="100%" height={250}>
+                              <BarChart data={stats.appointments.byDepartment.map((dept: any) => ({
+                                ...dept,
+                                departmentName: dept.departmentName.replace(/\s+Department$/i, '').trim()
+                              }))}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="departmentName" angle={-45} textAnchor="end" height={100} />
+                                <YAxis />
+                                <Tooltip />
+                                <Bar dataKey="count" fill="#00C49F" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </CardContent>
+                        </Card>
                       </div>
                     )}
 

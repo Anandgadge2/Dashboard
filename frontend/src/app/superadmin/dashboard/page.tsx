@@ -287,7 +287,7 @@ export default function SuperAdminDashboard() {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card 
-                className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="bg-gradient-to-br from-blue-400 to-blue-500 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
                 onClick={() => setActiveTab('companies')}
               >
                 <CardHeader>
@@ -310,7 +310,7 @@ export default function SuperAdminDashboard() {
               </Card>
 
               <Card 
-                className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="bg-gradient-to-br from-green-300 to-green-400 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
                 onClick={() => setActiveTab('users')}
               >
                 <CardHeader>
@@ -333,7 +333,7 @@ export default function SuperAdminDashboard() {
               </Card>
 
               <Card 
-                className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="bg-gradient-to-br from-purple-300 to-purple-400 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
                 onClick={() => setActiveTab('departments')}
               >
                 <CardHeader>
@@ -355,7 +355,7 @@ export default function SuperAdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-lg transition-shadow">
+              <Card className="bg-gradient-to-br from-orange-300 to-orange-400 text-white border-0 hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle className="text-white text-lg flex items-center">
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

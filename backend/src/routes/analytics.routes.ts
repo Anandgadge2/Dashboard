@@ -32,10 +32,9 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
     } else if (currentUser.role === UserRole.COMPANY_ADMIN) {
       baseQuery.companyId = currentUser.companyId;
       if (departmentId) baseQuery.departmentId = departmentId;
-    } else if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
+    } else if (currentUser.role === UserRole.DEPARTMENT_ADMIN || currentUser.role === UserRole.OPERATOR) {
+      // Both Department Admins and Operators see department-wide analytics
       baseQuery.departmentId = currentUser.departmentId;
-    } else if (currentUser.role === UserRole.OPERATOR) {
-      baseQuery.assignedTo = currentUser._id;
     }
 
     // Get grievance statistics

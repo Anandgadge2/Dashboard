@@ -722,6 +722,10 @@ async function continueGrievanceFlow(
         console.log('⚠️ Department not found, using fallback');
       }
       
+      // Priority selection commented out - set default priority
+      session.data.priority = 'MEDIUM';
+      
+      /* Priority selection removed
       // Show priority selection with buttons
       await sendWhatsAppButtons(
         company,
@@ -748,7 +752,9 @@ async function continueGrievanceFlow(
         priority = 'URGENT';
       }
       session.data.priority = priority;
+      */
       
+      // Skip priority and go directly to description
       await sendWhatsAppMessage(
         company,
         message.from,
@@ -757,6 +763,8 @@ async function continueGrievanceFlow(
       session.step = 'grievance_description';
       await updateSession(session);
       break;
+
+    /* Priority case commented out - see above */
 
     case 'grievance_description':
       if (!userInput || userInput.length < 10) {
@@ -769,6 +777,8 @@ async function continueGrievanceFlow(
       }
       session.data.description = userInput;
       
+      // Location step commented out - skip directly to photo
+      /* 
       await sendWhatsAppButtons(
         company,
         message.from,
@@ -781,8 +791,24 @@ async function continueGrievanceFlow(
       
       session.step = 'grievance_location';
       await updateSession(session);
+      */
+      
+      // Skip location and go directly to photo
+      await sendWhatsAppButtons(
+        company,
+        message.from,
+        getTranslation('grievancePhoto', session.language),
+        [
+          { id: 'photo_skip', title: getTranslation('btn_skip_photo', session.language) },
+          { id: 'photo_upload', title: getTranslation('btn_upload_photo', session.language) }
+        ]
+      );
+      
+      session.step = 'grievance_photo';
+      await updateSession(session);
       break;
 
+    /* Location handling commented out
     case 'grievance_location':
       if (buttonId === 'location_skip' || userInput === 'skip') {
         session.data.address = undefined;
@@ -827,6 +853,7 @@ async function continueGrievanceFlow(
       session.step = 'grievance_photo';
       await updateSession(session);
       break;
+    */
 
     case 'grievance_photo':
       if (buttonId === 'photo_skip' || userInput === 'skip') {
@@ -855,12 +882,13 @@ async function continueGrievanceFlow(
       
       // Show confirmation with buttons
       const translatedCategory = getTranslation(`dept_${session.data.category}`, session.language);
-      const translatedPriority = getTranslation(`label_priority_${session.data.priority.toLowerCase()}`, session.language);
+      // Priority removed from confirmation
+      // const translatedPriority = getTranslation(`label_priority_${session.data.priority.toLowerCase()}`, session.language);
 
       const confirmMessage = getTranslation('grievanceConfirm', session.language)
         .replace('{name}', session.data.citizenName)
         .replace('{category}', translatedCategory)
-        .replace('{priority}', translatedPriority)
+        // .replace('{priority}', translatedPriority)  // Priority removed
         .replace('{description}', session.data.description.substring(0, 100) + '...');
       
       await sendWhatsAppButtons(
@@ -892,12 +920,13 @@ async function continueGrievanceFlow(
       }
       
       const translatedCat = getTranslation(`dept_${session.data.category}`, session.language);
-      const translatedPrio = getTranslation(`label_priority_${session.data.priority.toLowerCase()}`, session.language);
+      // Priority removed from confirmation
+      // const translatedPrio = getTranslation(`label_priority_${session.data.priority.toLowerCase()}`, session.language);
 
       const confirmMsg = getTranslation('grievanceConfirm', session.language)
         .replace('{name}', session.data.citizenName)
         .replace('{category}', translatedCat)
-        .replace('{priority}', translatedPrio)
+        // .replace('{priority}', translatedPrio)  // Priority removed
         .replace('{description}', session.data.description.substring(0, 100) + '...');
       
       await sendWhatsAppButtons(
@@ -1236,15 +1265,15 @@ async function continueAppointmentFlow(
       
       session.data.appointmentDate = selectedDate;
       
-      // Show time slots
+      // Show time slots with enhanced UI
       await sendWhatsAppButtons(
         company,
         message.from,
         getTranslation('label_select_time', session.language),
         [
-          { id: 'time_10:00', title: '🌅 10:00 AM - 11:00 AM' },
-          { id: 'time_14:00', title: '☀️ 2:00 PM - 3:00 PM' },
-          { id: 'time_16:00', title: '🌆 4:00 PM - 5:00 PM' }
+          { id: 'time_10:00', title: '🕙 10:00 AM - 11:00 AM' },
+          { id: 'time_14:00', title: '🕑 2:00 PM - 3:00 PM' },
+          { id: 'time_16:00', title: '🕓 4:00 PM - 5:00 PM' }
         ]
       );
       
