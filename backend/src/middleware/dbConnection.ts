@@ -1,32 +1,52 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 
+import { connectDatabase } from '../config/database';
+
 /**
- * Middleware to check if database is connected before processing requests
+ * Middleware to check and ensure database is connected before processing requests
+ * This is especially important for serverless environments like Vercel
  */
-export const requireDatabaseConnection = (
+export const requireDatabaseConnection = async (
   _req: Request,
   res: Response,
   next: NextFunction
-): void => {
-  // Check if mongoose is connected
-  if (mongoose.connection.readyState !== 1) {
+): Promise<void> => {
+  try {
+    // If connected, proceed
+    if ((mongoose.connection.readyState as any) === 1) {
+      return next();
+    }
+
+    // If connecting (readyState 2), wait a bit for it to finish
+    if ((mongoose.connection.readyState as any) === 2) {
+      let attempts = 0;
+      while ((mongoose.connection.readyState as any) === 2 && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+      }
+      
+      if ((mongoose.connection.readyState as any) === 1) {
+        return next();
+      }
+    }
+
+    // If disconnected (0) or still not connected, try to connect
+    await connectDatabase();
+    
+    if ((mongoose.connection.readyState as any) === 1) {
+      next();
+    } else {
+      throw new Error(`Database connection failed (readyState: ${mongoose.connection.readyState})`);
+    }
+  } catch (error: any) {
     res.status(503).json({
       success: false,
-      message: 'Database connection not available. Please check server logs.',
-      error: 'Database not connected',
-      connectionState: mongoose.connection.readyState,
-      states: {
-        0: 'disconnected',
-        1: 'connected',
-        2: 'connecting',
-        3: 'disconnecting'
-      }
+      message: 'Database connection not available. Please try again in a few moments.',
+      error: error.message,
+      connectionState: mongoose.connection.readyState
     });
-    return;
   }
-
-  next();
 };
 
 /**

@@ -33,9 +33,9 @@ const upload = multer({
   }
 });
 
-// All routes require authentication and database connection
-router.use(authenticate);
+// All routes require database connection and authentication
 router.use(requireDatabaseConnection);
+router.use(authenticate);
 
 // @route   POST /api/import/companies
 // @desc    Import companies from Excel (SuperAdmin only)

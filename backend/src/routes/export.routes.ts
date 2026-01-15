@@ -13,9 +13,9 @@ import Appointment from '../models/Appointment';
 
 const router = express.Router();
 
-// All routes require authentication and database connection
-router.use(authenticate);
+// All routes require database connection and authentication
 router.use(requireDatabaseConnection);
+router.use(authenticate);
 
 // @route   GET /api/export/companies
 // @desc    Export companies to Excel (SuperAdmin only)

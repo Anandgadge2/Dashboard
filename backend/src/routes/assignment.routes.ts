@@ -12,8 +12,8 @@ import { AuditAction } from '../config/constants';
 const router = express.Router();
 
 // Apply middleware to all routes
-router.use(authenticate);
 router.use(requireDatabaseConnection);
+router.use(authenticate);
 
 // @route   PUT /api/assignments/grievance/:id/assign
 // @desc    Assign grievance to a department admin or operator

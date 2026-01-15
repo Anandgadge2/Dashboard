@@ -8,9 +8,9 @@ import { AuditAction, Permission, UserRole } from '../config/constants';
 
 const router = express.Router();
 
-// All routes require authentication and database connection
-router.use(authenticate);
+// All routes require database connection and authentication
 router.use(requireDatabaseConnection);
+router.use(authenticate);
 
 // @route   GET /api/departments
 // @desc    Get all departments (scoped by user role)

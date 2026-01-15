@@ -13,8 +13,9 @@ import { getTranslation } from '../services/chatbotEngine';
 
 const router = express.Router();
 
-router.use(authenticate);
+// All routes require database connection and authentication
 router.use(requireDatabaseConnection);
+router.use(authenticate);
 
 // Status update messages for WhatsApp
 const getStatusMessage = (type: 'grievance' | 'appointment', id: string, status: string, remarks?: string) => {
