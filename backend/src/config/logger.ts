@@ -7,6 +7,35 @@ const logFormat = printf(({ level, message, timestamp, stack }) => {
   return `${timestamp} [${level}]: ${stack || message}`;
 });
 
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+
+// Define transports
+const transports: winston.transport[] = [
+  new winston.transports.Console({
+    format: combine(
+      colorize(),
+      logFormat
+    )
+  })
+];
+
+// Only add file transports if not in production/Vercel
+if (!isProduction) {
+  transports.push(
+    new winston.transports.File({
+      filename: 'logs/error.log',
+      level: 'error',
+      maxsize: 5242880, // 5MB
+      maxFiles: 5
+    }),
+    new winston.transports.File({
+      filename: 'logs/combined.log',
+      maxsize: 5242880, // 5MB
+      maxFiles: 5
+    })
+  );
+}
+
 // Create logger instance
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
@@ -15,32 +44,11 @@ export const logger = winston.createLogger({
     timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     logFormat
   ),
-  transports: [
-    // Console transport
-    new winston.transports.Console({
-      format: combine(
-        colorize(),
-        logFormat
-      )
-    }),
-    // File transport for errors
-    new winston.transports.File({
-      filename: 'logs/error.log',
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
-    }),
-    // File transport for all logs
-    new winston.transports.File({
-      filename: 'logs/combined.log',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
-    })
-  ],
-  exceptionHandlers: [
+  transports,
+  exceptionHandlers: isProduction ? [] : [
     new winston.transports.File({ filename: 'logs/exceptions.log' })
   ],
-  rejectionHandlers: [
+  rejectionHandlers: isProduction ? [] : [
     new winston.transports.File({ filename: 'logs/rejections.log' })
   ]
 });

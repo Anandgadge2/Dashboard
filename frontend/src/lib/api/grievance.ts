@@ -8,6 +8,7 @@ export interface Grievance {
   citizenName: string;
   citizenPhone: string;
   citizenWhatsApp?: string;
+  citizenEmail?: string;
   description: string;
   category?: string;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -20,8 +21,22 @@ export interface Grievance {
   }>;
   assignedTo?: string | { _id: string; firstName: string; lastName: string };
   assignedAt?: string;
+  location?: {
+    type: 'Point';
+    coordinates: [number, number];
+    address?: string;
+  };
+  media?: Array<{
+    url: string;
+    type: 'image' | 'document';
+    uploadedAt: string;
+  }>;
+  resolution?: string;
   resolvedAt?: string;
   closedAt?: string;
+  slaBreached?: boolean;
+  slaDueDate?: string;
+  language?: 'en' | 'hi' | 'mr';
   createdAt: string;
   updatedAt: string;
   timeline?: Array<{

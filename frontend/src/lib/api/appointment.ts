@@ -15,6 +15,12 @@ export interface Appointment {
   duration?: number;
   status: string;
   assignedTo?: string | { _id: string; firstName: string; lastName: string };
+  statusHistory?: Array<{
+    status: string;
+    changedBy?: string | { _id: string; firstName: string; lastName: string };
+    changedAt: string;
+    remarks?: string;
+  }>;
   location?: string;
   notes?: string;
   createdAt: string;

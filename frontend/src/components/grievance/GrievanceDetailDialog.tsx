@@ -9,12 +9,11 @@ import {
   Calendar, 
   User, 
   RefreshCw, 
-  ArrowRightLeft, 
   CheckCircle2, 
   Clock,
-  MessageSquare,
   Building
 } from 'lucide-react';
+import Image from 'next/image';
 
 
 interface GrievanceDetailDialogProps {
@@ -128,26 +127,26 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
           </div>
 
           {/* Location Information */}
-          {(grievance as any).location && (
+          {grievance.location && (
             <div>
               <h3 className="text-lg font-semibold mb-3 text-gray-800">Location Information</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
-                {(grievance as any).location.address && (
+                {grievance.location.address && (
                   <div className="mb-2">
                     <p className="text-sm font-medium text-gray-500">Address</p>
-                    <p className="text-base text-gray-900">{(grievance as any).location.address}</p>
+                    <p className="text-base text-gray-900">{grievance.location.address}</p>
                   </div>
                 )}
-                {(grievance as any).location.coordinates && (
+                {grievance.location.coordinates && (
                   <div>
                     <p className="text-sm font-medium text-gray-500">Coordinates</p>
                     <p className="text-base text-gray-900">
-                      Lat: {(grievance as any).location.coordinates[1]?.toFixed(6)}, 
-                      Lng: {(grievance as any).location.coordinates[0]?.toFixed(6)}
+                      Lat: {grievance.location.coordinates[1]?.toFixed(6)}, 
+                      Lng: {grievance.location.coordinates[0]?.toFixed(6)}
                     </p>
-                    {(grievance as any).location.coordinates && (
+                    {grievance.location.coordinates && (
                       <a
-                        href={`https://www.google.com/maps?q=${(grievance as any).location.coordinates[1]},${(grievance as any).location.coordinates[0]}`}
+                        href={`https://www.google.com/maps?q=${grievance.location.coordinates[1]},${grievance.location.coordinates[0]}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800 underline text-sm mt-1 inline-block"
@@ -162,20 +161,19 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
           )}
 
           {/* Media/Photos */}
-          {(grievance as any).media && (grievance as any).media.length > 0 && (
+          {grievance.media && grievance.media.length > 0 && (
             <div>
               <h3 className="text-lg font-semibold mb-3 text-gray-800">Uploaded Media</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {(grievance as any).media.map((media: any, index: number) => (
+                {grievance.media.map((media: any, index: number) => (
                   <div key={index} className="border rounded-lg overflow-hidden">
                     {media.type === 'image' || media.url?.includes('image') ? (
-                      <img
+                      <Image
                         src={media.url}
                         alt={`Upload ${index + 1}`}
+                        width={400}
+                        height={300}
                         className="w-full h-48 object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://placehold.co/600x400?text=No+Image';
-                        }}
                       />
                     ) : (
                       <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
@@ -302,11 +300,11 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
           </div>
 
           {/* Resolution Details */}
-          {(grievance as any).resolution && (
+          {grievance.resolution && (
             <div>
               <h3 className="text-lg font-semibold mb-3 text-gray-800">Resolution</h3>
               <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-base text-gray-900 whitespace-pre-wrap">{(grievance as any).resolution}</p>
+                <p className="text-base text-gray-900 whitespace-pre-wrap">{grievance.resolution}</p>
               </div>
             </div>
           )}

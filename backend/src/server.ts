@@ -149,12 +149,7 @@ app.use(errorHandler);
 
 // ================================
 // Server Initialization
-// ================================
-
-const startServer = async () => {
-  let mongoConnected = false;
-  let redisConnected = false;
-
+const init = async () => {
   // Configure Cloudinary
   try {
     configureCloudinary();
@@ -165,30 +160,37 @@ const startServer = async () => {
   // Connect to MongoDB
   try {
     await connectDatabase();
-    mongoConnected = true;
   } catch (error: any) {
     logger.error('MongoDB connection failed:', error.message);
   }
 
   // Connect to Redis (optional)
   try {
-    const redis = await connectRedis();
-    if (redis) redisConnected = true;
+    await connectRedis();
   } catch (error: any) {
-    // Redis is optional, continue without it
-  }
-
-  // Start server
-  try {
-    app.listen(PORT, () => {
-      logger.info(`🚀 Server running on port ${PORT}`);
-      logger.info(`MongoDB: ${mongoConnected ? '✅' : '❌'} | Redis: ${redisConnected ? '✅' : '❌'}`);
-    });
-  } catch (error) {
-    logger.error('❌ Failed to start HTTP server:', error);
-    process.exit(1);
+    // Redis is optional
   }
 };
+
+// For local development
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const startServer = async () => {
+    await init();
+    try {
+      app.listen(PORT, () => {
+        logger.info(`🚀 Server running on port ${PORT}`);
+      });
+    } catch (error) {
+      logger.error('❌ Failed to start HTTP server:', error);
+      process.exit(1);
+    }
+  };
+  startServer();
+} else {
+  // In Vercel environment, init needs to be handled
+  // We'll call it once at the top level if supported, or rely on lazy-loading
+  init().catch(err => logger.error('Vercel initialization failed:', err));
+}
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: Error) => {
@@ -212,10 +214,5 @@ process.on('SIGINT', async () => {
   await disconnectRedis();
   process.exit(0);
 });
-
-
-
-// Start the server
-startServer();
 
 export default app;

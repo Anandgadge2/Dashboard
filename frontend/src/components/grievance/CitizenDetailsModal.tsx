@@ -3,6 +3,7 @@
 import { Grievance } from '@/lib/api/grievance';
 import { Appointment } from '@/lib/api/appointment';
 import { X, MapPin, Phone, Calendar, Image as ImageIcon, FileText } from 'lucide-react';
+import Image from 'next/image';
 
 interface CitizenDetailsModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ export default function CitizenDetailsModal({
 }: CitizenDetailsModalProps) {
   if (!isOpen || (!grievance && !appointment)) return null;
 
-  const data = grievance || appointment;
+  const data = (grievance || appointment) as any;
   const type = grievance ? 'Grievance' : 'Appointment';
 
   return (
@@ -72,12 +73,12 @@ export default function CitizenDetailsModal({
                   </p>
                 </div>
               )}
-              {data?.citizenEmail && (
+              {/* {data?.citizenEmail && (
                 <div>
                   <label className="text-sm font-medium text-gray-500">Email</label>
                   <p className="text-lg font-semibold text-gray-900">{data?.citizenEmail}</p>
                 </div>
-              )}
+              )} */}
             </div>
           </div>
 
@@ -137,7 +138,7 @@ export default function CitizenDetailsModal({
                 </>
               )}
 
-              <div>
+              {/* <div>
                 <label className="text-sm font-medium text-gray-500">Status</label>
                 <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${
                   data?.status === 'RESOLVED' || data?.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
@@ -147,7 +148,7 @@ export default function CitizenDetailsModal({
                 }`}>
                   {data?.status}
                 </span>
-              </div>
+              </div> */}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -163,7 +164,7 @@ export default function CitizenDetailsModal({
           </div>
 
           {/* Location Information */}
-          {(grievance?.location || appointment?.location) && (
+          {/* {(grievance?.location || appointment?.location) && (
             <div className="bg-gradient-to-br from-green-50 to-white border border-green-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <MapPin className="w-5 h-5 mr-2 text-green-600" />
@@ -197,15 +198,15 @@ export default function CitizenDetailsModal({
                     )}
                   </>
                 )}
-                {grievance?.address && (
+                {grievance?.location?.address && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Address</label>
-                    <p className="text-gray-900 mt-1">{grievance.address}</p>
+                    <p className="text-gray-900 mt-1">{grievance.location.address}</p>
                   </div>
                 )}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Media/Photos */}
           {grievance?.media && grievance.media.length > 0 && (
@@ -217,9 +218,11 @@ export default function CitizenDetailsModal({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {grievance.media.map((media: any, index: number) => (
                   <div key={index} className="relative group">
-                    <img
+                    <Image
                       src={media.url}
                       alt={`Evidence ${index + 1}`}
+                      width={400}
+                      height={300}
                       className="w-full h-48 object-cover rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-shadow"
                       onClick={() => window.open(media.url, '_blank')}
                     />
