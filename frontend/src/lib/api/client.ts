@@ -31,12 +31,22 @@ class APIClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
+        // Only redirect on 401 if user is already logged in (has a token)
+        // Don't redirect during login attempts
         if (error.response?.status === 401) {
-          // Token expired or invalid
-          this.removeToken();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/';
-        }
+          const currentToken = this.getToken();
+          const isLoginRequest = error.config?.url?.includes('/auth/login') || 
+                                 error.config?.url?.includes('/auth/sso');
+          
+          // Only clear tokens and redirect if:
+          // 1. User has a token (was logged in)
+          // 2. This is NOT a login request
+          if (currentToken && !isLoginRequest) {
+            this.removeToken();
+            if (typeof window !== 'undefined') {
+              window.location.href = '/';
+            }
+          }
         }
         return Promise.reject(error);
       }

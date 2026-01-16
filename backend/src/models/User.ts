@@ -6,9 +6,9 @@ export interface IUser extends Document {
   userId: string;
   firstName: string;
   lastName: string;
-  email: string;
-  password: string;
-  phone?: string;
+  email?: string;
+  password?: string;
+  phone: string;
   role: UserRole;
   companyId?: mongoose.Types.ObjectId;
   departmentId?: mongoose.Types.ObjectId;
@@ -43,20 +43,24 @@ const UserSchema: Schema = new Schema(
     },
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
       lowercase: true,
       trim: true,
+      sparse: true,
       index: true
     },
     password: {
       type: String,
-      required: true,
+      required: false,
       select: false // Don't include password in queries by default
     },
     phone: {
       type: String,
-      trim: true
+      required: true,
+      unique: true,
+      trim: true,
+      index: true
     },
     role: {
       type: String,

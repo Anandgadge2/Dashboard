@@ -3,112 +3,265 @@ import User from '../models/User';
 import { generateToken, generateRefreshToken } from '../utils/jwt';
 import { logUserAction } from '../utils/auditLogger';
 import { AuditAction } from '../config/constants';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// @route   POST /api/auth/login
-// @desc    Login user
-// @access  Public
-router.post('/login', async (req: Request, res: Response) => {
+// @route   POST /api/auth/sso/login
+// @desc    SSO Login from main dashboard (SSO Token Required - SECURE)
+// @access  Public (but requires valid SSO token)
+router.post('/sso/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const ssoToken = req.body.ssoToken || req.body.token;
 
-    // Validation
-    if (!email || !password) {
+    // SECURITY: Require SSO token - NEVER accept phone directly
+    if (!ssoToken) {
+      console.log('❌ SSO login attempted without token');
       res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: 'SSO token is required'
       });
       return;
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-    console.log('🔐 Login attempt for email:', normalizedEmail);
+    console.log('🔐 SSO Login attempt with token');
 
-    // Find user with password (include soft-deleted check)
-    const user = await User.findOne({ 
-      email: normalizedEmail,
-      isDeleted: false 
-    }).select('+password');
+    // Get SSO secret from environment
+    const ssoSecret = process.env.JWT_SECRET;
+    console.log('JWT_SECRET:', ssoSecret);
+    if (!ssoSecret) {
+      console.error('❌ SSO_SECRET not configured');
+      
+      res.status(500).json({
+        success: false,
+        message: 'SSO authentication not configured'
+      });
+      return;
+    }
 
-    if (!user) {
-      console.log('❌ User not found for email:', normalizedEmail);
-      // Check if user exists but is deleted
-      const deletedUser = await User.findOne({ email: normalizedEmail }).select('+password');
-      if (deletedUser) {
-        console.log('⚠️ User exists but is marked as deleted');
+    const jwt = await import('jsonwebtoken');
+    
+    // STEP 1: Verify SSO token signature and expiry
+    let decoded: any;
+    try {
+      decoded = jwt.verify(ssoToken, ssoSecret);
+      console.log('✅ SSO token verified:', { phone: decoded.phone, source: decoded.source });
+    } catch (err: any) {
+      console.error('❌ SSO token verification failed:', err.message);
+      
+      if (err.name === 'TokenExpiredError') {
+        res.status(401).json({
+          success: false,
+          message: 'SSO token expired. Please login again from main dashboard.'
+        });
+        return;
       }
+      
       res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Invalid SSO token'
       });
       return;
     }
 
-    console.log('✅ User found:', {
-      id: user._id,
-      email: user.email,
-      role: user.role,
-      isActive: user.isActive,
-      hasPassword: !!user.password
+    // STEP 2: Validate token source (must come from MAIN_DASHBOARD)
+    if (decoded.source !== 'MAIN_DASHBOARD') {
+      console.error('❌ Invalid SSO token source:', decoded.source);
+      res.status(401).json({
+        success: false,
+        message: 'Invalid SSO token source'
+      });
+      return;
+    }
+
+    // STEP 3: Extract phone from verified token (NOT from request body)
+    const { phone } = decoded;
+    
+    if (!phone) {
+      console.error('❌ No phone number in SSO token payload');
+      res.status(400).json({
+        success: false,
+        message: 'Invalid SSO token payload'
+      });
+      return;
+    }
+
+    console.log('📱 SSO Login for verified phone:', phone);
+
+    // STEP 4: Find user in database
+    const user = await User.findOne({ 
+      phone,
+      isDeleted: false 
     });
 
-    // Check if user is active
+    if (!user) {
+      console.log('❌ User not found for phone:', phone);
+      res.status(404).json({
+        success: false,
+        message: 'No account found with this phone number'
+      });
+      return;
+    }
+
+    // STEP 5: Check if user is active
     if (!user.isActive) {
-      res.status(401).json({
+      console.log('❌ User account is inactive:', phone);
+      res.status(403).json({
         success: false,
         message: 'Your account is inactive. Please contact administrator.'
       });
       return;
     }
 
-    // Verify password
-    if (!user.password) {
-      res.status(401).json({
+    console.log('✅ SSO authentication successful for:', phone);
+    
+    // STEP 6: Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // STEP 7: Generate NEW session tokens (DO NOT reuse SSO token)
+    const sessionPayload = {
+      userId: user._id.toString(),
+      phone: user.phone,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId?.toString(),
+      departmentId: user.departmentId?.toString(),
+      loginType: 'SSO' // Track login method
+    };
+
+    const accessToken = generateToken(sessionPayload);
+    const refreshToken = generateRefreshToken(sessionPayload);
+
+    // STEP 8: Audit log with SSO login type
+    await logUserAction(
+      { user, ip: req.ip, get: req.get.bind(req) } as any,
+      AuditAction.LOGIN,
+      'User',
+      user._id.toString(),
+      { loginMethod: 'SSO', source: 'MAIN_DASHBOARD' }
+    );
+
+    console.log('✅ SSO login completed for:', user.userId);
+
+    res.json({
+      success: true,
+      message: 'SSO login successful',
+      data: {
+        user: {
+          id: user._id,
+          userId: user.userId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          companyId: user.companyId,
+          departmentId: user.departmentId,
+          isActive: user.isActive,
+          loginType: 'SSO'
+        },
+        accessToken,
+        refreshToken
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ SSO login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'SSO login failed',
+      error: error.message
+    });
+  }
+});
+  
+// @route   POST /api/auth/login
+// @desc    Login user with phone and password
+// @access  Public
+router.post('/login', async (req: Request, res: Response) => {
+  try {
+    const { phone, email, password } = req.body;
+
+    // Validation - require either phone or email, plus password
+    if ((!phone && !email) || !password) {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Phone number or email and password are required'
       });
-      return;
     }
 
+    console.log('🔐 Login attempt for:', phone || email);
+
+    // Find user by phone or email (exclude soft-deleted)
+    const query: any = { isDeleted: false };
+    if (email) {
+      query.email = email;
+    } else {
+      query.phone = phone;
+    }
+
+    const user = await User.findOne(query).select('+password'); // IMPORTANT
+
+    if (!user) {
+      console.log('❌ User not found for:', phone || email);
+      return res.status(401).json({
+        success: false,
+        message: email 
+          ? 'Email is incorrect. Please check and try again.'
+          : 'Phone number is incorrect. Please check and try again.'
+      });
+    }
+
+    // Check active
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is inactive. Contact administrator.'
+      });
+    }
+
+    // Verify password using User model method
     const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
-      console.log('❌ Password validation failed for user:', user.email);
-      res.status(401).json({
+      console.log('❌ Invalid password for:', phone);
+      return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Password is incorrect. Please check and try again.'
       });
-      return;
     }
 
-    console.log('✅ Password validated successfully for user:', user.email);
+    console.log('✅ Password verified. Login successful for:', phone);
 
     // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate tokens
+    // Token payload
     const tokenPayload = {
       userId: user._id.toString(),
+      phone: user.phone,
       email: user.email,
       role: user.role,
       companyId: user.companyId?.toString(),
-      departmentId: user.departmentId?.toString()
+      departmentId: user.departmentId?.toString(),
+      loginType: 'PASSWORD' // Track login method
     };
 
     const accessToken = generateToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Log login action
+    // Audit log
     await logUserAction(
       { user, ip: req.ip, get: req.get.bind(req) } as any,
       AuditAction.LOGIN,
       'User',
-      user._id.toString()
+      user._id.toString(),
+      { loginMethod: 'PASSWORD' }
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Login successful',
       data: {
@@ -118,23 +271,28 @@ router.post('/login', async (req: Request, res: Response) => {
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
+          phone: user.phone,
           role: user.role,
           companyId: user.companyId,
           departmentId: user.departmentId,
-          isActive: user.isActive
+          isActive: user.isActive,
+          loginType: 'PASSWORD'
         },
         accessToken,
         refreshToken
       }
     });
+
   } catch (error: any) {
-    res.status(500).json({
+    console.error('❌ Login error:', error);
+    return res.status(500).json({
       success: false,
-      message: 'Login failed',
-      error: error.message
+      message: 'Login failed'
     });
   }
 });
+
+
 
 // @route   POST /api/auth/register
 // @desc    Register new user (Admin only)
@@ -144,23 +302,35 @@ router.post('/register', async (req: Request, res: Response) => {
     const { firstName, lastName, email, password, phone, role, companyId, departmentId } = req.body;
 
     // Validation
-    if (!firstName || !lastName || !email || !password || !role) {
+    if (!firstName || !lastName || !phone || !role) {
       res.status(400).json({
         success: false,
-        message: 'Please provide all required fields'
+        message: 'Please provide first name, last name, phone, and role'
       });
       return;
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    // Check if user already exists by phone
+    const existingUser = await User.findOne({ phone });
 
     if (existingUser) {
       res.status(400).json({
         success: false,
-        message: 'User with this email already exists'
+        message: 'User with this phone number already exists'
       });
       return;
+    }
+
+    // Check if email already exists if provided
+    if (email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        res.status(400).json({
+          success: false,
+          message: 'User with this email already exists'
+        });
+        return;
+      }
     }
 
     // Create user
@@ -185,6 +355,7 @@ router.post('/register', async (req: Request, res: Response) => {
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
+          phone: user.phone,
           role: user.role
         }
       }
@@ -197,5 +368,7 @@ router.post('/register', async (req: Request, res: Response) => {
     });
   }
 });
+
+
 
 export default router;

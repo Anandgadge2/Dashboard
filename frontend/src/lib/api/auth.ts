@@ -1,7 +1,8 @@
 import { apiClient } from './client';
 
 export interface LoginCredentials {
-  email: string;
+  phone?: string;
+  email?: string;
   password: string;
 }
 
@@ -14,7 +15,8 @@ export interface LoginResponse {
       userId: string;
       firstName: string;
       lastName: string;
-      email: string;
+      email?: string;
+      phone: string;
       role: string;
       companyId?: string;
       departmentId?: string;
@@ -28,9 +30,9 @@ export interface LoginResponse {
 export interface RegisterData {
   firstName: string;
   lastName: string;
-  email: string;
-  password: string;
-  phone?: string;
+  phone: string;
+  email?: string;
+  password?: string;
   role: string;
   companyId?: string;
   departmentId?: string;
@@ -60,6 +62,10 @@ export const authAPI = {
       return userStr ? JSON.parse(userStr) : null;
     }
     return null;
+  },
+
+  verifySSOToken: async (ssoToken: string): Promise<LoginResponse> => {
+    return apiClient.post('/auth/sso/login', { ssoToken });
   },
 
   saveUser: (user: any) => {

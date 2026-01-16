@@ -11,7 +11,8 @@ interface User {
   userId: string;
   firstName: string;
   lastName: string;
-  email: string;
+  email?: string;
+  phone: string;
   role: string;
   companyId?: string | { _id: string; name: string };
   departmentId?: string | { _id: string; name: string };
@@ -22,6 +23,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  ssoLogin: (token: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -72,16 +74,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         toast.success('Login successful!');
         
-        // Redirect based on role
         if (user.role === 'SUPER_ADMIN') {
           router.push('/superadmin/dashboard');
-        } else if (user.role === 'COMPANY_ADMIN') {
-          router.push('/dashboard');
-        } else if (user.role === 'DEPARTMENT_ADMIN') {
-          router.push('/dashboard');
         } else {
           router.push('/dashboard');
         }
+      } else {
+        // Handle unsuccessful response
+        toast.error(response.message || 'Login failed');
       }
     } catch (error: any) {
       // Ensure minimum delay has passed before showing error
@@ -90,27 +90,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
       }
       
-      const message = error.response?.data?.message || error.message || 'Login failed. Please check your credentials.';
+      // Extract error message from response
+      let errorMessage = 'Login failed. Please try again.';
       
-      // Only show error if it's a real API error, not a network error that might resolve
-      if (error.response?.status === 401) {
-        toast.error('Invalid email or password. Please try again.', {
-          duration: 4000,
-          position: 'top-center'
-        });
-      } else if (error.response?.status) {
-        toast.error(message, {
-          duration: 4000,
-          position: 'top-center'
-        });
-      } else {
-        // Network or other errors
-        toast.error('Unable to connect to server. Please check your connection and try again.', {
-          duration: 4000,
-          position: 'top-center'
-        });
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
+      console.error('Login error:', error);
+      // Don't show toast here - let the calling component handle it
+      
+      // Re-throw to let the calling component know there was an error
       throw error;
+    }
+  };
+
+  const ssoLogin = async (token: string) => {
+    setLoading(true);
+    try {
+      const response = await authAPI.verifySSOToken(token);
+      
+      if (response.success) {
+        const { user, accessToken, refreshToken } = response.data;
+        
+        // Save tokens
+        apiClient.setToken(accessToken);
+        apiClient.setRefreshToken(refreshToken);
+        
+        // Save user with all properties
+        const userWithActive = {
+          ...user,
+          isActive: user.isActive ?? true
+        };
+        authAPI.saveUser(userWithActive);
+        setUser(userWithActive);
+        
+        toast.success('SSO Login successful!');
+        
+        if (user.role === 'SUPER_ADMIN') {
+          router.push('/superadmin/dashboard');
+        } else {
+          router.push('/dashboard');
+        }
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || error.message || 'SSO Login failed.';
+      toast.error(message);
+      router.push('/'); // Redirect to home if failed
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -126,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         login,
+        ssoLogin,
         logout,
         isAuthenticated: !!user
       }}
