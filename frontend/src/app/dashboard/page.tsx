@@ -1843,7 +1843,7 @@ export default function Dashboard() {
                             <ResponsiveContainer width="100%" height={250}>
                               <BarChart data={stats.appointments.byDepartment.map((dept: any) => ({
                                 ...dept,
-                                departmentName: dept.departmentName.replace(/\s+Department$/i, '').trim()
+                                departmentName: dept.departmentName ? dept.departmentName.replace(/\s+Department$/i, '').trim() : 'Unknown'
                               }))}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="departmentName" angle={-45} textAnchor="end" height={100} />
@@ -2071,7 +2071,7 @@ export default function Dashboard() {
                           <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={categoryData.map((item: any) => ({
                               ...item,
-                              category: item.category.replace(/\s+Department$/i, '').trim()
+                              category: item.category ? item.category.replace(/\s+Department$/i, '').trim() : 'Unknown'
                             }))}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis 
