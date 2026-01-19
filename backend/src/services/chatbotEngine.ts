@@ -111,7 +111,30 @@ const translations = {
     'desc_Urban Development Department': 'Town planning and municipal services',
     'desc_Revenue Department': 'Land records, taxes, and certificates',
     'desc_Agriculture Department': 'Farming schemes, seeds, and subsidies',
-    'desc_Social Welfare Department': 'Pension schemes and disability support',
+    'desc_Social Welfare Department': 'Pension schemes and disability assistance',
+    'dept_Water Supply and Sanitation Department': 'Water Supply and Sanitation Department',
+    'dept_Works Department': 'Works Department',
+    'dept_DRDA department': 'DRDA Department',
+    'dept_Panchayat Department': 'Panchayat Department',
+    'dept_Women and Child Development Department': 'Women and Child Development Department',
+    'dept_MNREGA Department': 'MNREGA Department',
+    'dept_Finance Department': 'Finance Department',
+    'dept_Rural Water Supply Department': 'Rural Water Supply Department',
+    'dept_Water Conservation Department': 'Water Conservation Department',
+    'dept_Animal Husbandry Department': 'Animal Husbandry Department',
+    'dept_IT Cell': 'IT Cell',
+    'desc_Water Supply and Sanitation Department': 'Water supply and sanitation services',
+    'desc_Works Department': 'Construction and maintenance works',
+    'desc_DRDA department': 'Rural development programs',
+    'desc_Panchayat Department': 'Panchayat administration and development',
+    'desc_Women and Child Development Department': 'Women and child welfare schemes',
+    'desc_MNREGA Department': 'Employment guarantee scheme',
+    'desc_Finance Department': 'Financial management and accounts',
+    'desc_Rural Water Supply Department': 'Water supply in rural areas',
+    'desc_Water Conservation Department': 'Water conservation and management',
+    'desc_Animal Husbandry Department': 'Animal husbandry and dairy development',
+    'desc_IT Cell': 'Information technology services',
+    goodbye: '👋 *Thank You*\n\nThank you for contacting Zilla Parishad Amravati. We are always ready to serve you.\n\nType "Hi" anytime for assistance.',
     appointmentConfirm: '📋 *Verify Appointment*\n\nPlease confirm your booking details:',
     err_no_record_found: '❌ *No Records Found*\n\nWe could not find any record matching that reference number.',
     grievanceCancel: '🚫 *Cancelled*\n\nThe grievance registration has been cancelled.',
@@ -211,6 +234,29 @@ const translations = {
     'desc_Revenue Department': 'भूमि रिकॉर्ड, कर और प्रमाण पत्र',
     'desc_Agriculture Department': 'खेती योजनाएं, बीज और सब्सिडी',
     'desc_Social Welfare Department': 'पेंशन योजनाएं और विकलांगता सहायता',
+    'dept_Water Supply and Sanitation Department': 'जलापूर्ति और स्वच्छता विभाग',
+    'dept_Works Department': 'निर्माण कार्य विभाग',
+    'dept_DRDA department': 'जिला ग्रामीण विकास एजेंसी',
+    'dept_Panchayat Department': 'पंचायत विभाग',
+    'dept_Women and Child Development Department': 'महिला एवं बाल विकास विभाग',
+    'dept_MNREGA Department': 'मनरेगा विभाग',
+    'dept_Finance Department': 'वित्त विभाग',
+    'dept_Rural Water Supply Department': 'ग्रामीण जलापूर्ति विभाग',
+    'dept_Water Conservation Department': 'जल संरक्षण विभाग',
+    'dept_Animal Husbandry Department': 'पशुपालन विभाग',
+    'dept_IT Cell': 'आईटी प्रकोष्ठ',
+    'desc_Water Supply and Sanitation Department': 'जलापूर्ति और स्वच्छता सेवाएं',
+    'desc_Works Department': 'निर्माण और रखरखाव कार्य',
+    'desc_DRDA department': 'ग्रामीण विकास कार्यक्रम',
+    'desc_Panchayat Department': 'पंचायत प्रशासन और विकास',
+    'desc_Women and Child Development Department': 'महिला और बाल कल्याण योजनाएं',
+    'desc_MNREGA Department': 'रोजगार गारंटी योजना',
+    'desc_Finance Department': 'वित्तीय प्रबंधन और लेखा',
+    'desc_Rural Water Supply Department': 'ग्रामीण क्षेत्रों में जलापूर्ति',
+    'desc_Water Conservation Department': 'जल संरक्षण और प्रबंधन',
+    'desc_Animal Husbandry Department': 'पशुपालन और डेयरी विकास',
+    'desc_IT Cell': 'सूचना प्रौद्योगिकी सेवाएं',
+    goodbye: '👋 *धन्यवाद*\n\nजिला परिषद अमरावती से संपर्क करने के लिए धन्यवाद। हम आपकी सेवा में हमेशा तत्पर हैं।\n\nसहायता के लिए कभी भी "Hi" टाइप करें।',
     appointmentConfirm: '📋 *नियुक्ति की पुष्टि करें*\n\nकृपया अपने बुकिंग विवरण की पुष्टि करें:',
     err_no_record_found: '❌ *कोई रिकॉर्ड नहीं मिला*\n\nहमें उस संदर्भ संख्या से मेल खाने वाला कोई रिकॉर्ड नहीं मिला।',
     grievanceCancel: '🚫 *रद्द किया गया*\n\nशिकायत पंजीकरण रद्द कर दिया गया है।',
@@ -312,6 +358,29 @@ const translations = {
     'desc_Revenue Department': 'जमीन रेकॉर्ड, कर आणि प्रमाणपत्रे',
     'desc_Agriculture Department': 'शेती योजना, बियाणे आणि सबसिडी',
     'desc_Social Welfare Department': 'पेन्शन योजना आणि अपंगत्व सहाय्य',
+    'dept_Water Supply and Sanitation Department': 'पाणी पुरवठा आणि स्वच्छता विभाग',
+    'dept_Works Department': 'बांधकाम विभाग',
+    'dept_DRDA department': 'जिल्हा ग्रामीण विकास संस्था',
+    'dept_Panchayat Department': 'पंचायत विभाग',
+    'dept_Women and Child Development Department': 'महिला आणि बाल विकास विभाग',
+    'dept_MNREGA Department': 'मनरेगा विभाग',
+    'dept_Finance Department': 'वित्त विभाग',
+    'dept_Rural Water Supply Department': 'ग्रामीण पाणी पुरवठा विभाग',
+    'dept_Water Conservation Department': 'जल संधारण विभाग',
+    'dept_Animal Husbandry Department': 'पशुसंवर्धन विभाग',
+    'dept_IT Cell': 'आयटी प्रकोष्ठ',
+    'desc_Water Supply and Sanitation Department': 'पाणी पुरवठा आणि स्वच्छता सेवा',
+    'desc_Works Department': 'बांधकाम आणि देखभाल कामे',
+    'desc_DRDA department': 'ग्रामीण विकास कार्यक्रम',
+    'desc_Panchayat Department': 'पंचायत प्रशासन आणि विकास',
+    'desc_Women and Child Development Department': 'महिला आणि बाल कल्याण योजना',
+    'desc_MNREGA Department': 'रोजगार हमी योजना',
+    'desc_Finance Department': 'आर्थिक व्यवस्थापन आणि लेखा',
+    'desc_Rural Water Supply Department': 'ग्रामीण भागात पाणी पुरवठा',
+    'desc_Water Conservation Department': 'जल संधारण आणि व्यवस्थापन',
+    'desc_Animal Husbandry Department': 'पशुपालन आणि दुग्धव्यवसाय विकास',
+    'desc_IT Cell': 'माहिती तंत्रज्ञान सेवा',
+    goodbye: '👋 *धन्यवाद*\n\nजिल्हा परिषद अमरावतीशी संपर्क साधल्याबद्दल धन्यवाद. आम्ही नेहमी तुमच्या सेवेसाठी तत्पर आहोत.\n\nमदतीसाठी कधीही "Hi" टाइप करा.',
     appointmentConfirm: '📋 *अपॉइंटमेंटची पुष्टी करा*\n\nकृपया तुमच्या बुकिंग तपशीलाची पुष्टी करा:',
     err_no_record_found: '❌ *कोणताही रेकॉर्ड सापडला नाही*\n\nआम्हाला त्या संदर्भ क्रमांकाशी जुळणारा कोणताही रेकॉर्ड सापडला नाही.',
     grievanceCancel: '🚫 *रद्द केले*\n\nतक्रार नोंदणी रद्द केली आहे.',
@@ -434,6 +503,15 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
   
  
   console.log('🔄 Processing message:', { from, step: session.step, input: userInput, type: messageType });
+
+  // Handle exit/end commands
+  const exitCommands = ['exit', 'end', 'quit', 'stop', 'bye', 'goodbye', 'समाप्त', 'बंद', 'अलविदा', 'संपवा', 'बाय'];
+  if (!buttonId && exitCommands.includes(userInput)) {
+    console.log('👋 Exit command received:', userInput);
+    await sendWhatsAppMessage(company, from, getTranslation('goodbye', session.language));
+    await clearSession(from, companyId);
+    return;
+  }
 
   // Handle global reset on greetings (like "Hi", "Hello", "Start")
   const greetings = ['hi', 'hello', 'start', 'namaste', 'नमस्ते', 'restart', 'menu'];
@@ -1066,19 +1144,10 @@ async function createGrievanceWithDepartment(
 
     await sendWhatsAppMessage(company, message.from, successMessage);
 
-    // Show Back to Main Menu button
-    await sendWhatsAppButtons(
-      company,
-      message.from,
-      '✅ *What would you like to do next?*',
-      [
-        { id: 'menu_back', title: '↩️ Back to Main Menu' }
-      ]
-    );
-    
-    // Update session to handlebutton
-    session.step = 'awaiting_menu';
-    await updateSession(session);
+    // End chat after successful submission
+    await sendWhatsAppMessage(company, message.from, getTranslation('goodbye', session.language));
+    await clearSession(message.from, company._id.toString());
+
 
   } catch (error: any) {
     console.error('❌ Error creating grievance:', error);
@@ -1122,13 +1191,13 @@ async function startAppointmentFlow(session: UserSession, message: ChatbotMessag
   } else {
     const sections = [{
       title: getTranslation('btn_select_dept', session.language),
-      rows: departments.map(dept => {
+      rows: departments.slice(0, 10).map(dept => {
         const translatedName = getTranslation(`dept_${dept.name}`, session.language);
         const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
         return {
           id: `dept_${dept._id}`,
           title: displayName.length > 24 ? displayName.substring(0, 21) + '...' : displayName,
-          description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || 'Select this department'
+          description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || ''
         };
       })
     }];
@@ -1462,19 +1531,10 @@ async function createAppointment(
 
     await sendWhatsAppMessage(company, message.from, successMessage);
 
-    // Show Back to Main Menu button
-    await sendWhatsAppButtons(
-      company,
-      message.from,
-      '✅ *What would you like to do next?*',
-      [
-        { id: 'menu_back', title: '↩️ Back to Main Menu' }
-      ]
-    );
-    
-    // Update session to handle button
-    session.step = 'awaiting_menu';
-    await updateSession(session);
+    // End chat after successful submission
+    await sendWhatsAppMessage(company, message.from, getTranslation('goodbye', session.language));
+    await clearSession(message.from, company._id.toString());
+
 
   } catch (error: any) {
     console.error('❌ Error creating appointment:', error);
