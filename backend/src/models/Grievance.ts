@@ -215,8 +215,21 @@ GrievanceSchema.index({ createdAt: -1 });
 // Pre-save hook to generate grievanceId
 GrievanceSchema.pre('save', async function (next) {
   if (this.isNew && !this.grievanceId) {
-    const count = await mongoose.model('Grievance').countDocuments({ companyId: this.companyId });
-    this.grievanceId = `GRV${String(count + 1).padStart(8, '0')}`;
+    // Find the last grievanceId globally, including soft-deleted ones
+    const lastGrievance = await mongoose.model('Grievance')
+      .findOne({}, { grievanceId: 1 })
+      .sort({ grievanceId: -1 })
+      .setOptions({ includeDeleted: true });
+
+    let nextNum = 1;
+    if (lastGrievance && lastGrievance.grievanceId) {
+      const match = lastGrievance.grievanceId.match(/^GRV(\d+)$/);
+      if (match) {
+        nextNum = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.grievanceId = `GRV${String(nextNum).padStart(8, '0')}`;
     
     // Initialize status history
     this.statusHistory = [{

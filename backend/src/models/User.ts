@@ -111,11 +111,22 @@ UserSchema.index({ departmentId: 1, role: 1, isDeleted: 1 });
 UserSchema.pre('validate', async function (next) {
   if (this.isNew && !this.userId) {
     try {
-      // Use the collection directly to avoid circular dependency
-      const count = await mongoose.connection.collection('users').countDocuments();
-      this.userId = `USER${String(count + 1).padStart(6, '0')}`;
+      // Find the last userId globally, including soft-deleted ones
+      const lastUser = await mongoose.model('User')
+        .findOne({}, { userId: 1 })
+        .sort({ userId: -1 })
+        .setOptions({ includeDeleted: true });
+
+      let nextNum = 1;
+      if (lastUser && lastUser.userId) {
+        const match = lastUser.userId.match(/^USER(\d+)$/);
+        if (match) {
+          nextNum = parseInt(match[1], 10) + 1;
+        }
+      }
+      
+      this.userId = `USER${String(nextNum).padStart(6, '0')}`;
     } catch (error) {
-      // If collection doesn't exist yet, start from 1
       this.userId = 'USER000001';
     }
   }

@@ -36,72 +36,66 @@ const userSessions: Map<string, UserSession> = new Map();
 // Professional Government Language Translations
 const translations = {
   en: {
-    welcome: '🏛️ *Welcome to Zilla Parishad Digital Services*\n\nWe are committed to providing efficient and transparent government services to all citizens.\n\nPlease select your preferred language to continue:',
-    serviceUnavailable: '⚠️ *Service Temporarily Unavailable*\n\nWe apologize for the inconvenience. Our services are currently under maintenance. Please try again later or contact our helpdesk.\n\nThank you for your patience.',
-    mainMenu: '📋 *Government Services Portal*\n\n*Available Services:*\n\nPlease select the service you wish to access:',
-    grievanceRaise: '📝 *Grievance Registration*\n\nWe take all citizen complaints seriously and ensure timely resolution.\n\nTo proceed, please provide the following information:',
-    appointmentBook: '📅 *Appointment Booking*\n\nSchedule an appointment with government departments for in-person services.\n\nPlease select a department:',
-    trackStatus: '🔍 *Status Tracking*\n\nTrack the status of your registered grievances or appointments.\n\nPlease enter your reference number:',
-    // otpSent: '🔐 *Verification Code Sent*\n\nFor security purposes, we have sent a 6-digit verification code to your registered mobile number.\n\n*Code:* {otp}\n\n*Validity:* 10 minutes\n\nPlease enter the code to continue.',
-    // otpVerified: '✅ *Verification Successful*\n\nYour identity has been verified. You may now proceed with the service.',
-    // otpInvalid: '❌ *Invalid Verification Code*\n\nThe code you entered is incorrect or has expired.\n\nPlease try again or request a new code.',
-    grievanceName: '👤 *Citizen Information*\n\nPlease provide your full name as per official documents:',
-    grievanceCategory: '📂 *Complaint Category*\n\nPlease select the category that best describes your complaint:',
-    grievanceDescription: '📝 *Complaint Details*\n\nPlease provide a detailed description of your complaint:\n\n*Guidelines:*\n• Be specific and clear\n• Include relevant dates and locations\n• Mention any previous attempts to resolve',
-    grievanceLocation: '📍 *Location Information*\n\nPlease share the location or address related to your complaint:\n\n*Options:*\n• Type your address\n• Share your location\n• Type "SKIP" to continue without location',
-    grievancePhoto: '📷 *Supporting Documents*\n\nYou may upload photos or documents to support your complaint:\n\n*Options:*\n• Send photo/document\n• Type "SKIP" to continue without media',
-    grievancePriority: '⚡ *Priority Level*\n\nPlease select the urgency level of your complaint:',
-    grievanceConfirm: '📋 *Review Your Complaint*\n\nPlease review the details before submission:\n\n*Name:* {name}\n*Category:* {category}\n*Priority:* {priority}\n*Description:* {description}\n\nIs this information correct?',
-    grievanceSuccess: '✅ *Grievance Registered Successfully*\n\n*Reference Number:* {id}\n*Category:* {category}\n*Department:* {department}\n*Status:* Under Review\n\nYou will receive regular updates on the status of your complaint.\n\nThank you for using our services.',
-    grievanceResolvedNotify: '✅ *Grievance Resolved*\n\nYour grievance (Ref: {id}) has been resolved.\n\n*Officer Remarks:* {remarks}\n\nThank you for your patience.',
-    label_no_remarks: 'No additional remarks',
-    grievanceError: '❌ *Registration Failed*\n\nWe encountered an error while processing your complaint. Please try again or contact our helpdesk.\n\nWe apologize for the inconvenience.',
-    // voiceReceived: '🎤 *Voice Message Received*\n\nWe are processing your voice message. Please wait...',
-    // voiceProcessing: '🔄 *Processing Voice Message*\n\nYour voice message is being transcribed. This may take a few moments.',
-    // voiceError: '❌ *Voice Processing Failed*\n\nWe were unable to process your voice message. Please try typing your message or try again later.',
-    backToMenu: '↩️ *Return to Main Menu*',
-    help: 'ℹ️ *Help & Support*\n\nFor assistance, please:\n• Contact our helpdesk\n• Visit our office\n• Check our website\n\n*Office Hours:* 9:00 AM - 6:00 PM\n*Working Days:* Monday to Saturday',
-    invalidOption: '❌ *Invalid Selection*\n\nPlease select from the available options using the buttons provided.',
-    sessionExpired: '⏰ *Session Expired*\n\nYour session has expired due to inactivity. Please start again by sending "HI" or "START".',
-    menu_grievance: '📝 Raise Grievance',
+    welcome: '🇮🇳 *Zilla Parishad Amravati - Official Digital Portal*\n\nNamaskar! Welcome to the official WhatsApp service of Zilla Parishad Amravati.\n\nWe are dedicated to providing transparent and efficient services to all citizens.\n\n👇 *Please select your preferred language:*',
+    serviceUnavailable: '⚠️ *Service Notice*\n\nThe requested service is currently under maintenance. We apologize for the inconvenience.\n\nPlease try again later or visit our official website.',
+    mainMenu: '🏛️ *Citizen Services Menu*\n\nWelcome to the Zilla Parishad Digital Helpdesk.\n\n👇 *Please select a service from the options below:*',
+    grievanceRaise: '📝 *Register a Grievance*\n\nYou can file a formal complaint regarding any ZP department.\n\nTo begin, please provide the details as requested.',
+    appointmentBook: '📅 *Book an Offical Appointment*\n\nSchedule a meeting with government officials.\n\n👇 *Select the Department:*',
+    trackStatus: '🔍 *Track Application Status*\n\nCheck the status of your Grievance or Appointment.\n\nPlease enter your *Reference Number* (e.g., GRV... or APT...):',
+    grievanceName: '👤 *Citizen Identification*\n\nPlease enter your *Full Name* as it appears on official documents:',
+    grievanceCategory: '📂 *Select Category*\n\nChoose the department or category tailored to your issue:',
+    grievanceDescription: '✍️ *Grievance Details*\n\nPlease type a detailed description of your issue.\n\n_Tip: Include dates, location, and specific details for faster resolution._',
+    grievanceLocation: '📍 *Location Details*\n\nPlease provide the location associated with this issue.\n\n👇 *Select an option:*',
+    grievancePhoto: '📷 *Supporting Evidence*\n\nUpload a photo or document to support your claim (Optional).\n\n👇 *Select an option:*',
+    grievancePriority: '⚡ *Urgency Level*\n\nSelect the priority level for this issue:',
+    grievanceConfirm: '📋 *Confirm Submission*\n\nPlease verify your details:\n\n👤 *Name:* {name}\n🏢 *Dept:* {category}\n📝 *Issue:* {description}\n\n👇 *Is this correct?*',
+    grievanceSuccess: '✅ *Grievance Registered Successfully*\n\nYour complaint has been logged in our system.\n\n🎫 *Ref No:* `{id}`\n🏢 *Dept:* {department}\n📅 *Date:* {date}\n\nYou will receive updates via SMS/WhatsApp.',
+    grievanceResolvedNotify: '✅ *Resolution Update*\n\nYour grievance (Ref: `{id}`) has been addressed.\n\n📝 *Officer Remarks:* {remarks}\n\nThank you for helping us improve our services.',
+    label_no_remarks: 'Case closed as per protocol.',
+    grievanceError: '❌ *System Error*\n\nWe could not process your request at this moment. Please try again later.',
+    backToMenu: '↩️ Main Menu',
+    help: 'ℹ️ *Helpdesk & Support*\n\nFor further assistance:\n📞 *Helpline:* 1800-123-4567\n🌐 *Website:* zpamravati.gov.in\n📍 *Office:* Zilla Parishad Bhavan, Amravati\n\n_Office Hours: 10:00 AM - 6:00 PM (Mon-Sat)_',
+    invalidOption: '⚠️ *Invalid Input*\n\nPlease select a valid option from the buttons provided.',
+    sessionExpired: '⏳ *Session Timed Out*\n\nYour session has expired. Please type "Hi" to start again.',
+    menu_grievance: '📝 File Grievance',
     menu_appointment: '📅 Book Appointment',
     menu_track: '🔍 Track Status',
-    menu_help: 'ℹ️ Help & Support',
+    menu_help: 'ℹ️ Help & Contact',
     nav_track_another: '🔍 Track Another',
     nav_main_menu: '↩️ Main Menu',
-    trackStatusPortal: '🔍 *Digital Services Tracking Portal*\n\nTo check the progress of your request, please provide your reference number:\n\n✅ *Grievance:* e.g., GRV00000001\n🗓️ *Appointment:* e.g., APT00000001\n\n*Instructions:*\nSimply type or paste the code below. If searching by phone number, we will show your most recent records.',
+    trackStatusPortal: '🔍 *Status Inquiry*\n\nEnter your Reference Number below to check the current status.',
     label_date: '📅 Date',
     label_ref_no: '🎫 Ref No',
-    label_department: '🏢 Department',
+    label_department: '🏢 Dept',
     label_category: '📂 Category',
-    label_status: '🏷️ Status',
+    label_status: '📊 Status',
     label_priority: '⚡ Priority',
-    label_description: '📝 Description',
-    label_purpose: '📝 Purpose',
-    label_citizen: '👤 Citizen',
-    label_time: '🕒 Time',
-    selection_department: '📂 *Select Department*\n\nPlease select the department related to your request:',
-    btn_select_dept: 'Select Department',
-    err_name_invalid: '⚠️ *Invalid Name*\n\nPlease enter a valid name (minimum 2 characters).',
-    err_description_short: '⚠️ *Description Too Short*\n\nPlease provide a detailed description (minimum 10 characters).',
-    err_purpose_short: '⚠️ *Purpose Too Short*\n\nPlease provide a brief purpose (minimum 5 characters).',
-    msg_type_address: '📍 Please type your address:',
-    msg_upload_photo: '📷 Please send your photo or document now:',
-    btn_skip_location: '⏭️ Skip Location',
+    label_description: '📝 Details',
+    label_purpose: '🎯 Purpose',
+    label_citizen: '👤 Name',
+    label_time: '⏰ Time',
+    selection_department: '🏢 *Department Selection*\n\nSelect the relevant department:',
+    btn_select_dept: 'View Departments',
+    err_name_invalid: '⚠️ *Invalid Name*\n\nPlease enter a valid full name (min 2 chars).',
+    err_description_short: '⚠️ *Insufficient Details*\n\nPlease provide more details (min 10 chars) to help us understand the issue.',
+    err_purpose_short: '⚠️ *Purpose Required*\n\nPlease specify the purpose of the visit (min 5 chars).',
+    msg_type_address: '📍 Please type the address:',
+    msg_upload_photo: '📷 Please upload the image/document now:',
+    btn_skip_location: '⏭️ Skip',
     btn_manual_location: '✍️ Type Address',
-    btn_skip_photo: '⏭️ Skip Photo',
-    btn_upload_photo: '📷 Upload Photo',
-    btn_confirm_submit: '✅ Confirm & Submit',
+    btn_skip_photo: '⏭️ Skip',
+    btn_upload_photo: '📤 Upload',
+    btn_confirm_submit: '✅ Submit Grievance',
     btn_cancel: '❌ Cancel',
-    btn_confirm_book: '✅ Confirm & Book',
-    label_placeholder_dept: 'Pending Assignment',
+    btn_confirm_book: '✅ Confirm Booking',
+    label_placeholder_dept: 'General Administration',
     label_priority_low: '🟢 Low',
     label_priority_medium: '🟡 Medium',
     label_priority_high: '🔴 High',
-    label_apt_header: '📋 *Appointment with {dept}*\n\n👤 Please provide your full name:',
-    label_select_date: '📅 *Select Appointment Date*\n\nPlease choose a preferred date for your appointment:',
-    label_select_time: '⏰ *Select Time Slot*\n\nPlease choose a preferred time slot:',
-    // Department names (for dynamic translation)
+    label_apt_header: '📅 *New Appointment*\n\nDepartment: *{dept}*\n\nPlease enter your Full Name:',
+    label_select_date: '🗓️ *Select Date*\n\nChoose a convenient date:',
+    label_select_time: '⏰ *Select Time Slot*\n\nChoose a time for your visit:',
+     // Department names (for dynamic translation)
     'dept_Health Department': 'Health Department',
     'dept_Education Department': 'Education Department',
     'dept_Water Supply Department': 'Water Supply Department',
@@ -110,91 +104,96 @@ const translations = {
     'dept_Revenue Department': 'Revenue Department',
     'dept_Agriculture Department': 'Agriculture Department',
     'dept_Social Welfare Department': 'Social Welfare Department',
-    'desc_Health Department': 'Manages public health services and programs',
-    'desc_Education Department': 'Manages schools and educational programs',
-    'desc_Water Supply Department': 'Responsible for water supply and sanitation',
-    'desc_Public Works Department': 'Manages roads and public construction',
-    'desc_Urban Development Department': 'Manages urban planning and services',
-    'desc_Revenue Department': 'Handles tax collection and financial management',
-    'desc_Agriculture Department': 'Handles farmer welfare and crop management',
-    'desc_Social Welfare Department': 'Handles social security and welfare schemes',
-    appointmentConfirm: '📋 *Review Your Appointment*\n\nPlease review the details before booking:',
-    err_no_record_found: '❌ *Record Not Found*\n\nWe couldn\'t find any active record matching your request.',
-    grievanceCancel: '❌ *Registration Cancelled*\n\nYour grievance registration has been cancelled.',
-    aptCancel: '❌ *Appointment Cancelled*\n\nYour appointment booking has been cancelled.',
-    aptSuccess: '✅ *Appointment Booked Successfully*\n\n*Reference Number:* {id}\n*Department:* {dept}\n*Date:* {date}\n*Time:* {time}\n*Status:* Pending Confirmation\n\nYou will receive updates on your appointment status.\n\nThank you for using our services.',
-    aptError: '❌ *Booking Failed*\n\nWe encountered an error while booking your appointment. Please try again or contact our helpdesk.',
-    nextActionPrompt: '✅ *What would you like to do next?*',
-    msg_apt_enhanced: '📅 Appointment booking flow is being enhanced...',
-    msg_no_dept: '⚠️ *No Departments Available*\n\nNo departments are currently available for appointments.',
-    header_grv_status: 'Grievance Status Details',
-    header_apt_status: 'Appointment Status Details',
-    status_PENDING: '⏳ Pending',
-    status_ASSIGNED: '📋 Assigned',
-    status_IN_PROGRESS: '🔄 In Progress',
-    status_RESOLVED: '✅ Resolved',
-    status_CLOSED: '✔️ Closed',
-    status_CONFIRMED: '✅ Confirmed',
-    status_CANCELLED: '❌ Cancelled',
-    status_COMPLETED: '✔️ Completed',
-    footer_grv_guidance: 'Official Response: Our team is monitoring your case. You will receive an automated update on any progress.',
-    footer_apt_guidance: 'Please arrive 10 minutes prior to your scheduled time with a copy of this message.',
-    err_no_record_guidance: 'We couldn\'t find any active record matching *"{ref}"* associated with your phone number.\n\n_Please verify the reference number or contact support if the issue persists._'
+    'desc_Health Department': 'Hospitals, primary health centers, and medical services',
+    'desc_Education Department': 'Schools, scholarships, and educational schemes',
+    'desc_Water Supply Department': 'Drinking water supply and sanitation projects',
+    'desc_Public Works Department': 'Roads, bridges, and government buildings',
+    'desc_Urban Development Department': 'Town planning and municipal services',
+    'desc_Revenue Department': 'Land records, taxes, and certificates',
+    'desc_Agriculture Department': 'Farming schemes, seeds, and subsidies',
+    'desc_Social Welfare Department': 'Pension schemes and disability support',
+    appointmentConfirm: '📋 *Verify Appointment*\n\nPlease confirm your booking details:',
+    err_no_record_found: '❌ *No Records Found*\n\nWe could not find any record matching that reference number.',
+    grievanceCancel: '🚫 *Cancelled*\n\nThe grievance registration has been cancelled.',
+    aptCancel: '🚫 *Cancelled*\n\nThe appointment booking has been cancelled.',
+    aptSuccess: '✅ *Appointment Confirmed*\n\nYour meeting has been scheduled.\n\n🎫 *Ref No:* `{id}`\n🏢 *Dept:* {dept}\n📅 *Date:* {date}\n⏰ *Time:* {time}\n\nPlease arrive 15 mins early with valid ID.',
+    aptError: '❌ *Booking Failed*\n\nPlease try again later.',
+    nextActionPrompt: '🔄 *Next Step*\n\nWhat would you like to do?',
+    msg_apt_enhanced: 'ℹ️ Appointment system is being upgraded.',
+    msg_no_dept: '⚠️ No departments currently accepting appointments.',
+    header_grv_status: '📄 Grievance Status',
+    header_apt_status: '🗓️ Appointment Status',
+    status_PENDING: 'Pending Review',
+    status_ASSIGNED: 'Assigned to Officer',
+    status_IN_PROGRESS: 'Investigation In Progress',
+    status_RESOLVED: 'Resolved',
+    status_CLOSED: 'Closed',
+    status_CONFIRMED: 'Confirmed',
+    status_CANCELLED: 'Cancelled',
+    status_COMPLETED: 'Completed',
+    footer_grv_guidance: 'For case escalation, please contact the department head.',
+    footer_apt_guidance: 'Carry this digital receipt for entry.',
+    err_no_record_guidance: 'Please double-check the number or contact support.'
   },
   hi: {
-    welcome: '🏛️ *जिला परिषद डिजिटल सेवाओं में आपका स्वागत है*\n\nहम सभी नागरिकों को कुशल और पारदर्शी सरकारी सेवाएं प्रदान करने के लिए प्रतिबद्ध हैं।\n\nकृपया जारी रखने के लिए अपनी पसंदीदा भाषा चुनें:',
-    mainMenu: '📋 *सरकारी सेवा पोर्टल*\n\n*उपलब्ध सेवाएं:*\n\nकृपया वह सेवा चुनें जिसे आप एक्सेस करना चाहते हैं:',
-    grievanceRaise: '📝 *शिकायत पंजीकरण*\n\nहम सभी नागरिक शिकायतों को गंभीरता से लेते हैं और समय पर समाधान सुनिश्चित करते हैं।\n\nआगे बढ़ने के लिए, कृपया निम्नलिखित जानकारी प्रदान करें:',
-    appointmentBook: '📅 *अपॉइंटमेंट बुकिंग*\n\nव्यक्तिगत सेवाओं के लिए सरकारी विभागों के साथ अपॉइंटमेंट निर्धारित करें।\n\nकृपया एक विभाग चुनें:',
-    voiceReceived: '🎤 *वॉइस मैसेज प्राप्त हुआ*\n\nहम आपके वॉइस मैसेज को प्रोसेस कर रहे हैं। कृपया प्रतीक्षा करें...',
-    backToMenu: '↩️ *मुख्य मेनू पर वापस जाएं*',
+    welcome: '🇮🇳 *जिला परिषद अमरावती - आधिकारिक डिजिटल पोर्टल*\n\nनमस्कार! जिला परिषद अमरावती की आधिकारिक व्हाट्सएप सेवा में आपका स्वागत है।\n\nहम सभी नागरिकों को पारदर्शी और कुशल सेवाएं प्रदान करने के लिए प्रतिबद्ध हैं।\n\n👇 *कृपया अपनी पसंदीदा भाषा चुनें:*',
+    serviceUnavailable: '⚠️ *सेवा सूचना*\n\nअनुरोधित सेवा वर्तमान में रखरखाव के अधीन है। असुविधा के लिए हमें खेद है।\n\nकृपया बाद में प्रयास करें या हमारी आधिकारिक वेबसाइट पर जाएं।',
+    mainMenu: '🏛️ *नागरिक सेवा मेनू*\n\nजिला परिषद डिजिटल हेल्पडेस्क में आपका स्वागत है।\n\n👇 *कृपया नीचे दिए गए विकल्पों में से एक सेवा चुनें:*',
+    grievanceRaise: '📝 *शिकायत दर्ज करें*\n\nआप किसी भी विभाग के संबंध में औपचारिक शिकायत दर्ज कर सकते हैं।\n\nशुरू करने के लिए, कृपया मांगी गई जानकारी प्रदान करें।',
+    appointmentBook: '📅 *अधिकारी नियुक्ति (Appointment)*\n\nसरकारी अधिकारियों के साथ बैठक निर्धारित करें।\n\n👇 *विभाग चुनें:*',
+    trackStatus: '🔍 *आवेदन की स्थिति देखें*\n\nअपनी शिकायत या नियुक्ति की स्थिति की जाँच करें।\n\nकृपया अपना *संदर्भ संख्या* दर्ज करें (उदा., GRV... या APT...):',
+    grievanceName: '👤 *नागरिक पहचान*\n\nकृपया अपना *पूरा नाम* दर्ज करें जैसा कि आधिकारिक दस्तावेजों में है:',
+    grievanceCategory: '📂 *श्रेणी चुनें*\n\nअपनी समस्या के लिए उपयुक्त विभाग या श्रेणी चुनें:',
+    grievanceDescription: '✍️ *शिकायत विवरण*\n\nकृपया अपनी समस्या का विस्तृत विवरण लिखें।\n\n_सुझाव: त्वरित समाधान के लिए दिनांक, स्थान और विशिष्ट विवरण शामिल करें।_',
+    grievanceLocation: '📍 *स्थान विवरण*\n\nकृपया इस समस्या से संबंधित स्थान प्रदान करें।\n\n👇 *एक विकल्प चुनें:*',
+    grievancePhoto: '📷 *सहायक साक्ष्य*\n\nअपने दावे के समर्थन में फोटो या दस्तावेज़ अपलोड करें (वैकल्पिक)।\n\n👇 *एक विकल्प चुनें:*',
+    grievancePriority: '⚡ *तात्कालिकता स्तर*\n\nइस समस्या के लिए प्राथमिकता स्तर चुनें:',
+    grievanceConfirm: '📋 *जमा करने की पुष्टि करें*\n\nकृपया अपने विवरण की जाँच करें:\n\n👤 *नाम:* {name}\n🏢 *विभाग:* {category}\n📝 *मुद्दा:* {description}\n\n👇 *क्या यह सही है?*',
+    grievanceSuccess: '✅ *शिकायत सफलतापूर्वक दर्ज की गई*\n\nआपकी शिकायत हमारे सिस्टम में दर्ज कर ली गई है।\n\n🎫 *संदर्भ सं:* `{id}`\n🏢 *विभाग:* {department}\n📅 *दिनांक:* {date}\n\nआपको एसएमएस/व्हाट्सएप के माध्यम से अपडेट प्राप्त होंगे।',
+    grievanceResolvedNotify: '✅ *समाधान अपडेट*\n\nआपकी शिकायत (संदर्भ: `{id}`) का समाधान कर दिया गया है।\n\n📝 *अधिकारी की टिप्पणी:* {remarks}\n\nहमारी सेवाओं को बेहतर बनाने में मदद करने के लिए धन्यवाद।',
+    label_no_remarks: 'प्रोटोकॉल के अनुसार मामला बंद।',
+    grievanceError: '❌ *सिस्टम त्रुटि*\n\nहम इस समय आपके अनुरोध को संसाधित नहीं कर सके। कृपया बाद में पुनः प्रयास करें।',
+    voiceReceived: '🎤 *वॉयस मैसेज प्राप्त हुआ*\n\nहमें आपका वॉयस मैसेज मिला है। बेहतर सहायता के लिए, कृपया अपना संदेश टाइप करें।',
+    backToMenu: '↩️ मुख्य मेनू',
     menu_grievance: '📝 शिकायत दर्ज करें',
     menu_appointment: '📅 अपॉइंटमेंट बुक करें',
     menu_track: '🔍 स्थिति ट्रैक करें',
-    menu_help: 'ℹ️ सहायता और समर्थन',
-    nav_track_another: '🔍 दूसरा ट्रैक करें',
+    menu_help: 'ℹ️ सहायता और संपर्क',
+    nav_track_another: '🔍 दूसरी स्थिति देखें',
     nav_main_menu: '↩️ मुख्य मेनू',
-    trackStatusPortal: '🔍 *डिजिटल सेवा ट्रैकिंग पोर्टल*\n\nअपने अनुरोध की प्रगति की जांच करने के लिए, कृपया अपना संदर्भ नंबर प्रदान करें:\n\n✅ *शिकायत:* उदा., GRV00000001\n🗓️ *अपॉइंटमेंट:* उदा., APT00000001\n\n*निर्देश:*\nबस नीचे कोड टाइप करें या पेस्ट करें। यदि फोन नंबर से खोज रहे हैं, तो हम आपके सबसे हालिया रिकॉर्ड दिखाएंगे।',
+    trackStatusPortal: '🔍 *स्थिति पूछताछ*\n\nवर्तमान स्थिति की जाँच करने के लिए नीचे अपना संदर्भ संख्या दर्ज करें।',
     label_date: '📅 दिनांक',
-    label_ref_no: '🎫 संदर्भ संख्या',
+    label_ref_no: '🎫 संदर्भ सं',
     label_department: '🏢 विभाग',
     label_category: '📂 श्रेणी',
-    label_status: '🏷️ स्थिति',
+    label_status: '📊 स्थिति',
     label_priority: '⚡ प्राथमिकता',
     label_description: '📝 विवरण',
-    label_purpose: '📝 उद्देश्य',
-    label_citizen: '👤 नागरिक',
-    label_time: '🕒 समय',
-    selection_department: '📂 *विभाग चुनें*\n\nकृपया अपने अनुरोध से संबंधित विभाग चुनें:',
-    btn_select_dept: 'विभाग चुनें',
-    err_name_invalid: '⚠️ *अमान्य नाम*\n\nकृपया एक मान्य नाम दर्ज करें (न्यूनतम 2 अक्षर)।',
-    err_description_short: '⚠️ *विवरण बहुत छोटा है*\n\nकृपया विस्तृत विवरण प्रदान करें (न्यूनतम 10 अक्षर)।',
-    err_purpose_short: '⚠️ *उद्देश्य बहुत छोटा है*\n\nकृपया संक्षिप्त उद्देश्य प्रदान करें (न्यूनतम 5 अक्षर)।',
-    msg_type_address: '📍 कृपया अपना पता टाइप करें:',
-    msg_upload_photo: '📷 कृपया अपनी फोटो या दस्तावेज अभी भेजें:',
-    btn_skip_location: '⏭️ स्थान छोड़ें',
+    label_purpose: '🎯 उद्देश्य',
+    label_citizen: '👤 नाम',
+    label_time: '⏰ समय',
+    selection_department: '🏢 *विभाग चयन*\n\nसंबंधित विभाग का चयन करें:',
+    btn_select_dept: 'विभाग देखें',
+    err_name_invalid: '⚠️ *अमान्य नाम*\n\nकृपया एक मान्य पूरा नाम दर्ज करें (न्यूनतम 2 अक्षर)।',
+    err_description_short: '⚠️ *अपर्याप्त विवरण*\n\nकृपया समस्या को समझने में हमारी सहायता के लिए अधिक विवरण (न्यूनतम 10 अक्षर) प्रदान करें।',
+    err_purpose_short: '⚠️ *उद्देश्य आवश्यक*\n\nकृपया यात्रा का उद्देश्य निर्दिष्ट करें (न्यूनतम 5 अक्षर)।',
+    msg_type_address: '📍 कृपया पता टाइप करें:',
+    msg_upload_photo: '📷 कृपया अभी छवि/दस्तावेज़ अपलोड करें:',
+    btn_skip_location: '⏭️ छोड़ें',
     btn_manual_location: '✍️ पता टाइप करें',
-    btn_skip_photo: '⏭️ फोटो छोड़ें',
-    btn_upload_photo: '📷 फोटो अपलोड करें',
-    btn_confirm_submit: '✅ पुष्टि करें और सबमिट करें',
+    btn_skip_photo: '⏭️ छोड़ें',
+    btn_upload_photo: '📤 अपलोड करें',
+    btn_confirm_submit: '✅ शिकायत जमा करें',
     btn_cancel: '❌ रद्द करें',
-    btn_confirm_book: '✅ पुष्टि करें और बुक करें',
-    label_placeholder_dept: 'असाइनमेंट लंबित है',
-    label_priority_low: '🟢 कम',
+    btn_confirm_book: '✅ बुकिंग की पुष्टि करें',
+    label_placeholder_dept: 'सामान्य प्रशासन',
+    label_priority_low: '🟢 निम्न',
     label_priority_medium: '🟡 मध्यम',
     label_priority_high: '🔴 उच्च',
-    label_apt_header: '📋 *{dept} के साथ अपॉइंटमेंट*\n\n👤 कृपया अपना पूरा नाम प्रदान करें:',
-    label_select_date: '📅 *अपॉइंटमेंट की तारीख चुनें*\n\nकृपया अपने अपॉइंटमेंट के लिए पसंदीदा तारीख चुनें:',
-    label_select_time: '⏰ *समय स्लॉट चुनें*\n\nकृपया पसंदीदा समय स्लॉट चुनें:',
-    grievanceName: '👤 *नागरिक जानकारी*\n\nकृपया आधिकारिक दस्तावेजों के अनुसार अपना पूरा नाम प्रदान करें:',
-    grievancePriority: '⚡ *प्राथमिकता स्तर*\n\nकृपया अपनी शिकायत का तत्परता स्तर चुनें:',
-    grievanceDescription: '📝 *शिकायत विवरण*\n\nकृपया अपनी शिकायत का विस्तृत विवरण प्रदान करें:',
-    grievanceLocation: '📍 *स्थान की जानकारी*\n\nकृपया अपनी शिकायत से संबंधित स्थान या पता साझा करें:',
-    grievancePhoto: '📷 *सहायक दस्तावेज*\n\nआप अपनी शिकायत के समर्थन में फोटो या दस्तावेज अपलोड कर सकते हैं:',
-    grievanceConfirm: '📋 *अपनी शिकायत की समीक्षा करें*\n\nकृपया सबमिट करने से पहले विवरण की समीक्षा करें:\n\n*नाम:* {name}\n*श्रेणी:* {category}\n*प्राथमिकता:* {priority}\n*विवरण:* {description}\n\nक्या यह जानकारी सही है?',
-    grievanceSuccess: '✅ *शिकायत सफलतापूर्वक पंजीकृत*\n\n*संदर्भ संख्या:* {id}\n*श्रेणी:* {category}\n*विभाग:* {department}\n*स्थिति:* समीक्षा के अधीन\n\nआपको अपनी शिकायत की स्थिति पर नियमित अपडेट प्राप्त होंगे।',
-    grievanceResolvedNotify: '✅ *शिकायत का समाधान हो गया*\n\nआपकी शिकायत (संदर्भ: {id}) का समाधान कर दिया गया है।\n\n*अधिकारी की टिप्पणी:* {remarks}\n\nआपके धैर्य के लिए धन्यवाद।',
-    label_no_remarks: 'कोई अतिरिक्त टिप्पणी नहीं',
+    label_apt_header: '📅 *नई नियुक्ति*\n\nविभाग: *{dept}*\n\nकृपया अपना पूरा नाम दर्ज करें:',
+    label_select_date: '🗓️ *दिनांक चुनें*\n\nएक सुविधाजनक तारीख चुनें:',
+    label_select_time: '⏰ *समय स्लॉट चुनें*\n\nअपनी यात्रा के लिए एक समय चुनें:',
+
     // Department names in Hindi
     'dept_Health Department': 'स्वास्थ्य विभाग',
     'dept_Education Department': 'शिक्षा विभाग',
@@ -204,97 +203,98 @@ const translations = {
     'dept_Revenue Department': 'राजस्व विभाग',
     'dept_Agriculture Department': 'कृषि विभाग',
     'dept_Social Welfare Department': 'समाज कल्याण विभाग',
-    'desc_Health Department': 'सार्वजनिक स्वास्थ्य सेवाओं और कार्यक्रमों का प्रबंधन करता है',
-    'desc_Education Department': 'स्कूलों और शैक्षिक कार्यक्रमों का प्रबंधन करता है',
-    'desc_Water Supply Department': 'जलापूर्ति और स्वच्छता के लिए जिम्मेदार',
-    'desc_Public Works Department': 'सड़कों और सार्वजनिक निर्माण का प्रबंधन करता है',
-    'desc_Urban Development Department': 'नगर नियोजन और सेवाओं का प्रबंधन करता है',
-    'desc_Revenue Department': 'राजस्व संग्रह और वित्तीय प्रबंधन संभालता है',
-    'desc_Agriculture Department': 'किसान कल्याण और फसल प्रबंधन संभालता है',
-    'desc_Social Welfare Department': 'सामाजिक सुरक्षा और कल्याणकारी योजनाओं को संभालता है',
-    appointmentConfirm: '📋 *अपने अपॉइंटमेंट की समीक्षा करें*\n\nकृपया बुकिंग से पहले विवरण की समीक्षा करें:',
-    err_no_record_found: '❌ *कोई रिकॉर्ड नहीं मिला*\n\nहमें आपके अनुरोध से मेल खाने वाला कोई सक्रिय रिकॉर्ड नहीं मिला।',
-    grievanceCancel: '❌ *पंजीकरण रद्द*\n\nआपका शिकायत पंजीकरण रद्द कर दिया गया है।',
-    aptCancel: '❌ *अपॉइंटमेंट रद्द*\n\nआपकी अपॉइंटमेंट बुकिंग रद्द कर दी गई है।',
-    aptSuccess: '✅ *अपॉइंटमेंट सफलतापूर्वक बुक हो गई*\n\n*संदर्भ संख्या:* {id}\n*विभाग:* {dept}\n*दिनांक:* {date}\n*समय:* {time}\n*स्थिति:* पुष्टि लंबित\n\nआपको अपनी अपॉइंटमेंट की स्थिति पर अपडेट प्राप्त होंगे।\n\nहमारी सेवाओं का उपयोग करने के लिए धन्यवाद।',
-    aptError: '❌ *बुकिंग विफल*\n\nआपकी अपॉइंटमेंट बुक करते समय हमें एक त्रुटि का सामना करना पड़ा। कृपया पुनः प्रयास करें या हमारे हेल्पडेस्क से संपर्क करें।',
-    nextActionPrompt: '✅ *आप आगे क्या करना चाहेंगे?*',
-    msg_apt_enhanced: '📅 अपॉइंटमेंट बुकिंग प्रक्रिया को बेहतर बनाया जा रहा है...',
-    msg_no_dept: '⚠️ *कोई विभाग उपलब्ध नहीं*\n\nअपॉइंटमेंट के लिए वर्तमान में कोई विभाग उपलब्ध नहीं हैं।',
-    header_grv_status: 'शिकायत स्थिति विवरण',
-    header_apt_status: 'अपॉइंटमेंट स्थिति विवरण',
-    status_PENDING: '⏳ लंबित',
-    status_ASSIGNED: '📋 असाइन किया गया',
-    status_IN_PROGRESS: '🔄 प्रगति पर',
-    status_RESOLVED: '✅ हल किया गया',
-    status_CLOSED: '✔️ बंद',
-    status_CONFIRMED: '✅ पुष्ट',
-    status_CANCELLED: '❌ रद्द',
-    status_COMPLETED: '✔️ पूरा हुआ',
-    footer_grv_guidance: 'आधिकारिक प्रतिक्रिया: हमारी टीम आपके मामले की निगरानी कर रही है। आप किसी भी प्रगति पर स्वचालित अपडेट प्राप्त करेंगे।',
-    footer_apt_guidance: 'कृपया इस संदेश की एक प्रति के साथ अपने निर्धारित समय से 10 मिनट पहले पहुंचें।',
-    err_no_record_guidance: 'हमें आपके फ़ोन नंबर से जुड़े *"{ref}"* से मेल खाने वाला कोई सक्रिय रिकॉर्ड नहीं मिला।\n\n_कृपया संदर्भ संख्या सत्यापित करें या समस्या बनी रहने पर सहायता से संपर्क करें।_'
+    'desc_Health Department': 'अस्पताल, प्राथमिक स्वास्थ्य केंद्र और चिकित्सा सेवाएं',
+    'desc_Education Department': 'स्कूल, छात्रवृत्ति और शैक्षिक योजनाएं',
+    'desc_Water Supply Department': 'पेयजल आपूर्ति और स्वच्छता परियोजनाएं',
+    'desc_Public Works Department': 'सड़कें, पुल और सरकारी इमारतें',
+    'desc_Urban Development Department': 'नगर नियोजन और नगरपालिका सेवाएं',
+    'desc_Revenue Department': 'भूमि रिकॉर्ड, कर और प्रमाण पत्र',
+    'desc_Agriculture Department': 'खेती योजनाएं, बीज और सब्सिडी',
+    'desc_Social Welfare Department': 'पेंशन योजनाएं और विकलांगता सहायता',
+    appointmentConfirm: '📋 *नियुक्ति की पुष्टि करें*\n\nकृपया अपने बुकिंग विवरण की पुष्टि करें:',
+    err_no_record_found: '❌ *कोई रिकॉर्ड नहीं मिला*\n\nहमें उस संदर्भ संख्या से मेल खाने वाला कोई रिकॉर्ड नहीं मिला।',
+    grievanceCancel: '🚫 *रद्द किया गया*\n\nशिकायत पंजीकरण रद्द कर दिया गया है।',
+    aptCancel: '🚫 *रद्द किया गया*\n\nनियुक्ति बुकिंग रद्द कर दी गई है।',
+    aptSuccess: '✅ *नियुक्ति की पुष्टि हुई*\n\nआपकी बैठक निर्धारित कर दी गई है।\n\n🎫 *संदर्भ सं:* `{id}`\n🏢 *विभाग:* {dept}\n📅 *दिनांक:* {date}\n⏰ *समय:* {time}\n\nकृपया मान्य आईडी के साथ 15 मिनट पहले पहुंचें।',
+    aptError: '❌ *बुकिंग विफल*\n\nकृपया बाद में पुनः प्रयास करें।',
+    nextActionPrompt: '🔄 *अगला कदम*\n\nआप क्या करना चाहेंगे?',
+    msg_apt_enhanced: 'ℹ️ नियुक्ति प्रणाली को अपग्रेड किया जा रहा है।',
+    msg_no_dept: '⚠️ कोई भी विभाग वर्तमान में नियुक्तियाँ स्वीकार नहीं कर रहा है।',
+    header_grv_status: '📄 शिकायत स्थिति',
+    header_apt_status: '🗓️ नियुक्ति स्थिति',
+    status_PENDING: 'समीक्षा लंबित',
+    status_ASSIGNED: 'अधिकारी को सौंपा गया',
+    status_IN_PROGRESS: 'जांच जारी है',
+    status_RESOLVED: 'हल किया गया',
+    status_CLOSED: 'बंद',
+    status_CONFIRMED: 'पुष्टि की गई',
+    status_CANCELLED: 'रद्द',
+    status_COMPLETED: 'पूर्ण',
+    footer_grv_guidance: 'मामले को आगे बढ़ाने के लिए, कृपया विभागाध्यक्ष से संपर्क करें।',
+    footer_apt_guidance: 'प्रवेश के लिए यह डिजिटल रसीद साथ रखें।',
+    err_no_record_guidance: 'कृपया संख्या की दोबारा जाँच करें या सहायता से संपर्क करें।',
+    help: 'ℹ️ *हेल्पडेस्क और समर्थन*\n\nअधिक सहायता के लिए:\n📞 *हेल्पलाइन:* 1800-123-4567\n🌐 *वेबसाइट:* zpamravati.gov.in\n📍 *कार्यालय:* जिला परिषद भवन, अमरावती\n\n_कार्यालय समय: सुबह 10:00 - शाम 6:00 (सोम-शनि)_',
+    invalidOption: '⚠️ *अमान्य इनपुट*\n\nकृपया दिए गए बटनों में से एक वैध विकल्प चुनें।',
+    sessionExpired: '⏳ *सत्र समाप्त*\n\nआपका सत्र समाप्त हो गया है। कृपया फिर से शुरू करने के लिए "Hi" टाइप करें।'
   },
   mr: {
-    welcome: '🏛️ *जिल्हा परिषद डिजिटल सेवांमध्ये आपले स्वागत आहे*\n\nआम्ही सर्व नागरिकांना कार्यक्षम आणि पारदर्शक सरकारी सेवा प्रदान करण्यासाठी वचनबद्ध आहोत।\n\nपुढील सेवांसाठी कृपया आपली पसंतीची भाषा निवडा:',
-    serviceUnavailable: '⚠️ *सेवा तात्पुरती अनुपलब्ध*\n\nआम्ही गैरसोयीबद्दल दिलगीर आहोत. आमच्या सेवा सध्या देखभालीखाली आहेत. कृपया नंतर पुन्हा प्रयत्न करा किंवा आमच्या हेल्पडेस्कशी संपर्क साधा.\n\nतुमच्या संयमाबद्दल धन्यवाद.',
-    mainMenu: '📋 *सरकारी सेवा पोर्टल*\n\n*उपलब्ध सेवा:*\n\nकृपया आपण प्रवेश करू इच्छित सेवा निवडा:',
-    grievanceRaise: '📝 *तक्रार नोंदणी*\n\nआम्ही सर्व नागरिक तक्रारींना गंभीरपणे घेतो आणि वेळेवर निराकरण सुनिश्चित करतो।\n\nपुढील प्रक्रियेसाठी कृपया खालील माहिती प्रदान करा:',
-    appointmentBook: '📅 *अपॉइंटमेंट बुकिंग*\n\nप्रत्यक्ष सेवांसाठी सरकारी विभागांकडे अपॉइंटमेंट निश्चित करा.\n\nकृपया एक विभाग निवडा:',
-    trackStatus: '🔍 *स्थिती ट्रॅकिंग*\n\nतुमच्या नोंदणीकृत तक्रारी किंवा अपॉइंटमेंटची स्थिती ट्रॅक करा.\n\nकृपया आपला संदर्भ क्रमांक प्रविष्ट करा:',
-    voiceReceived: '🎤 *व्हॉइस मेसेज प्राप्त झाले*\n\nआम्ही आपला व्हॉइस मेसेज प्रक्रिया करत आहोत. कृपया प्रतीक्षा करा...',
-    backToMenu: '↩️ *मुख्य मेनूवर परत जा*',
+    welcome: '🇮🇳 *जिल्हा परिषद अमरावती - अधिकृत डिजिटल पोर्टल*\n\nनमस्कार! जिल्हा परिषद अमरावतीच्या अधिकृत व्हॉट्सॲप सेवेमध्ये आपले स्वागत आहे.\n\nआम्ही सर्व नागरिकांना पारदर्शक आणि कार्यक्षम सेवा देण्यासाठी कटिबद्ध आहोत.\n\n👇 *कृपया आपली पसंतीची भाषा निवडा:*',
+    serviceUnavailable: '⚠️ *सेवा सूचना*\n\nविनंती केलेली सेवा सध्या देखभालीखाली आहे. गैरसोयीबद्दल क्षमस्व.\n\nकृपया नंतर प्रयत्न करा किंवा आमच्या अधिकृत वेबसाइटला भेट द्या.',
+    mainMenu: '🏛️ *नागरिक सेवा मेनू*\n\nजिल्हा परिषद डिजिटल हेल्पडेस्कमध्ये आपले स्वागत आहे.\n\n👇 *कृपया खालील पर्यायांमधून सेवा निवडा:*',
+    grievanceRaise: '📝 *तक्रार नोंदवा*\n\nआपण कोणत्याही विभागाशी संबंधित अधिकृत तक्रार नोंदवू शकता.\n\nसुरू करण्यासाठी, कृपया विचारलेली माहिती द्या.',
+    appointmentBook: '📅 *अधिकारी भेट (Appointment)*\n\nसरकारी अधिकाऱ्यांशी भेट निश्चित करा.\n\n👇 *विभाग निवडा:*',
+    trackStatus: '🔍 *अर्जाची स्थिती तपासा*\n\nतुमच्या तक्रारीची किंवा भेटीची स्थिती तपासा.\n\nकृपया तुमचा *संदर्भ क्रमांक* प्रविष्ट करा (उदा., GRV... किंवा APT...):',
+    grievanceName: '👤 *नागरिकाची ओळख*\n\nकृपया अधिकृत कागदपत्रांवर असल्याप्रमाणे तुमचे *पूर्ण नाव* प्रविष्ट करा:',
+    grievanceCategory: '📂 *श्रेणी निवडा*\n\nतुमच्या समस्येसाठी योग्य विभाग किंवा श्रेणी निवडा:',
+    grievanceDescription: '✍️ *तक्रार तपशील*\n\nकृपया तुमच्या समस्येचे सविस्तर वर्णन करा.\n\n_टीप: जलद निराकरणासाठी दिनांक, ठिकाण आणि विशिष्ट तपशील समाविष्ट करा._',
+    grievanceLocation: '📍 *स्थान तपशील*\n\nकृपया या समस्येशी संबंधित स्थान द्या.\n\n👇 *एक पर्याय निवडा:*',
+    grievancePhoto: '📷 *पुरावा दस्तऐवज*\n\nतुमच्या दाव्याच्या समर्थनार्थ फोटो किंवा दस्तऐवज अपलोड करा (वैकल्पिक).\n\n👇 *एक पर्याय निवडा:*',
+    grievancePriority: '⚡ *निकडीची पातळी*\n\nया समस्येसाठी प्राधान्य स्तर निवडा:',
+    grievanceConfirm: '📋 *सबमिशनची पुष्टी करा*\n\nकृपया तुमचे तपशील तपासा:\n\n👤 *नाव:* {name}\n🏢 *विभाग:* {category}\n📝 *समस्या:* {description}\n\n👇 *हे बरोबर आहे का?*',
+    grievanceSuccess: '✅ *तक्रार यशस्वीरित्या नोंदवली गेली*\n\nतुमची तक्रार आमच्या सिस्टममध्ये लॉग केली गेली आहे.\n\n🎫 *संदर्भ क्र:* `{id}`\n🏢 *विभाग:* {department}\n📅 *दिनांक:* {date}\n\nतुम्हाला एसएमएस/व्हॉट्सॲपद्वारे अपडेट्स मिळतील.',
+    grievanceResolvedNotify: '✅ *निराकरण अपडेट*\n\nतुमच्या तक्रारीचे (संदर्भ: `{id}`) निराकरण झाले आहे.\n\n📝 *अधिकारी शेरा:* {remarks}\n\nआमच्या सेवा सुधारण्यास मदत केल्याबद्दल धन्यवाद.',
+    label_no_remarks: 'प्रोटोकॉलनुसार प्रकरण बंद.',
+    grievanceError: '❌ *सिस्टम त्रुटी*\n\nआम्ही यावेळी तुमच्या विनंतीवर प्रक्रिया करू शकलो नाही. कृपया नंतर पुन्हा प्रयत्न करा.',
+    voiceReceived: '🎤 *व्हॉइस मेसेज प्राप्त झाला*\n\nआम्हाला तुमचा व्हॉइस मेसेज मिळाला आहे. चांगल्या मदतीसाठी, कृपया तुमचा संदेश टाइप करा.',
+    backToMenu: '↩️ मुख्य मेनू',
     menu_grievance: '📝 तक्रार नोंदवा',
     menu_appointment: '📅 अपॉइंटमेंट बुक करा',
     menu_track: '🔍 स्थिती ट्रॅक करा',
-    menu_help: 'ℹ️ मदत आणि समर्थन',
-    nav_track_another: '🔍 दुसरे ट्रॅक करा',
+    menu_help: 'ℹ️ मदत आणि संपर्क',
+    nav_track_another: '🔍 दुसरी स्थिती पहा',
     nav_main_menu: '↩️ मुख्य मेनू',
-    trackStatusPortal: '🔍 *डिजिटल सेवा ट्रॅकिंग पोर्टल*\n\nतुमच्या विनंतीच्या प्रगतीची तपासणी करण्यासाठी, कृपया आपला संदर्भ क्रमांक प्रविष्ट करा:\n\n✅ *तक्रार:* उदा., GRV00000001\n🗓️ *अपॉइंटमेंट:* उदा., APT00000001\n\n*सूचना:*\nखाली फक्त कोड टाइप करा किंवा पेस्ट करा. फोन नंबरवरून शोधत असल्यास, आम्ही तुमची सर्वात अलीकडील नोंद दाखवू।',
+    trackStatusPortal: '🔍 *स्थिती चौकशी*\n\nसध्याची स्थिती तपासण्यासाठी खाली आपला संदर्भ क्रमांक प्रविष्ट करा.',
     label_date: '📅 दिनांक',
-    label_ref_no: '🎫 संदर्भ क्रमांक',
+    label_ref_no: '🎫 संदर्भ क्र',
     label_department: '🏢 विभाग',
-    label_category: '📂 प्रवर्ग',
-    label_status: '🏷️ स्थिती',
-    label_priority: '⚡ प्राथमिकता',
-    label_description: '📝 वर्णन',
-    label_purpose: '📝 उद्देश',
-    label_citizen: '👤 नागरिक',
-    label_time: '🕒 वेळ',
-    selection_department: '📂 *विभाग निवडा*\n\nकृपया आपल्या विनंतीशी संबंधित विभाग निवडा:',
-    btn_select_dept: 'विभाग निवडा',
-    err_name_invalid: '⚠️ *अवैध नाव*\n\nकृपया वैध नाव प्रविष्ट करा (किमान २ अक्षरे).',
-    err_description_short: '⚠️ *वर्णन खूप लहान आहे*\n\nकृपया तपशीलवार वर्णन प्रदान करा (किमान १० अक्षरे).',
-    err_purpose_short: '⚠️ *उद्देश खूप लहान आहे*\n\nकृपया थोडक्यात उद्देश प्रदान करा (किमान ५ अक्षरे).',
-    msg_type_address: '📍 कृपया आपला पत्ता टाइप करा:',
-    msg_upload_photo: '📷 कृपया आपला फोटो किंवा दस्तऐवज आता पाठवा:',
-    btn_skip_location: '⏭️ स्थान वगळा',
+    label_category: '📂 श्रेणी',
+    label_status: '📊 स्थिती',
+    label_priority: '⚡ प्राधान्य',
+    label_description: '📝 तपशील',
+    label_purpose: '🎯 उद्देश',
+    label_citizen: '👤 नाव',
+    label_time: '⏰ वेळ',
+    selection_department: '🏢 *विभाग निवड*\n\nसंबंधित विभाग निवडा:',
+    btn_select_dept: 'विभाग पहा',
+    err_name_invalid: '⚠️ *अवैध नाव*\n\nकृपया वैध पूर्ण नाव प्रविष्ट करा (किमान २ अक्षरे).',
+    err_description_short: '⚠️ *अपुरा तपशील*\n\nकृपया समस्या समजून घेण्यात आम्हाला मदत करण्यासाठी अधिक तपशील (किमान १० अक्षरे) द्या.',
+    err_purpose_short: '⚠️ *उद्देश आवश्यक*\n\nकृपया भेटीचा उद्देश नमूद करा (किमान ५ अक्षरे).',
+    msg_type_address: '📍 कृपया पत्ता टाइप करा:',
+    msg_upload_photo: '📷 कृपया आता प्रतिमा/दस्तऐवज अपलोड करा:',
+    btn_skip_location: '⏭️ वगळा',
     btn_manual_location: '✍️ पत्ता टाइप करा',
-    btn_skip_photo: '⏭️ फोटो वगळा',
-    btn_upload_photo: '📷 फोटो अपलोड करा',
-    btn_confirm_submit: '✅ पुष्टी करा आणि सबमिट करा',
+    btn_skip_photo: '⏭️ वगळा',
+    btn_upload_photo: '📤 अपलोड करा',
+    btn_confirm_submit: '✅ तक्रार जमा करा',
     btn_cancel: '❌ रद्द करा',
-    btn_confirm_book: '✅ पुष्टी करा आणि बुक करा',
-    label_placeholder_dept: 'नेमणूक प्रलंबित आहे',
+    btn_confirm_book: '✅ बुकिंगची पुष्टी करा',
+    label_placeholder_dept: 'सामान्य प्रशासन',
     label_priority_low: '🟢 कमी',
     label_priority_medium: '🟡 मध्यम',
     label_priority_high: '🔴 उच्च',
-    label_apt_header: '📋 *{dept} सोबत अपॉइंटमेंट*\n\n👤 कृपया आपले पूर्ण नाव द्या:',
-    label_select_date: '📅 *अपॉइंटमेंटची तारीख निवडा*\n\nकृपया आपल्या अपॉइंटमेंटसाठी पसंतीची तारीख निवडा:',
-    label_select_time: '⏰ *वेळ स्लॉट निवडा*\n\nकृपया पसंतीचा वेळ स्लॉट निवडा:',
-    grievanceName: '👤 *नागरिक माहिती*\n\nकृपया अधिकृत कागदपत्रांनुसार आपले पूर्ण नाव द्या:',
-    grievancePriority: '⚡ *प्राधान्य स्तर*\n\nपुढीलपैकी तुमच्या तक्रारीचा निकडीचा स्तर निवडा:',
-    grievanceDescription: '📝 *तक्रार तपशील*\n\nकृपया आपल्या तक्रारीचे तपशीलवार वर्णन द्या:',
-    grievanceLocation: '📍 *स्थान माहिती*\n\nकृपया आपल्या तक्रारीशी संबंधित स्थान किंवा पत्ता शेअर करा:',
-    grievancePhoto: '📷 *सहायक दस्तऐवज*\n\nतुम्ही तुमच्या तक्रारीच्या समर्थनासाठी फोटो किंवा दस्तऐवज अपलोड करू शकता:',
-    grievanceConfirm: '📋 *आपल्या तक्रारीचे पुनरावलोकन करा*\n\nकृपया सबमिट करण्यापूर्वी तपशीलांचे पुनरावलोकन करा:\n\n*नाव:* {name}\n*प्रवर्ग:* {category}\n*प्राधान्य:* {priority}\n*वर्णन:* {description}\n\nही माहिती बरोबर आहे का?',
-    grievanceSuccess: '✅ *तक्रार यशस्वीरित्या नोंदवली*\n\n*संदर्भ क्रमांक:* {id}\n*प्रवर्ग:* {category}\n*विभाग:* {department}\n*स्थिती:* पुनरावलोकन सुरू\n\nआपल्याला आपल्या तक्रारीच्या स्थितीवर नियमित अपडेट्स मिळतील।',
-    grievanceResolvedNotify: '✅ *तक्रारीचे निवारण झाले*\n\nतुमच्या तक्रारीचे (संदर्भ: {id}) यशस्वीरित्या निवारण झाले आहे.\n\n*अधिकारी अभिप्राय:* {remarks}\n\nतुमच्या संयमाबद्दल धन्यवाद।',
-    label_no_remarks: 'कोणताही अतिरिक्त अभिप्राय नाही',
-    grievanceError: '❌ *नोंदणी अयशस्वी*\n\nतुमची तक्रार प्रक्रिया करताना आम्हाला त्रुटी आली. कृपया पुन्हा प्रयत्न करा किंवा आमच्या हेल्पडेस्कशी संपर्क साधा।',
-    help: 'ℹ️ *मदत आणि समर्थन*\n\nमदतीसाठी, कृपया:\n• आमच्या हेल्पडेस्कशी संपर्क साधा\n• आमच्या कार्यालयाला भेट द्या\n• आमची वेबसाइट तपासा\n\n*कार्यालयीन वेळ:* सकाळी ९:०० - संध्याकाळी ६:००\n*कामाचे दिवस:* सोमवार ते शनिवार',
-    invalidOption: '❌ *अवैध निवड*\n\nकृपया दिलेल्या बटणांचा वापर करून उपलब्ध पर्यायांपैकी निवडा।',
-    sessionExpired: '⏰ *सत्र संपले*\n\nनिष्क्रियतेमुळे तुमचे सत्र संपले आहे. कृपया "HI" किंवा "START" पाठवून पुन्हा सुरुवात करा।',
+    label_apt_header: '📅 *नवीन अपॉइंटमेंट*\n\nविभाग: *{dept}*\n\nकृपया तुमचे पूर्ण नाव प्रविष्ट करा:',
+    label_select_date: '🗓️ *दिनांक निवडा*\n\nसोयीस्कर तारीख निवडा:',
+    label_select_time: '⏰ *वेळ स्लॉट निवडा*\n\nतुमच्या भेटीसाठी वेळ निवडा:',
     // Department names in Marathi
     'dept_Health Department': 'आरोग्य विभाग',
     'dept_Education Department': 'शिक्षण विभाग',
@@ -304,36 +304,39 @@ const translations = {
     'dept_Revenue Department': 'महसूल विभाग',
     'dept_Agriculture Department': 'कृषी विभाग',
     'dept_Social Welfare Department': 'समाज कल्याण विभाग',
-    'desc_Health Department': 'सार्वजनिक आरोग्य सेवा आणि कार्यक्रमांचे व्यवस्थापन करते',
-    'desc_Education Department': 'शाळा आणि शैक्षणिक कार्यक्रमांचे व्यवस्थापन करते',
-    'desc_Water Supply Department': 'पाणी पुरवठा आणि स्वच्छतेसाठी जबाबदार',
-    'desc_Public Works Department': 'रस्ते आणि सार्वजनिक बांधकामांचे व्यवस्थापन करते',
-    'desc_Urban Development Department': 'नगररचना आणि सेवांचे व्यवस्थापन करते',
-    'desc_Revenue Department': 'महसूल संकलन आणि आर्थिक व्यवस्थापन हाताळते',
-    'desc_Agriculture Department': 'शेतकरी कल्याण आणि पीक व्यवस्थापन हाताळते',
-    'desc_Social Welfare Department': 'सामाजिक सुरक्षा आणि कल्याणकारी योजना हाताळते',
-    appointmentConfirm: '📋 *तुमच्या अपॉइंटमेंटचे पुनरावलोकन करा*\n\nकृपया बुकिंग करण्यापूर्वी तपशीलांचे पुनरावलोकन करा:',
-    err_no_record_found: '❌ *कोणताही रेकॉर्ड सापडला नाही*\n\nआम्हाला तुमच्या विनंतीशी जुळणारा कोणताही सक्रिय रेकॉर्ड सापडला नाही।',
-    grievanceCancel: '❌ *नोंदणी रद्द केली*\n\nतुमची तक्रार नोंदणी रद्द करण्यात आली आहे.',
-    aptCancel: '❌ *अपॉइंटमेंट रद्द केली*\n\nतुमची अपॉइंटमेंट बुकिंग रद्द करण्यात आली आहे.',
-    aptSuccess: '✅ *अपॉइंटमेंट यशस्वीरित्या बुक झाली*\n\n*संदर्भ क्रमांक:* {id}\n*विभाग:* {dept}\n*दिनांक:* {date}\n*वेळ:* {time}\n*स्थिती:* पुष्टी प्रलंबित\n\nतुम्हाला तुमच्या अपॉइंटमेंटच्या स्थितीबद्दल अपडेट्स मिळतील।\n\nआमच्या सेवा वापरल्याबद्दल धन्यवाद।',
-    aptError: '❌ *बुकिंग अयशस्वी*\n\nतुमची अपॉइंटमेंट बुक करताना आम्हाला त्रुटी आली. कृपया पुन्हा प्रयत्न करा किंवा आमच्या हेल्पडेस्कशी संपर्क साधा।',
-    nextActionPrompt: '✅ *तुम्हाला पुढे काय करायला आवडेल?*',
-    msg_apt_enhanced: '📅 अपॉइंटमेंट बुकिंग प्रक्रिया सुधारली जात आहे...',
-    msg_no_dept: '⚠️ *कोणतेही विभाग उपलब्ध नाहीत*\n\nसध्या अपॉइंटमेंटसाठी कोणतेही विभाग उपलब्ध नाहीत.',
-    header_grv_status: 'तक्रार स्थिती तपशील',
-    header_apt_status: 'अपॉइंटमेंट स्थिती तपशील',
-    status_PENDING: '⏳ प्रलंबित',
-    status_ASSIGNED: '📋 नियुक्त केलेले',
-    status_IN_PROGRESS: '🔄 प्रगतीपथावर',
-    status_RESOLVED: '✅ निवारण झाले',
-    status_CLOSED: '✔️ बंद',
-    status_CONFIRMED: '✅ पुष्टी केली',
-    status_CANCELLED: '❌ रद्द केले',
-    status_COMPLETED: '✔️ पूर्ण झाले',
-    footer_grv_guidance: 'अधिकृत प्रतिसाद: आमची टीम तुमच्या प्रकरणावर लक्ष ठेवून आहे. तुम्हाला कोणत्याही प्रगतीबद्दल स्वयंचलित अपडेट मिळेल।',
-    footer_apt_guidance: 'कृपया या संदेशाच्या प्रतीसह तुमच्या नियोजित वेळेच्या १० मिनिटे आधी पोहोचा।',
-    err_no_record_guidance: 'आम्हाला तुमच्या फोन नंबरशी संबंधित *"{ref}"* शी जुळणारा कोणताही सक्रिय रेकॉर्ड सापडला नाही।\n\n_कृपया संदर्भ क्रमांकाची पडताळणी करा किंवा समस्या कायम राहिल्यास समर्थनाशी संपर्क साधा।_'
+    'desc_Health Department': 'रुग्णालये, प्राथमिक आरोग्य केंद्रे आणि वैद्यकीय सेवा',
+    'desc_Education Department': 'शाळा, शिष्यवृत्ती आणि शैक्षणिक योजना',
+    'desc_Water Supply Department': 'पिण्याचे पाणी पुरवठा आणि स्वच्छता प्रकल्प',
+    'desc_Public Works Department': 'रस्ते, पूल आणि सरकारी इमारती',
+    'desc_Urban Development Department': 'नगर नियोजन आणि नगरपालिका सेवा',
+    'desc_Revenue Department': 'जमीन रेकॉर्ड, कर आणि प्रमाणपत्रे',
+    'desc_Agriculture Department': 'शेती योजना, बियाणे आणि सबसिडी',
+    'desc_Social Welfare Department': 'पेन्शन योजना आणि अपंगत्व सहाय्य',
+    appointmentConfirm: '📋 *अपॉइंटमेंटची पुष्टी करा*\n\nकृपया तुमच्या बुकिंग तपशीलाची पुष्टी करा:',
+    err_no_record_found: '❌ *कोणताही रेकॉर्ड सापडला नाही*\n\nआम्हाला त्या संदर्भ क्रमांकाशी जुळणारा कोणताही रेकॉर्ड सापडला नाही.',
+    grievanceCancel: '🚫 *रद्द केले*\n\nतक्रार नोंदणी रद्द केली आहे.',
+    aptCancel: '🚫 *रद्द केले*\n\nअपॉइंटमेंट बुकिंग रद्द केली आहे.',
+    aptSuccess: '✅ *अपॉइंटमेंट पुष्टी झाली*\n\nतुमची बैठक निश्चित केली आहे.\n\n🎫 *संदर्भ क्र:* `{id}`\n🏢 *विभाग:* {dept}\n📅 *दिनांक:* {date}\n⏰ *वेळ:* {time}\n\nकृपया वैध आयडीसह १५ मिनिटे लवकर पोहोचा.',
+    aptError: '❌ *बुकिंग अयशस्वी*\n\nकृपया नंतर पुन्हा प्रयत्न करा.',
+    nextActionPrompt: '🔄 *पुढील स्टेप*\n\nतुम्ही काय करू इच्छिता?',
+    msg_apt_enhanced: 'ℹ️ अपॉइंटमेंट सिस्टम अपग्रेड केली जात आहे.',
+    msg_no_dept: '⚠️ सध्या कोणताही विभाग अपॉइंटमेंट स्वीकारत नाही.',
+    header_grv_status: '📄 तक्रार स्थिती',
+    header_apt_status: '🗓️ अपॉइंटमेंट स्थिती',
+    status_PENDING: 'पुनरावलोकन प्रलंबित',
+    status_ASSIGNED: 'अधिकाऱ्याकडे सोपवले',
+    status_IN_PROGRESS: 'तपास सुरू आहे',
+    status_RESOLVED: 'निराकरण झाले',
+    status_CLOSED: 'बंद',
+    status_CONFIRMED: 'पुष्टी केली',
+    status_CANCELLED: 'रद्द',
+    status_COMPLETED: 'पूर्ण',
+    footer_grv_guidance: 'प्रकरण पुढे नेण्यासाठी, कृपया विभाग प्रमुखांशी संपर्क साधा.',
+    footer_apt_guidance: 'प्रवेशासाठी ही डिजिटल पावती सोबत ठेवा.',
+    err_no_record_guidance: 'कृपया नंबर पुन्हा तपासा किंवा मदतीसाठी संपर्क साधा.',
+    help: 'ℹ️ *हेल्पडेस्क आणि समर्थन*\n\nअधिक मदतीसाठी:\n📞 *हेल्पलाइन:* 1800-123-4567\n🌐 *वेबसाइट:* zpamravati.gov.in\n📍 *कचेरी:* जिल्हा परिषद भवन, अमरावती\n\n_कार्यालय वेळ: सकाळी १०:०० - संध्याकाळी ६:०० (सोम-शनि)_',
+    invalidOption: '⚠️ *अवैध इनपुट*\n\nकृपया दिलेल्या बटणांमधून वैध पर्याय निवडा.',
+    sessionExpired: '⏳ *सत्र समाप्त*\n\nतुमचे सत्र समाप्त झाले आहे. कृपया पुन्हा सुरू करण्यासाठी "Hi" टाइप करा.'
   }
 };
 
@@ -391,6 +394,24 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
   if (!company) {
     console.error('❌ Company not found:', companyId);
     return;
+  }
+
+  // FORCE: Use the phone number ID that received the message
+  if (metadata?.phone_number_id) {
+    console.log(`🔌 Overriding Phone Number ID from metadata: ${metadata.phone_number_id}`);
+    
+    // Create whatsappConfig if it doesn't exist (cast to any to allow loose typing)
+    if (!company.whatsappConfig) {
+      company.whatsappConfig = {
+        accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || ''
+      } as any;
+    }
+    
+    // Override phoneNumberId
+    if (company.whatsappConfig) {
+      company.whatsappConfig.phoneNumberId = metadata.phone_number_id as string;
+    }
   }
 
   console.log('✅ Company found:', { name: company.name, _id: company._id, companyId: company.companyId });
@@ -735,39 +756,12 @@ async function continueGrievanceFlow(
         console.log('⚠️ Department not found, using fallback');
       }
       
-      // Priority selection commented out - set default priority
-      session.data.priority = 'MEDIUM';
-      
-      /* Priority selection removed
-      // Show priority selection with buttons
-      await sendWhatsAppButtons(
-        company,
-        message.from,
-        getTranslation('grievancePriority', session.language),
-        [
-          { id: 'priority_low', title: getTranslation('label_priority_low', session.language) },
-          { id: 'priority_medium', title: getTranslation('label_priority_medium', session.language) },
-          { id: 'priority_high', title: getTranslation('label_priority_high', session.language) }
-        ]
-      );
-      
-      session.step = 'grievance_priority';
-      await updateSession(session);
-      break;
 
-    case 'grievance_priority':
-      let priority = 'MEDIUM';
-      if (userInput.includes('low') || buttonId === 'priority_low') {
-        priority = 'LOW';
-      } else if (userInput.includes('high') || buttonId === 'priority_high') {
-        priority = 'HIGH';
-      } else if (userInput.includes('urgent')) {
-        priority = 'URGENT';
-      }
-      session.data.priority = priority;
-      */
       
-      // Skip priority and go directly to description
+      // Priority set to medium by default
+      session.data.priority = 'MEDIUM';
+
+      // Go directly to description
       await sendWhatsAppMessage(
         company,
         message.from,
@@ -776,8 +770,6 @@ async function continueGrievanceFlow(
       session.step = 'grievance_description';
       await updateSession(session);
       break;
-
-    /* Priority case commented out - see above */
 
     case 'grievance_description':
       if (!userInput || userInput.length < 10) {
@@ -790,21 +782,7 @@ async function continueGrievanceFlow(
       }
       session.data.description = userInput;
       
-      // Location step commented out - skip directly to photo
-      /* 
-      await sendWhatsAppButtons(
-        company,
-        message.from,
-        getTranslation('grievanceLocation', session.language),
-        [
-          { id: 'location_skip', title: getTranslation('btn_skip_location', session.language) },
-          { id: 'location_manual', title: getTranslation('btn_manual_location', session.language) }
-        ]
-      );
-      
-      session.step = 'grievance_location';
-      await updateSession(session);
-      */
+
       
       // Skip location and go directly to photo
       await sendWhatsAppButtons(
@@ -821,52 +799,7 @@ async function continueGrievanceFlow(
       await updateSession(session);
       break;
 
-    /* Location handling commented out
-    case 'grievance_location':
-      if (buttonId === 'location_skip' || userInput === 'skip') {
-        session.data.address = undefined;
-      } else if (buttonId === 'location_manual') {
-        await sendWhatsAppMessage(
-          company,
-          message.from,
-          getTranslation('msg_type_address', session.language)
-        );
-        session.step = 'grievance_location_input';
-        await updateSession(session);
-        return;
-      } else {
-        session.data.address = userInput;
-      }
-      
-      await sendWhatsAppButtons(
-        company,
-        message.from,
-        getTranslation('grievancePhoto', session.language),
-        [
-          { id: 'photo_skip', title: getTranslation('btn_skip_photo', session.language) },
-          { id: 'photo_upload', title: getTranslation('btn_upload_photo', session.language) }
-        ]
-      );
-      
-      session.step = 'grievance_photo';
-      await updateSession(session);
-      break;
 
-    case 'grievance_location_input':
-      session.data.address = userInput;
-      await sendWhatsAppButtons(
-        company,
-        message.from,
-        getTranslation('grievancePhoto', session.language),
-        [
-          { id: 'photo_skip', title: getTranslation('btn_skip_photo', session.language) },
-          { id: 'photo_upload', title: getTranslation('btn_upload_photo', session.language) }
-        ]
-      );
-      session.step = 'grievance_photo';
-      await updateSession(session);
-      break;
-    */
 
     case 'grievance_photo':
       if (buttonId === 'photo_skip' || userInput === 'skip') {

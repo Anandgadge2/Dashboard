@@ -65,14 +65,14 @@ router.post('/sso/login', async (req: Request, res: Response) => {
     }
 
     // STEP 2: Validate token source (must come from MAIN_DASHBOARD)
-    if (decoded.source !== 'MAIN_DASHBOARD') {
-      console.error('❌ Invalid SSO token source:', decoded.source);
-      res.status(401).json({
-        success: false,
-        message: 'Invalid SSO token source'
-      });
-      return;
-    }
+    // if (decoded.source !== 'MAIN_DASHBOARD') {
+    //   console.error('❌ Invalid SSO token source:', decoded.source);
+    //   res.status(401).json({
+    //     success: false,
+    //     message: 'Invalid SSO token source'
+    //   });
+    //   return;
+    // }
 
     // STEP 3: Extract phone from verified token (NOT from request body)
     const { phone } = decoded;

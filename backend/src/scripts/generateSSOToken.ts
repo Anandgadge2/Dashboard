@@ -9,12 +9,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-sso-key-2026';
 // This is what the MAIN DASHBOARD will send in the JWT token
 // The token should contain at minimum the user's phone number
 const ssoPayload = {
-  phone: '9021550841', // Replace with actual user phone
-  // You can add more fields if needed:
-  // email: 'user@example.com',
-  // userId: 'USER123',
+  phone: '9021550841', 
   source: "MAIN_DASHBOARD",
-  // etc.
 };
 
 // Generate the SSO token (this is what the main dashboard does)

@@ -80,8 +80,21 @@ DepartmentSchema.index({ companyId: 1, name: 1 }, { unique: true });
 // Pre-save hook to generate departmentId
 DepartmentSchema.pre('save', async function (next) {
   if (this.isNew && !this.departmentId) {
-    const count = await mongoose.model('Department').countDocuments({ companyId: this.companyId });
-    this.departmentId = `DEPT${String(count + 1).padStart(6, '0')}`;
+    // Find the last departmentId globally, including soft-deleted docs
+    const lastDept = await mongoose.model('Department')
+      .findOne({}, { departmentId: 1 })
+      .sort({ departmentId: -1 })
+      .setOptions({ includeDeleted: true }); // specific option to bypass the isDeleted filter
+
+    let nextNum = 1;
+    if (lastDept && lastDept.departmentId) {
+      const match = lastDept.departmentId.match(/^DEPT(\d+)$/);
+      if (match) {
+        nextNum = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.departmentId = `DEPT${String(nextNum).padStart(6, '0')}`;
   }
   next();
 });

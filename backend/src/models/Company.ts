@@ -160,8 +160,21 @@ CompanySchema.index({ isActive: 1, isSuspended: 1, isDeleted: 1 });
 // Pre-save hook to generate companyId
 CompanySchema.pre('save', async function (next) {
   if (this.isNew && !this.companyId) {
-    const count = await mongoose.model('Company').countDocuments();
-    this.companyId = `CMP${String(count + 1).padStart(6, '0')}`;
+    // Find the last companyId globally, including soft-deleted ones
+    const lastCompany = await mongoose.model('Company')
+      .findOne({}, { companyId: 1 })
+      .sort({ companyId: -1 })
+      .setOptions({ includeDeleted: true });
+
+    let nextNum = 1;
+    if (lastCompany && lastCompany.companyId) {
+      const match = lastCompany.companyId.match(/^CMP(\d+)$/);
+      if (match) {
+        nextNum = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    this.companyId = `CMP${String(nextNum).padStart(6, '0')}`;
   }
   next();
 });

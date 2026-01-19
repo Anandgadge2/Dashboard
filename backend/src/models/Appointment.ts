@@ -177,8 +177,21 @@ AppointmentSchema.index({ assignedTo: 1, appointmentDate: 1, isDeleted: 1 });
 // Pre-save hook to generate appointmentId
 AppointmentSchema.pre('save', async function (next) {
   if (this.isNew && !this.appointmentId) {
-    const count = await mongoose.model('Appointment').countDocuments({ companyId: this.companyId });
-    this.appointmentId = `APT${String(count + 1).padStart(8, '0')}`;
+    // Find the last appointmentId globally, including soft-deleted ones
+    const lastAppointment = await mongoose.model('Appointment')
+      .findOne({}, { appointmentId: 1 })
+      .sort({ appointmentId: -1 })
+      .setOptions({ includeDeleted: true });
+
+    let nextNum = 1;
+    if (lastAppointment && lastAppointment.appointmentId) {
+      const match = lastAppointment.appointmentId.match(/^APT(\d+)$/);
+      if (match) {
+        nextNum = parseInt(match[1], 10) + 1;
+      }
+    }
+    
+    this.appointmentId = `APT${String(nextNum).padStart(8, '0')}`;
     
     // Initialize status history
     this.statusHistory = [{
