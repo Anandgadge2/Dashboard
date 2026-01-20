@@ -16,9 +16,15 @@
 *.sh text eol=lf
 
 # Configuration files
+*.config.js text eol=lf
+*.config.ts text eol=lf
+tsconfig.json text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf
+
+# Ignore files
 .gitignore text eol=lf
 .vercelignore text eol=lf
-.editorconfig text eol=lf
 
 # Binary files
 *.png binary
@@ -29,7 +35,3 @@
 *.pdf binary
 *.zip binary
 *.tar.gz binary
-
-# Package files
-package-lock.json text eol=lf
-yarn.lock text eol=lf

@@ -30,9 +30,20 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
       });
     }
 
-    const grievance = await Grievance.findById(req.params.id)
-      .populate('companyId')
-      .populate('departmentId');
+    // Handle both MongoDB _id and grievanceId string
+    let grievance;
+    const mongoose = await import('mongoose');
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      // It's a valid MongoDB ObjectId
+      grievance = await Grievance.findById(req.params.id)
+        .populate('companyId')
+        .populate('departmentId');
+    } else {
+      // It's a grievanceId string (e.g., "GRV00000002")
+      grievance = await Grievance.findOne({ grievanceId: req.params.id })
+        .populate('companyId')
+        .populate('departmentId');
+    }
 
     if (!grievance) {
       return res.status(404).json({
@@ -41,8 +52,16 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
       });
     }
 
-    // Get the user to assign to
-    const assignedUser = await User.findById(assignedTo);
+    // Get the user to assign to - handle both _id and userId
+    let assignedUser;
+    if (mongoose.Types.ObjectId.isValid(assignedTo)) {
+      // It's a valid MongoDB ObjectId
+      assignedUser = await User.findById(assignedTo);
+    } else {
+      // It's a userId string (e.g., "USER000004")
+      assignedUser = await User.findOne({ userId: assignedTo });
+    }
+    
     if (!assignedUser) {
       return res.status(404).json({
         success: false,
@@ -141,6 +160,23 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
     
     await grievance.save();
 
+    // Notify assigned user
+    const { notifyUserOnAssignment } = await import('../services/notificationService');
+    await notifyUserOnAssignment({
+      type: 'grievance',
+      action: 'assigned',
+      grievanceId: grievance.grievanceId,
+      citizenName: grievance.citizenName,
+      citizenPhone: grievance.citizenPhone,
+      departmentId: grievance.departmentId,
+      companyId: grievance.companyId,
+      description: grievance.description,
+      category: grievance.category,
+      priority: grievance.priority,
+      assignedTo: assignedUser._id,
+      assignedByName: currentUser.getFullName()
+    });
+
     await logUserAction(
       req,
       AuditAction.UPDATE,
@@ -182,9 +218,20 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
       });
     }
 
-    const appointment = await Appointment.findById(req.params.id)
-      .populate('companyId')
-      .populate('departmentId');
+    // Handle both MongoDB _id and appointmentId string
+    let appointment;
+    const mongoose = await import('mongoose');
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      // It's a valid MongoDB ObjectId
+      appointment = await Appointment.findById(req.params.id)
+        .populate('companyId')
+        .populate('departmentId');
+    } else {
+      // It's an appointmentId string (e.g., "APT00000002")
+      appointment = await Appointment.findOne({ appointmentId: req.params.id })
+        .populate('companyId')
+        .populate('departmentId');
+    }
 
     if (!appointment) {
       return res.status(404).json({
@@ -193,7 +240,16 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
       });
     }
 
-    const assignedUser = await User.findById(assignedTo);
+    // Get the user to assign to - handle both _id and userId
+    let assignedUser;
+    if (mongoose.Types.ObjectId.isValid(assignedTo)) {
+      // It's a valid MongoDB ObjectId
+      assignedUser = await User.findById(assignedTo);
+    } else {
+      // It's a userId string (e.g., "USER000004")
+      assignedUser = await User.findOne({ userId: assignedTo });
+    }
+    
     if (!assignedUser) {
       return res.status(404).json({
         success: false,
@@ -279,6 +335,21 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
     });
     
     await appointment.save();
+
+    // Notify assigned user
+    const { notifyUserOnAssignment } = await import('../services/notificationService');
+    await notifyUserOnAssignment({
+      type: 'appointment',
+      action: 'assigned',
+      appointmentId: appointment.appointmentId,
+      citizenName: appointment.citizenName,
+      citizenPhone: appointment.citizenPhone,
+      departmentId: appointment.departmentId,
+      companyId: appointment.companyId,
+      purpose: appointment.purpose,
+      assignedTo: assignedUser._id,
+      assignedByName: currentUser.getFullName()
+    });
 
     await logUserAction(
       req,

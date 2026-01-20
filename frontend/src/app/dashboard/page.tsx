@@ -14,6 +14,8 @@ import { grievanceAPI, Grievance } from '@/lib/api/grievance';
 import { appointmentAPI, Appointment } from '@/lib/api/appointment';
 import CreateDepartmentDialog from '@/components/department/CreateDepartmentDialog';
 import CreateUserDialog from '@/components/user/CreateUserDialog';
+import EditUserDialog from '@/components/user/EditUserDialog';
+import ChangePermissionsDialog from '@/components/user/ChangePermissionsDialog';
 import { ProtectedButton } from '@/components/ui/ProtectedButton';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { Permission, hasPermission } from '@/lib/permissions';
@@ -98,6 +100,9 @@ export default function Dashboard() {
   const [company, setCompany] = useState<Company | null>(null);
   const [showDepartmentDialog, setShowDepartmentDialog] = useState(false);
   const [showUserDialog, setShowUserDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showEditUserDialog, setShowEditUserDialog] = useState(false);
+  const [showChangePermissionsDialog, setShowChangePermissionsDialog] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -1020,6 +1025,10 @@ export default function Dashboard() {
                                       size="sm" 
                                       className="h-8 w-8 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                                       title="Edit User"
+                                      onClick={() => {
+                                        setEditingUser(u);
+                                        setShowEditUserDialog(true);
+                                      }}
                                     >
                                       <Edit2 className="w-4 h-4" />
                                     </Button>
@@ -1028,6 +1037,10 @@ export default function Dashboard() {
                                       size="sm" 
                                       className="h-8 w-8 p-0 text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
                                       title="Change Permissions"
+                                      onClick={() => {
+                                        setEditingUser(u);
+                                        setShowChangePermissionsDialog(true);
+                                      }}
                                     >
                                       <Shield className="w-4 h-4" />
                                     </Button>
@@ -2261,6 +2274,30 @@ export default function Dashboard() {
                 fetchUsers();
                 fetchDashboardData();
               }}
+            />
+            <EditUserDialog
+              isOpen={showEditUserDialog}
+              onClose={() => {
+                setShowEditUserDialog(false);
+                setEditingUser(null);
+              }}
+              onUserUpdated={() => {
+                fetchUsers();
+                fetchDashboardData();
+              }}
+              user={editingUser}
+            />
+            <ChangePermissionsDialog
+              isOpen={showChangePermissionsDialog}
+              onClose={() => {
+                setShowChangePermissionsDialog(false);
+                setEditingUser(null);
+              }}
+              onPermissionsUpdated={() => {
+                fetchUsers();
+                fetchDashboardData();
+              }}
+              user={editingUser}
             />
           </>
         )}

@@ -8,6 +8,7 @@ import Appointment from '../models/Appointment';
 import { GrievanceStatus, AppointmentStatus, Module } from '../config/constants';
 import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppList } from './whatsappService';
 import { findDepartmentByCategory, getAvailableCategories } from './departmentMapper';
+import { notifyDepartmentAdminOnCreation } from './notificationService';
 import { uploadWhatsAppMediaToCloudinary } from './mediaService';
 
 export interface ChatbotMessage {
@@ -144,6 +145,7 @@ const translations = {
     nextActionPrompt: '🔄 *Next Step*\n\nWhat would you like to do?',
     msg_apt_enhanced: 'ℹ️ Appointment system is being upgraded.',
     msg_no_dept: '⚠️ No departments currently accepting appointments.',
+    msg_no_dept_grv: '⚠️ *No Departments Available*\n\nCurrently, there are no departments configured for grievance registration.\n\nPlease contact the administration or try again later.',
     header_grv_status: '📄 Grievance Status',
     header_apt_status: '🗓️ Appointment Status',
     status_PENDING: 'Pending Review',
@@ -266,6 +268,7 @@ const translations = {
     nextActionPrompt: '🔄 *अगला कदम*\n\nआप क्या करना चाहेंगे?',
     msg_apt_enhanced: 'ℹ️ नियुक्ति प्रणाली को अपग्रेड किया जा रहा है।',
     msg_no_dept: '⚠️ कोई भी विभाग वर्तमान में नियुक्तियाँ स्वीकार नहीं कर रहा है।',
+    msg_no_dept_grv: '⚠️ *कोई विभाग उपलब्ध नहीं*\n\nवर्तमान में, शिकायत पंजीकरण के लिए कोई विभाग कॉन्फ़िगर नहीं है।\n\nकृपया प्रशासन से संपर्क करें या बाद में पुनः प्रयास करें।',
     header_grv_status: '📄 शिकायत स्थिति',
     header_apt_status: '🗓️ नियुक्ति स्थिति',
     status_PENDING: 'समीक्षा लंबित',
@@ -390,6 +393,7 @@ const translations = {
     nextActionPrompt: '🔄 *पुढील स्टेप*\n\nतुम्ही काय करू इच्छिता?',
     msg_apt_enhanced: 'ℹ️ अपॉइंटमेंट सिस्टम अपग्रेड केली जात आहे.',
     msg_no_dept: '⚠️ सध्या कोणताही विभाग अपॉइंटमेंट स्वीकारत नाही.',
+    msg_no_dept_grv: '⚠️ *कोणतेही विभाग उपलब्ध नाहीत*\n\nसध्या, तक्रार नोंदणीसाठी कोणतेही विभाग कॉन्फ़िगर केलेले नाहीत.\n\nकृपया प्रशासनाशी संपर्क साधा किंवा नंतर पुन्हा प्रयत्न करा.',
     header_grv_status: '📄 तक्रार स्थिती',
     header_apt_status: '🗓️ अपॉइंटमेंट स्थिती',
     status_PENDING: 'पुनरावलोकन प्रलंबित',
@@ -845,8 +849,10 @@ async function continueGrievanceFlow(
         await sendWhatsAppMessage(
           company,
           message.from,
-          getTranslation('msg_no_dept', session.language)
+          getTranslation('msg_no_dept_grv', session.language)
         );
+        await showMainMenu(session, message, company);
+        return;
       }
       
       session.step = 'grievance_category';
@@ -1145,6 +1151,24 @@ async function createGrievanceWithDepartment(
     await grievance.save();
     
     console.log('✅ Grievance created:', { grievanceId: grievance.grievanceId, _id: grievance._id });
+    
+    // Notify department admin about new grievance
+    if (departmentId) {
+      await notifyDepartmentAdminOnCreation({
+        type: 'grievance',
+        action: 'created',
+        grievanceId: grievance.grievanceId,
+        citizenName: session.data.citizenName,
+        citizenPhone: message.from,
+        citizenWhatsApp: message.from,
+        departmentId: departmentId,
+        companyId: company._id,
+        description: session.data.description,
+        category: session.data.category,
+        priority: session.data.priority || 'MEDIUM',
+        location: session.data.address
+      });
+    }
     
     const department = departmentId ? await Department.findById(departmentId) : null;
     let deptName = department ? department.name : getTranslation('label_placeholder_dept', session.language);
@@ -1532,6 +1556,22 @@ async function createAppointment(
     await appointment.save();
     
     console.log('✅ Appointment created:', { appointmentId: appointment.appointmentId, _id: appointment._id });
+    
+    // Notify department admin about new appointment
+    if (session.data.departmentId) {
+      await notifyDepartmentAdminOnCreation({
+        type: 'appointment',
+        action: 'created',
+        appointmentId: appointment.appointmentId,
+        citizenName: session.data.citizenName,
+        citizenPhone: message.from,
+        citizenWhatsApp: message.from,
+        departmentId: session.data.departmentId,
+        companyId: company._id,
+        purpose: session.data.purpose,
+        location: `${new Date(appointmentDate).toLocaleDateString('en-IN')} at ${appointmentTime}`
+      });
+    }
     
     const dateDisplay = appointmentDate.toLocaleDateString(session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN', { 
       weekday: 'long', 

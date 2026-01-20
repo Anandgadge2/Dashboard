@@ -196,9 +196,9 @@ router.get('/:id', requirePermission(Permission.READ_APPOINTMENT), async (req: R
 });
 
 // @route   PUT /api/appointments/:id/status
-// @desc    Update appointment status
+// @desc    Update appointment status (Operators can use this for status/comments only)
 // @access  Private
-router.put('/:id/status', requirePermission(Permission.UPDATE_APPOINTMENT), async (req: Request, res: Response) => {
+router.put('/:id/status', requirePermission(Permission.STATUS_CHANGE_APPOINTMENT, Permission.UPDATE_APPOINTMENT), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
     const { status, remarks } = req.body;
@@ -209,6 +209,20 @@ router.put('/:id/status', requirePermission(Permission.UPDATE_APPOINTMENT), asyn
         message: 'Status is required'
       });
       return;
+    }
+
+    // Operators can only update status and remarks - validate request body
+    if (currentUser.role === UserRole.OPERATOR) {
+      const allowedFields = ['status', 'remarks'];
+      const providedFields = Object.keys(req.body);
+      const invalidFields = providedFields.filter(field => !allowedFields.includes(field));
+      
+      if (invalidFields.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `Operators can only update status and remarks. Invalid fields: ${invalidFields.join(', ')}`
+        });
+      }
     }
 
     const appointment = await Appointment.findById(req.params.id);
@@ -291,32 +305,68 @@ router.put('/:id/status', requirePermission(Permission.UPDATE_APPOINTMENT), asyn
 // @access  Private
 router.put('/:id', requirePermission(Permission.UPDATE_APPOINTMENT), async (req: Request, res: Response) => {
   try {
-    const appointment = await Appointment.findByIdAndUpdate(
+    const currentUser = req.user!;
+
+    // Operators can only update status/comments via /status endpoint, not full updates
+    if (currentUser.role === UserRole.OPERATOR) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operators can only update status and remarks. Please use the status update endpoint.'
+      });
+    }
+
+    // Check department/company access
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    // Permission checks for department/company scope
+    if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
+      if (appointment.departmentId?.toString() !== currentUser.departmentId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only update appointments in your department'
+        });
+      }
+    } else if (currentUser.role === UserRole.COMPANY_ADMIN) {
+      if (appointment.companyId.toString() !== currentUser.companyId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only update appointments in your company'
+        });
+      }
+    }
+
+    // Update appointment
+    const updatedAppointment = await Appointment.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
     );
 
-    if (!appointment) {
-      res.status(404).json({
+    if (!updatedAppointment) {
+      return res.status(404).json({
         success: false,
         message: 'Appointment not found'
       });
-      return;
     }
 
     await logUserAction(
       req,
       AuditAction.UPDATE,
       'Appointment',
-      appointment._id.toString(),
+      updatedAppointment._id.toString(),
       { updates: req.body }
     );
 
     res.json({
       success: true,
       message: 'Appointment updated successfully',
-      data: { appointment }
+      data: { appointment: updatedAppointment }
     });
   } catch (error: any) {
     res.status(500).json({
