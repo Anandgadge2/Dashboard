@@ -30,6 +30,7 @@ const seedSuperAdmin = async () => {
       firstName: 'Super',
       lastName: 'Admin',
       email: 'superadmin@platform.com',
+      phone: '0000000000', // Required field - update with actual phone number if needed
       password: '111111', // Will be hashed automatically by pre-save hook
       role: UserRole.SUPER_ADMIN,
       isActive: true

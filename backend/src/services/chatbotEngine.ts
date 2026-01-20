@@ -5,7 +5,7 @@ import Company from '../models/Company';
 import Department from '../models/Department';
 import Grievance from '../models/Grievance';
 import Appointment from '../models/Appointment';
-import { GrievanceStatus, AppointmentStatus } from '../config/constants';
+import { GrievanceStatus, AppointmentStatus, Module } from '../config/constants';
 import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppList } from './whatsappService';
 import { findDepartmentByCategory, getAvailableCategories } from './departmentMapper';
 import { uploadWhatsAppMediaToCloudinary } from './mediaService';
@@ -465,25 +465,44 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     return;
   }
 
-  // FORCE: Use the phone number ID that received the message
+  // Use the phone number ID that received the message, but only if:
+  // 1. Company doesn't have a phone number ID configured, OR
+  // 2. The metadata phone number ID matches the company's configured one
+  // This prevents using a phone number ID that the access token doesn't have permission for
   if (metadata?.phone_number_id) {
-    console.log(`🔌 Overriding Phone Number ID from metadata: ${metadata.phone_number_id}`);
+    const metadataPhoneId = metadata.phone_number_id as string;
+    const configuredPhoneId = company.whatsappConfig?.phoneNumberId;
     
     // Create whatsappConfig if it doesn't exist (cast to any to allow loose typing)
     if (!company.whatsappConfig) {
       company.whatsappConfig = {
         accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
-        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || ''
+        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
+        phoneNumberId: metadataPhoneId
       } as any;
-    }
-    
-    // Override phoneNumberId
-    if (company.whatsappConfig) {
-      company.whatsappConfig.phoneNumberId = metadata.phone_number_id as string;
+      console.log(`🔌 Setting Phone Number ID from metadata (no config): ${metadataPhoneId}`);
+    } else if (!configuredPhoneId) {
+      // Company has config but no phone number ID - use metadata
+      company.whatsappConfig.phoneNumberId = metadataPhoneId;
+      console.log(`🔌 Setting Phone Number ID from metadata (missing in config): ${metadataPhoneId}`);
+    } else if (configuredPhoneId === metadataPhoneId) {
+      // They match - use the configured one (already set)
+      console.log(`✅ Phone Number ID matches metadata: ${metadataPhoneId}`);
+    } else {
+      // They don't match - use configured one and log warning
+      console.warn(`⚠️ Phone Number ID mismatch! Metadata: ${metadataPhoneId}, Configured: ${configuredPhoneId}`);
+      console.warn(`⚠️ Using configured Phone Number ID: ${configuredPhoneId}`);
+      console.warn(`⚠️ If messages fail, ensure access token has permission for: ${configuredPhoneId}`);
     }
   }
 
   console.log('✅ Company found:', { name: company.name, _id: company._id, companyId: company.companyId });
+
+  // Ensure enabledModules is set - if not, default to GRIEVANCE and APPOINTMENT for ZP Amravati
+  if (!company.enabledModules || company.enabledModules.length === 0) {
+    console.warn('⚠️ Company has no enabledModules configured. Setting defaults: GRIEVANCE, APPOINTMENT');
+    company.enabledModules = [Module.GRIEVANCE, Module.APPOINTMENT] as any;
+  }
 
   const session = getSession(from, companyId);
   let userInput = (buttonId || messageText || '').trim().toLowerCase();
