@@ -11,7 +11,7 @@ const createTransporter = () => {
     port: port,
     secure: isSecure, // true for 465 (SSL), false for 587 (STARTTLS)
     // For STARTTLS (port 587), requireTLS ensures encryption is used
-    requireTLS: !isSecure && port === 587,
+    requireTLS: !isSecure && port === 465,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
