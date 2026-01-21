@@ -1,27 +1,37 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { Transporter, SendMailOptions } from 'nodemailer';
+import SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { logger } from '../config/logger';
 
-// Create reusable transporter
-const createTransporter = () => {
-  const port = parseInt(process.env.SMTP_PORT || '587');
-  const isSecure = process.env.SMTP_SECURE === 'true' || port === 465;
-  
-  return nodemailer.createTransport({
+/**
+ * Reusable SMTP transporter (singleton)
+ */
+let transporter: Transporter<SMTPTransport.SentMessageInfo> | null = null;
+
+/**
+ * Create or reuse transporter
+ */
+const createTransporter = (): Transporter<SMTPTransport.SentMessageInfo> => {
+  if (transporter) return transporter;
+
+  const port: number = Number(process.env.SMTP_PORT ?? 465);
+  const isSecure: boolean = port === 465;
+
+  const options: SMTPTransport.Options = {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: port,
-    secure: isSecure, // true for 465 (SSL), false for 587 (STARTTLS)
-    // For STARTTLS (port 587), requireTLS ensures encryption is used
-    requireTLS: !isSecure && port === 465,
+    port,
+    secure: isSecure,        // 465 → implicit TLS, 587 → STARTTLS
+    requireTLS: port === 587,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
     },
-    // Additional options for better compatibility
     tls: {
-      // Do not fail on invalid certificates (useful for testing with Ethereal)
-      rejectUnauthorized: process.env.NODE_ENV === 'production'
+      rejectUnauthorized: true // MUST be true in production
     }
-  });
+  };
+
+  transporter = nodemailer.createTransport(options);
+  return transporter;
 };
 
 /**
@@ -32,31 +42,33 @@ export async function sendEmail(
   subject: string,
   html: string,
   text?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
       logger.warn('SMTP credentials not configured. Email not sent.');
       return { success: false, error: 'SMTP not configured' };
     }
 
-    const transporter = createTransporter();
-    const recipients = Array.isArray(to) ? to : [to];
+    const transport = createTransporter();
 
-    const mailOptions = {
+    const mailOptions: SendMailOptions = {
       from: `"${process.env.SMTP_FROM_NAME || 'Zilla Parishad Amravati'}" <${process.env.SMTP_USER}>`,
-      to: recipients.join(', '),
+      to: Array.isArray(to) ? to.join(', ') : to,
       subject,
-      text: text || subject,
+      text: text ?? subject,
       html
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    logger.info(`✅ Email sent to ${recipients.join(', ')}: ${info.messageId}`);
-    
+    const info = await transport.sendMail(mailOptions);
+    logger.info(`✅ Email sent: ${info.messageId}`);
+
     return { success: true };
-  } catch (error: any) {
-    logger.error('❌ Failed to send email:', error);
-    return { success: false, error: error.message };
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : 'Unknown email error';
+
+    logger.error('❌ Failed to send email:', err);
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -69,7 +81,7 @@ export function generateNotificationEmail(
   data: any
 ): { subject: string; html: string; text: string } {
   const companyName = data.companyName || 'Zilla Parishad Amravati';
-  
+
   if (action === 'created' && type === 'grievance') {
     return {
       subject: `New Grievance Received - ${data.grievanceId}`,
@@ -103,12 +115,6 @@ export function generateNotificationEmail(
               <div class="detail-row"><span class="label">Priority:</span> ${data.priority || 'MEDIUM'}</div>
               <div class="detail-row"><span class="label">Description:</span><br/>${data.description}</div>
               ${data.location ? `<div class="detail-row"><span class="label">Location:</span> ${data.location}</div>` : ''}
-              <p style="margin-top: 20px;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/grievances/${data.grievanceId}" 
-                   style="background: #0f4c81; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                  View Grievance
-                </a>
-              </p>
             </div>
             <div class="footer">
               <p>${companyName} - Digital Portal</p>
@@ -152,12 +158,7 @@ export function generateNotificationEmail(
               <div class="detail-row"><span class="label">Department:</span> ${data.departmentName}</div>
               <div class="detail-row"><span class="label">Priority:</span> ${data.priority || 'MEDIUM'}</div>
               <div class="detail-row"><span class="label">Description:</span><br/>${data.description}</div>
-              <p style="margin-top: 20px;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/grievances/${data.grievanceId}" 
-                   style="background: #1a73e8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                  View & Resolve
-                </a>
-              </p>
+              ${data.assignedByName ? `<div class="detail-row"><span class="label">Assigned by:</span> ${data.assignedByName}</div>` : ''}
             </div>
             <div class="footer">
               <p>${companyName} - Digital Portal</p>
@@ -172,7 +173,7 @@ export function generateNotificationEmail(
 
   if (action === 'resolved' && type === 'grievance') {
     return {
-      subject: `Your Grievance Has Been Resolved - ${data.grievanceId}`,
+      subject: `Grievance Resolved - ${data.grievanceId}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -194,13 +195,13 @@ export function generateNotificationEmail(
               <h2>✅ Grievance Resolved</h2>
             </div>
             <div class="content">
-              <p>Dear ${data.citizenName},</p>
-              <p>Your grievance has been successfully resolved.</p>
+              <p>Dear ${data.recipientName},</p>
+              <p>The following grievance has been resolved.</p>
               <div class="detail-row"><span class="label">Grievance ID:</span> ${data.grievanceId}</div>
-              <div class="detail-row"><span class="label">Department:</span> ${data.departmentName}</div>
+              <div class="detail-row"><span class="label">Citizen Name:</span> ${data.citizenName}</div>
+              <div class="detail-row"><span class="label">Department:</span> ${data.departmentName || 'N/A'}</div>
               <div class="detail-row"><span class="label">Status:</span> Resolved</div>
               ${data.remarks ? `<div class="remarks"><strong>Officer Remarks:</strong><br/>${data.remarks}</div>` : ''}
-              <p>Thank you for your patience. We hope this resolves your concern.</p>
             </div>
             <div class="footer">
               <p>${companyName} - Digital Portal</p>
@@ -209,7 +210,7 @@ export function generateNotificationEmail(
         </body>
         </html>
       `,
-      text: `Your Grievance Has Been Resolved\n\nGrievance ID: ${data.grievanceId}\nDepartment: ${data.departmentName}\nStatus: Resolved\n${data.remarks ? `Remarks: ${data.remarks}` : ''}`
+      text: `Grievance Resolved\n\nGrievance ID: ${data.grievanceId}\nCitizen: ${data.citizenName}\nDepartment: ${data.departmentName || 'N/A'}\nStatus: Resolved\n${data.remarks ? `Remarks: ${data.remarks}` : ''}`
     };
   }
 
