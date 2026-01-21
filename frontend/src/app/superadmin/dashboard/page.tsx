@@ -246,19 +246,19 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">SuperAdmin Dashboard</h1>
-              <p className="text-sm text-gray-600">Welcome back, {user.firstName} {user.lastName}</p>
+              <h1 className="text-2xl font-bold text-slate-900">SuperAdmin Dashboard</h1>
+              <p className="text-sm text-slate-600 mt-1">Welcome back, {user.firstName} {user.lastName}</p>
             </div>
             <Button
               onClick={logout}
               variant="outline"
-              className="border-red-300 text-red-600 hover:bg-red-50"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-red-300 hover:text-red-600 transition-colors"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -270,9 +270,9 @@ export default function SuperAdminDashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-slate-50/30">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid bg-white border border-slate-200 shadow-sm">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="companies">Companies</TabsTrigger>
             <TabsTrigger value="departments">Departments</TabsTrigger>
@@ -286,97 +286,101 @@ export default function SuperAdminDashboard() {
           <TabsContent value="overview" className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Total Companies - Modern Blue */}
               <Card 
-                className="bg-gradient-to-br from-blue-400 to-blue-500 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300 cursor-pointer"
                 onClick={() => setActiveTab('companies')}
               >
-                <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
-                    <div className="flex items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-bl-full"></div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                       Total Companies
-                    </div>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    </span>
+                    <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold">{stats.companies}</p>
-                  <p className="text-blue-100 text-sm mt-2">{stats.activeCompanies} active</p>
+                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.companies}</p>
+                  <p className="text-xs text-slate-500 font-medium">
+                    <span className="text-emerald-600 font-semibold">{stats.activeCompanies}</span> active
+                  </p>
                 </CardContent>
               </Card>
 
+              {/* Total Users - Modern Green */}
               <Card 
-                className="bg-gradient-to-br from-green-300 to-green-400 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-300 cursor-pointer"
                 onClick={() => setActiveTab('users')}
               >
-                <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
-                    <div className="flex items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-bl-full"></div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                       Total Users
-                    </div>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    </span>
+                    <svg className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold">{stats.users}</p>
-                  <p className="text-green-100 text-sm mt-2">{stats.activeUsers} active</p>
+                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.users}</p>
+                  <p className="text-xs text-slate-500 font-medium">
+                    <span className="text-emerald-600 font-semibold">{stats.activeUsers}</span> active
+                  </p>
                 </CardContent>
               </Card>
 
+              {/* Departments - Modern Purple */}
               <Card 
-                className="bg-gradient-to-br from-purple-300 to-purple-400 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-violet-200 transition-all duration-300 cursor-pointer"
                 onClick={() => setActiveTab('departments')}
               >
-                <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
-                    <div className="flex items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-violet-500/10 to-violet-600/5 rounded-bl-full"></div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-violet-500"></div>
                       Departments
-                    </div>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    </span>
+                    <svg className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold">{stats.departments}</p>
-                  <p className="text-purple-100 text-sm mt-2">Total departments</p>
+                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.departments}</p>
+                  <p className="text-xs text-slate-500 font-medium">Total departments</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-orange-300 to-orange-400 text-white border-0 hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+              {/* System Status - Modern Amber */}
+              <Card className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-200 transition-all duration-300">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-500/10 to-amber-600/5 rounded-bl-full"></div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                     System Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold">✓ Operational</p>
-                  <p className="text-orange-100 text-sm mt-2">All systems running</p>
+                  <p className="text-2xl font-bold text-slate-900 mb-1">✓ Operational</p>
+                  <p className="text-xs text-slate-500 font-medium">All systems running</p>
                 </CardContent>
               </Card>
             </div>
 
             {/* Quick Actions and Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Manage your platform</CardDescription>
+              <Card className="border border-slate-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-slate-900 text-lg font-semibold">Quick Actions</CardTitle>
+                  <CardDescription className="text-slate-500">Manage your platform</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button 

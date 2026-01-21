@@ -7,6 +7,7 @@ import { Calendar, MapPin, Phone, Filter, Search, Eye, Clock, UserPlus } from 'l
 import toast from 'react-hot-toast';
 import CitizenDetailsModal from '@/components/grievance/CitizenDetailsModal';
 import AssignmentDialog from '@/components/assignment/AssignmentDialog';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
@@ -58,12 +59,19 @@ export default function AppointmentsPage() {
     setModalOpen(true);
   };
 
-  const filteredAppointments = appointments.filter(a => {
-    if (filters.status !== 'all' && a.status !== filters.status) return false;
-    if (filters.search && !a.citizenName?.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !a.appointmentId?.toLowerCase().includes(filters.search.toLowerCase())) return false;
-    return true;
-  });
+  const filteredAppointments = appointments
+    .filter(a => {
+      if (filters.status !== 'all' && a.status !== filters.status) return false;
+      if (filters.search && !a.citizenName?.toLowerCase().includes(filters.search.toLowerCase()) &&
+          !a.appointmentId?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by appointment date and time (latest first)
+      const dateA = new Date(`${a.appointmentDate}T${a.appointmentTime}`).getTime();
+      const dateB = new Date(`${b.appointmentDate}T${b.appointmentTime}`).getTime();
+      return dateB - dateA; // Latest first
+    });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -77,9 +85,9 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center">
@@ -130,11 +138,10 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Appointments Table */}
-      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading appointments...</p>
+          <div className="p-16 text-center">
+            <LoadingSpinner size="lg" text="Loading appointments..." />
           </div>
         ) : filteredAppointments.length === 0 ? (
           <div className="p-12 text-center">
@@ -144,21 +151,21 @@ export default function AppointmentsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-purple-600 to-purple-700 text-white whitespace-nowrap">
+              <thead className="bg-slate-50 border-b border-slate-200 whitespace-nowrap">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Appointment ID</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Citizen Information</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Department & Purpose</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Scheduled For</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Assignment</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Booking Date</th>
-                  <th className="px-6 py-4 text-center text-sm font-bold uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Appointment ID</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Citizen Information</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Department & Purpose</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Scheduled Date & Time</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Assignment</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Booking Date</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredAppointments.map((appointment) => (
-                  <tr key={appointment._id} className="hover:bg-purple-50/50 transition-colors">
+                  <tr key={appointment._id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-purple-700">{appointment.appointmentId}</span>
@@ -190,15 +197,52 @@ export default function AppointmentsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center text-sm font-bold text-gray-900">
-                          <Calendar className="w-3.5 h-3.5 mr-1.5 text-purple-600" />
-                          {new Date(appointment.appointmentDate).toLocaleDateString()}
+                      <div className="space-y-2.5">
+                        <div className="flex items-start gap-2.5">
+                          <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {new Date(appointment.appointmentDate).toLocaleDateString('en-GB', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                year: 'numeric' 
+                              })}
+                            </span>
+                            <span className="text-xs text-slate-500 mt-0.5">
+                              {new Date(appointment.appointmentDate).toLocaleDateString('en-US', { weekday: 'long' })}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center text-[11px] font-medium text-gray-600">
-                          <Clock className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
-                          {appointment.appointmentTime}
-                        </div>
+                        {appointment.appointmentTime && (
+                          <div className="flex items-center gap-2.5 pl-6">
+                            <Clock className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold text-slate-900">
+                                {(() => {
+                                  const time = appointment.appointmentTime;
+                                  // Parse time (format: HH:MM or HH:MM:SS)
+                                  const [hours, minutes] = time.split(':');
+                                  const hour = parseInt(hours, 10);
+                                  const minute = minutes || '00';
+                                  const period = hour >= 12 ? 'PM' : 'AM';
+                                  const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+                                  return `${displayHour}:${minute} ${period}`;
+                                })()}
+                              </span>
+                              <span className="text-xs text-slate-500 mt-0.5">
+                                {(() => {
+                                  const time = appointment.appointmentTime;
+                                  const [hours] = time.split(':');
+                                  const hour = parseInt(hours, 10);
+                                  if (hour >= 6 && hour < 12) return 'Morning';
+                                  if (hour >= 12 && hour < 17) return 'Afternoon';
+                                  if (hour >= 17 && hour < 21) return 'Evening';
+                                  return 'Night';
+                                })()}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">

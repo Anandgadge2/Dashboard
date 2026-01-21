@@ -120,6 +120,8 @@ export default function Dashboard() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingGrievances, setLoadingGrievances] = useState(false);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [performanceData, setPerformanceData] = useState<any>(null);
   const [hourlyData, setHourlyData] = useState<any>(null);
   const [categoryData, setCategoryData] = useState<any>(null);
@@ -256,6 +258,7 @@ export default function Dashboard() {
   };
 
   const fetchDepartments = async () => {
+    setLoadingDepartments(true);
     try {
       const response = await departmentAPI.getAll();
       if (response.success) {
@@ -263,10 +266,14 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error('Failed to fetch departments:', error);
+      toast.error('Failed to load departments');
+    } finally {
+      setLoadingDepartments(false);
     }
   };
 
   const fetchUsers = async () => {
+    setLoadingUsers(true);
     try {
       const response = await userAPI.getAll();
       if (response.success) {
@@ -290,6 +297,9 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error('Failed to fetch users:', error);
+      toast.error('Failed to load users');
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -384,11 +394,8 @@ export default function Dashboard() {
 
   if (loading || !mounted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <LoadingSpinner size="xl" text="Loading dashboard..." />
       </div>
     );
   }
@@ -403,26 +410,26 @@ export default function Dashboard() {
   const isAnalyticsViewer = user.role === 'ANALYTICS_VIEWER';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-slate-900">
                 {isCompanyAdmin && 'Zilla Parishad Admin Dashboard'}
                 {isDepartmentAdmin && 'Department Admin Dashboard'}
                 {isOperator && 'Operator Dashboard'}
                 {isAnalyticsViewer && 'Analytics Dashboard'}
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-600 mt-1">
                 Welcome back, {user.firstName} {user.lastName}
               </p>
             </div>
             <Button
               onClick={logout}
               variant="outline"
-              className="border-red-300 text-red-600 hover:bg-red-50"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-red-300 hover:text-red-600 transition-colors"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -434,9 +441,9 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-slate-50/30">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid bg-white border border-slate-200 shadow-sm">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {user && hasPermission(user.role, Permission.READ_GRIEVANCE) && (
               <TabsTrigger value="grievances">Grievances</TabsTrigger>
@@ -459,149 +466,167 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {loadingStats ? (
                 <>
-                  {/* Skeleton Loaders */}
-                  <Card className="bg-gradient-to-br from-blue-400 to-blue-500 text-white border-0 shadow-lg animate-pulse">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center justify-between">
-                        <div className="h-5 w-32 bg-blue-300/50 rounded"></div>
-                        <div className="h-5 w-5 bg-blue-300/50 rounded"></div>
+                  {/* Skeleton Loaders - Modern Design */}
+                  <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm animate-pulse">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-slate-400 text-sm font-medium flex items-center justify-between">
+                        <div className="h-4 w-28 bg-slate-200 rounded"></div>
+                        <div className="h-4 w-4 bg-slate-200 rounded"></div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="h-12 w-20 bg-blue-300/50 rounded mb-3"></div>
-                      <div className="h-4 w-24 bg-blue-300/50 rounded"></div>
+                      <div className="h-10 w-20 bg-slate-200 rounded mb-2"></div>
+                      <div className="h-3 w-24 bg-slate-200 rounded"></div>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-gradient-to-br from-green-300 to-green-400 text-white border-0 shadow-lg animate-pulse">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center justify-between">
-                        <div className="h-5 w-24 bg-green-200/50 rounded"></div>
-                        <div className="h-5 w-5 bg-green-200/50 rounded"></div>
+                  <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm animate-pulse">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-slate-400 text-sm font-medium flex items-center justify-between">
+                        <div className="h-4 w-20 bg-slate-200 rounded"></div>
+                        <div className="h-4 w-4 bg-slate-200 rounded"></div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="h-12 w-16 bg-green-200/50 rounded mb-3"></div>
-                      <div className="h-4 w-28 bg-green-200/50 rounded"></div>
+                      <div className="h-10 w-16 bg-slate-200 rounded mb-2"></div>
+                      <div className="h-3 w-28 bg-slate-200 rounded"></div>
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-gradient-to-br from-purple-300 to-purple-400 text-white border-0 shadow-lg animate-pulse">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center justify-between">
-                        <div className="h-5 w-28 bg-purple-200/50 rounded"></div>
-                        <div className="h-5 w-5 bg-purple-200/50 rounded"></div>
+                  <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm animate-pulse">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-slate-400 text-sm font-medium flex items-center justify-between">
+                        <div className="h-4 w-24 bg-slate-200 rounded"></div>
+                        <div className="h-4 w-4 bg-slate-200 rounded"></div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="h-12 w-16 bg-purple-200/50 rounded mb-3"></div>
-                      <div className="h-4 w-24 bg-purple-200/50 rounded"></div>
+                      <div className="h-10 w-16 bg-slate-200 rounded mb-2"></div>
+                      <div className="h-3 w-24 bg-slate-200 rounded"></div>
                     </CardContent>
                   </Card>
 
                   {isCompanyAdmin && (
-                    <Card className="bg-gradient-to-br from-orange-300 to-orange-400 text-white border-0 shadow-lg animate-pulse">
-                      <CardHeader>
-                        <CardTitle className="text-white text-lg flex items-center justify-between">
-                          <div className="h-5 w-28 bg-orange-200/50 rounded"></div>
-                          <div className="h-5 w-5 bg-orange-200/50 rounded"></div>
+                    <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-sm animate-pulse">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-slate-400 text-sm font-medium flex items-center justify-between">
+                          <div className="h-4 w-24 bg-slate-200 rounded"></div>
+                          <div className="h-4 w-4 bg-slate-200 rounded"></div>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="h-12 w-12 bg-orange-200/50 rounded mb-3"></div>
-                        <div className="h-4 w-32 bg-orange-200/50 rounded"></div>
+                        <div className="h-10 w-12 bg-slate-200 rounded mb-2"></div>
+                        <div className="h-3 w-32 bg-slate-200 rounded"></div>
                       </CardContent>
                     </Card>
                   )}
                 </>
               ) : stats ? (
                 <>
+                  {/* Total Grievances - Modern Blue */}
                   <Card 
-                    className="bg-gradient-to-br from-blue-400 to-blue-500 text-white border-0 shadow-lg hover:shadow-blue-200/50 transition-all duration-300 cursor-pointer"
+                    className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300 cursor-pointer"
                     onClick={() => {
                       setActiveTab('grievances');
-                      // Filter to show all grievances
                     }}
                   >
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center justify-between">
-                        <span>Total Grievances</span>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-bl-full"></div>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                          Total Grievances
+                        </span>
+                        <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-4xl font-bold">{stats.grievances.total}</p>
-                      <p className="text-blue-100 text-sm mt-2">
-                        {stats.grievances.pending} pending
+                      <p className="text-3xl font-bold text-slate-900 mb-1">{stats.grievances.total}</p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        <span className="text-amber-600 font-semibold">{stats.grievances.pending}</span> pending
                       </p>
                     </CardContent>
                   </Card>
 
+                  {/* Resolved - Modern Green */}
                   <Card 
-                    className="bg-gradient-to-br from-green-300 to-green-400 text-white border-0 shadow-lg hover:shadow-green-200/50 transition-all duration-300 cursor-pointer"
+                    className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-300 cursor-pointer"
                     onClick={() => {
                       setActiveTab('grievances');
-                      // Could filter to show only resolved
                     }}
                   >
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center justify-between">
-                        <span>Resolved</span>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-bl-full"></div>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                          Resolved
+                        </span>
+                        <svg className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-4xl font-bold">{stats.grievances.resolved}</p>
-                      <p className="text-green-100 text-sm mt-2">
-                        {stats.grievances.inProgress} in progress
+                      <p className="text-3xl font-bold text-slate-900 mb-1">{stats.grievances.resolved}</p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        <span className="text-blue-600 font-semibold">{stats.grievances.inProgress}</span> in progress
                       </p>
                     </CardContent>
                   </Card>
 
+                  {/* Appointments - Modern Purple */}
                   <Card 
-                    className="bg-gradient-to-br from-purple-300 to-purple-400 text-white border-0 shadow-lg hover:shadow-purple-200/50 transition-all duration-300 cursor-pointer"
+                    className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-violet-200 transition-all duration-300 cursor-pointer"
                     onClick={() => {
                       setActiveTab('appointments');
                     }}
                   >
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center justify-between">
-                        <span>Appointments</span>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-violet-500/10 to-violet-600/5 rounded-bl-full"></div>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-violet-500"></div>
+                          Appointments
+                        </span>
+                        <svg className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-4xl font-bold">{stats.appointments.total}</p>
-                      <p className="text-purple-100 text-sm mt-2">
-                        {stats.appointments.confirmed} confirmed
+                      <p className="text-3xl font-bold text-slate-900 mb-1">{stats.appointments.total}</p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        <span className="text-violet-600 font-semibold">{stats.appointments.confirmed}</span> confirmed
                       </p>
                     </CardContent>
                   </Card>
 
+                  {/* Departments - Modern Amber */}
                   {isCompanyAdmin && (
                     <Card 
-                      className="bg-gradient-to-br from-orange-300 to-orange-400 text-white border-0 shadow-lg hover:shadow-orange-200/50 transition-all duration-300 cursor-pointer"
+                      className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-200 transition-all duration-300 cursor-pointer"
                       onClick={() => {
                         setActiveTab('departments');
                       }}
                     >
-                      <CardHeader>
-                        <CardTitle className="text-white text-lg flex items-center justify-between">
-                          <span>Departments</span>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-500/10 to-amber-600/5 rounded-bl-full"></div>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                            Departments
+                          </span>
+                          <svg className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-4xl font-bold">{stats.departments}</p>
-                        <p className="text-orange-100 text-sm mt-2">Active departments</p>
+                        <p className="text-3xl font-bold text-slate-900 mb-1">{stats.departments}</p>
+                        <p className="text-xs text-slate-500 font-medium">Active departments</p>
                       </CardContent>
                     </Card>
                   )}
@@ -609,87 +634,85 @@ export default function Dashboard() {
               ) : null}
             </div>
 
-            {/* Company Info (for Company Admin) - Moved below tiles */}
+            {/* Company Info (for Company Admin) - Modern Design */}
             {isCompanyAdmin && company && (
-              <Card className="overflow-hidden border-0 shadow-lg bg-white">
-                <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-4">
+              <Card className="overflow-hidden border border-slate-200 shadow-sm bg-white">
+                <div className="bg-gradient-to-r from-slate-50 to-white px-6 py-5 border-b border-slate-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 bg-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
+                      <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-500/20">
                         <Building className="text-white w-6 h-6" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold text-white leading-tight">{company.name}</h3>
-                        <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Company Profile</p>
+                        <h3 className="text-lg font-bold text-slate-900 leading-tight">{company.name}</h3>
+                        <p className="text-slate-500 text-xs font-medium uppercase tracking-wide">Company Profile</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
                         {company.companyType}
                       </span>
                     </div>
                   </div>
                 </div>
                 <CardContent className="p-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x border-b border-gray-100">
-                    <div className="p-6">
-                      <div className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                        <UserIcon className="w-3.5 h-3.5 mr-1.5" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200">
+                    <div className="p-6 hover:bg-slate-50/50 transition-colors">
+                      <div className="flex items-center text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                        <UserIcon className="w-4 h-4 mr-2 text-slate-400" />
                         Total Users
                       </div>
                       <div className="flex items-baseline space-x-2">
-                        <span className="text-2xl font-black text-gray-900">{users.length}</span>
-                        <span className="text-xs text-green-500 font-bold">Active</span>
+                        <span className="text-2xl font-bold text-slate-900">{users.length}</span>
+                        <span className="text-xs text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
                       </div>
                     </div>
-                    <div className="p-6">
-                      <div className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                        <Building className="w-3.5 h-3.5 mr-1.5" />
+                    <div className="p-6 hover:bg-slate-50/50 transition-colors">
+                      <div className="flex items-center text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                        <Building className="w-4 h-4 mr-2 text-slate-400" />
                         Departments
                       </div>
                       <div className="flex items-baseline space-x-2">
-                        <span className="text-2xl font-black text-gray-900">{departments.length}</span>
-                        <span className="text-xs text-blue-500 font-bold">Managed</span>
+                        <span className="text-2xl font-bold text-slate-900">{departments.length}</span>
+                        <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full">Managed</span>
                       </div>
                     </div>
-                    <div className="p-6">
-                      <div className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                        <Mail className="w-3.5 h-3.5 mr-1.5" />
+                    <div className="p-6 hover:bg-slate-50/50 transition-colors">
+                      <div className="flex items-center text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                        <Mail className="w-4 h-4 mr-2 text-slate-400" />
                         Contact Email
                       </div>
-                      <div className="text-sm font-bold text-gray-900 truncate">{company.contactEmail}</div>
+                      <div className="text-sm font-semibold text-slate-900 truncate">{company.contactEmail}</div>
                     </div>
-                    <div className="p-6">
-                      <div className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                        <Phone className="w-3.5 h-3.5 mr-1.5" />
+                    <div className="p-6 hover:bg-slate-50/50 transition-colors">
+                      <div className="flex items-center text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                        <Phone className="w-4 h-4 mr-2 text-slate-400" />
                         Contact Phone
                       </div>
-                      <div className="text-sm font-bold text-gray-900">{company.contactPhone}</div>
+                      <div className="text-sm font-semibold text-slate-900">{company.contactPhone}</div>
                     </div>
                   </div>
-                  <div className="bg-gray-50/50 p-6">
+                  <div className="bg-slate-50/50 p-6 border-t border-slate-200">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-                      <div className="flex items-center space-x-6">
+                      <div className="flex items-center space-x-8">
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Grievances</span>
-                          <div className="flex items-center mt-1">
-                            <span className="text-sm font-bold text-gray-900">{stats?.grievances.total || 0}</span>
-                            <span className="mx-2 text-gray-300 text-[10px]|">|</span>
-                            <span className="text-xs font-medium text-amber-600">{stats?.grievances.pending || 0} Pending</span>
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Grievances</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-slate-900">{stats?.grievances.total || 0}</span>
+                            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{stats?.grievances.pending || 0} Pending</span>
                           </div>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Appointments</span>
-                          <div className="flex items-center mt-1">
-                            <span className="text-sm font-bold text-gray-900">{stats?.appointments.total || 0}</span>
-                            <span className="mx-2 text-gray-300 text-[10px]|">|</span>
-                            <span className="text-xs font-medium text-purple-600">{stats?.appointments.confirmed || 0} Confirmed</span>
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Appointments</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-slate-900">{stats?.appointments.total || 0}</span>
+                            <span className="text-xs font-medium text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">{stats?.appointments.confirmed || 0} Confirmed</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span className="text-xs font-bold text-gray-500">System Online</span>
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-xs font-semibold text-emerald-600">System Online</span>
                       </div>
                     </div>
                   </div>
@@ -698,12 +721,12 @@ export default function Dashboard() {
             )}
 
             {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common tasks and operations</CardDescription>
+            <Card className="border border-slate-200 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-slate-900 text-lg font-semibold">Quick Actions</CardTitle>
+                <CardDescription className="text-slate-500">Common tasks and operations</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 {isCompanyAdmin && (
                   <>
                     <ProtectedButton
@@ -971,55 +994,59 @@ export default function Dashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {users.length === 0 ? (
+                  {loadingUsers ? (
+                    <div className="text-center py-16">
+                      <LoadingSpinner size="lg" text="Loading users..." />
+                    </div>
+                  ) : users.length === 0 ? (
                     <div className="text-center py-12">
-                      <p className="text-gray-500">No users found</p>
+                      <p className="text-slate-500">No users found</p>
                     </div>
                   ) : (
                     <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
-                      <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                        <table className="w-full relative border-collapse">
-                          <thead className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur-sm shadow-sm">
-                            <tr className="border-b border-gray-100">
-                              <th className="px-6 py-4 text-left">
-                                <button 
-                                  onClick={() => handleSort('firstName', 'users')}
-                                  className="group flex items-center space-x-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider hover:text-blue-600 transition-colors"
-                                >
-                                  <span>User Info</span>
-                                  <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'firstName' ? 'text-blue-600' : 'text-gray-300 group-hover:text-gray-400'}`} />
-                                </button>
-                              </th>
-                              <th className="px-6 py-4 text-left">
-                                <button 
-                                  onClick={() => handleSort('email', 'users')}
-                                  className="group flex items-center space-x-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider hover:text-blue-600 transition-colors"
-                                >
-                                  <span>Contact Information</span>
-                                  <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'email' ? 'text-blue-600' : 'text-gray-300 group-hover:text-gray-400'}`} />
-                                </button>
-                              </th>
-                              <th className="px-6 py-4 text-left">
-                                <button 
-                                  onClick={() => handleSort('role', 'users')}
-                                  className="group flex items-center space-x-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider hover:text-blue-600 transition-colors"
-                                >
-                                  <span>Role & Dept</span>
-                                  <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'role' ? 'text-blue-600' : 'text-gray-300 group-hover:text-gray-400'}`} />
-                                </button>
-                              </th>
-                              <th className="px-6 py-4 text-left">
-                                <button 
-                                  onClick={() => handleSort('isActive', 'users')}
-                                  className="group flex items-center space-x-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider hover:text-blue-600 transition-colors"
-                                >
-                                  <span>Status & Access</span>
-                                  <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'isActive' ? 'text-blue-600' : 'text-gray-300 group-hover:text-gray-400'}`} />
-                                </button>
-                              </th>
-                              <th className="px-6 py-4 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                          </thead>
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full relative border-collapse min-w-[1200px]">
+                            <thead className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200">
+                              <tr>
+                                <th className="px-6 py-4 text-left min-w-[200px]">
+                                  <button 
+                                    onClick={() => handleSort('firstName', 'users')}
+                                    className="group flex items-center space-x-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide hover:text-blue-600 transition-colors"
+                                  >
+                                    <span>User Info</span>
+                                    <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'firstName' ? 'text-blue-600' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                                  </button>
+                                </th>
+                                <th className="px-6 py-4 text-left min-w-[220px]">
+                                  <button 
+                                    onClick={() => handleSort('email', 'users')}
+                                    className="group flex items-center space-x-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide hover:text-blue-600 transition-colors"
+                                  >
+                                    <span>Contact Information</span>
+                                    <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'email' ? 'text-blue-600' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                                  </button>
+                                </th>
+                                <th className="px-6 py-4 text-left min-w-[200px]">
+                                  <button 
+                                    onClick={() => handleSort('role', 'users')}
+                                    className="group flex items-center space-x-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide hover:text-blue-600 transition-colors"
+                                  >
+                                    <span>Role & Dept</span>
+                                    <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'role' ? 'text-blue-600' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                                  </button>
+                                </th>
+                                <th className="px-6 py-4 text-left min-w-[180px]">
+                                  <button 
+                                    onClick={() => handleSort('isActive', 'users')}
+                                    className="group flex items-center space-x-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide hover:text-blue-600 transition-colors"
+                                  >
+                                    <span>Status & Access</span>
+                                    <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'isActive' ? 'text-blue-600' : 'text-slate-300 group-hover:text-slate-400'}`} />
+                                  </button>
+                                </th>
+                                <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wide min-w-[140px] sticky right-0 bg-slate-50">Actions</th>
+                              </tr>
+                            </thead>
                           <tbody className="divide-y divide-gray-100 bg-white">
                             {getSortedData(users, 'users').map((u: User) => (
                               <tr key={u._id} className="hover:bg-gray-50/50 transition-colors duration-150 group/row">
@@ -1118,13 +1145,13 @@ export default function Dashboard() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-6 py-5 whitespace-nowrap text-right">
-                                  <div className="flex justify-end items-center space-x-2">
+                                <td className="px-6 py-5 whitespace-nowrap text-right sticky right-0 bg-white group-hover/row:bg-slate-50/50">
+                                  <div className="flex justify-end items-center gap-1.5">
                                     {hasPermission(user?.role || '', Permission.UPDATE_USER) && (
                                       <Button 
                                         variant="ghost" 
                                         size="sm" 
-                                        className="h-8 w-8 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                        className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
                                         title="Edit User"
                                         onClick={() => {
                                           setEditingUser(u);
@@ -1138,7 +1165,7 @@ export default function Dashboard() {
                                       <Button 
                                         variant="ghost" 
                                         size="sm" 
-                                        className="h-8 w-8 p-0 text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+                                        className="h-8 w-8 p-0 text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors flex-shrink-0"
                                         title="Change Permissions"
                                         onClick={() => {
                                           setEditingUser(u);
@@ -1152,10 +1179,10 @@ export default function Dashboard() {
                                       <Button 
                                         variant="ghost" 
                                         size="sm" 
-                                        className={`h-8 w-8 p-0 transition-colors ${
+                                        className={`h-8 w-8 p-0 transition-colors flex-shrink-0 ${
                                           user && u._id === user.id 
-                                            ? 'text-gray-300 cursor-not-allowed' 
-                                            : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                            ? 'text-slate-300 cursor-not-allowed' 
+                                            : 'text-slate-400 hover:text-red-600 hover:bg-red-50'
                                         }`}
                                         title={user && u._id === user.id ? 'You cannot delete yourself' : 'Delete User'}
                                         disabled={user && u._id === user.id}
@@ -1213,9 +1240,8 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 {loadingGrievances ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading grievances...</p>
+                  <div className="text-center py-16">
+                    <LoadingSpinner size="lg" text="Loading grievances..." />
                   </div>
                 ) : grievances.length === 0 ? (
                   <div className="text-center py-12">
@@ -1401,9 +1427,8 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 {loadingAppointments ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading appointments...</p>
+                  <div className="text-center py-16">
+                    <LoadingSpinner size="lg" text="Loading appointments..." />
                   </div>
                 ) : appointments.length === 0 ? (
                   <div className="text-center py-12">

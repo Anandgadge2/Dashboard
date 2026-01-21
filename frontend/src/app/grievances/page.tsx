@@ -7,6 +7,7 @@ import { FileText, MapPin, Phone, Calendar, Filter, Search, Eye, UserPlus } from
 import toast from 'react-hot-toast';
 import CitizenDetailsModal from '../../components/grievance/CitizenDetailsModal';
 import AssignmentDialog from '../../components/assignment/AssignmentDialog';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 export default function GrievancesPage() {
   const { user } = useAuth();
@@ -59,13 +60,20 @@ export default function GrievancesPage() {
     setModalOpen(true);
   };
 
-  const filteredGrievances = grievances.filter(g => {
-    if (filters.status !== 'all' && g.status !== filters.status) return false;
-    if (filters.category !== 'all' && g.category !== filters.category) return false;
-    if (filters.search && !g.citizenName?.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !g.grievanceId?.toLowerCase().includes(filters.search.toLowerCase())) return false;
-    return true;
-  });
+  const filteredGrievances = grievances
+    .filter(g => {
+      if (filters.status !== 'all' && g.status !== filters.status) return false;
+      if (filters.category !== 'all' && g.category !== filters.category) return false;
+      if (filters.search && !g.citizenName?.toLowerCase().includes(filters.search.toLowerCase()) &&
+          !g.grievanceId?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by created date (latest first)
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA; // Latest first
+    });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -88,9 +96,9 @@ export default function GrievancesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-slate-50 p-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center">
@@ -156,11 +164,10 @@ export default function GrievancesPage() {
       </div>
 
       {/* Grievances Table */}
-      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading grievances...</p>
+          <div className="p-16 text-center">
+            <LoadingSpinner size="lg" text="Loading grievances..." />
           </div>
         ) : filteredGrievances.length === 0 ? (
           <div className="p-12 text-center">
@@ -170,22 +177,22 @@ export default function GrievancesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-blue-600 to-blue-700 text-white whitespace-nowrap">
+              <thead className="bg-slate-50 border-b border-slate-200 whitespace-nowrap">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Application No</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Citizen Information</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Department & Category</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Issue Description</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Priority</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Assignment</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wider">Raised On</th>
-                  <th className="px-6 py-4 text-center text-sm font-bold uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Application No</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Citizen Information</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Department & Category</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Issue Description</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Priority</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Assignment</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">Raised On</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-200">
                 {filteredGrievances.map((grievance) => (
-                  <tr key={grievance._id} className="hover:bg-blue-50/50 transition-colors">
+                  <tr key={grievance._id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-blue-700">{grievance.grievanceId}</span>

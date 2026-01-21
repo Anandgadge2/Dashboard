@@ -15,6 +15,7 @@ import { appointmentAPI, Appointment } from '@/lib/api/appointment';
 import GrievanceDetailDialog from '@/components/grievance/GrievanceDetailDialog';
 import AppointmentDetailDialog from '@/components/appointment/AppointmentDetailDialog';
 import toast from 'react-hot-toast';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
@@ -114,8 +115,8 @@ export default function DepartmentDetail() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <LoadingSpinner size="xl" text="Loading department details..." />
       </div>
     );
   }
@@ -179,93 +180,113 @@ export default function DepartmentDetail() {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Total Users - Modern Blue */}
               <Card 
-                className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300 cursor-pointer"
                 onClick={() => setActiveTab('users')}
               >
-                <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
-                    <span>Total Users</span>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-bl-full"></div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      Total Users
+                    </span>
+                    <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold">{stats.totalUsers}</p>
-                  <p className="text-blue-100 text-sm mt-2">{stats.activeUsers} active</p>
+                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalUsers}</p>
+                  <p className="text-xs text-slate-500 font-medium">
+                    <span className="text-emerald-600 font-semibold">{stats.activeUsers}</span> active
+                  </p>
                 </CardContent>
               </Card>
 
+              {/* Grievances - Modern Purple */}
               <Card 
-                className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-violet-200 transition-all duration-300 cursor-pointer"
                 onClick={() => setActiveTab('grievances')}
               >
-                <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
-                    <span>Grievances</span>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-violet-500/10 to-violet-600/5 rounded-bl-full"></div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-violet-500"></div>
+                      Grievances
+                    </span>
+                    <svg className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold">{stats.totalGrievances}</p>
-                  <p className="text-purple-100 text-sm mt-2">{stats.pendingGrievances} pending</p>
+                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalGrievances}</p>
+                  <p className="text-xs text-slate-500 font-medium">
+                    <span className="text-amber-600 font-semibold">{stats.pendingGrievances}</span> pending
+                  </p>
                 </CardContent>
               </Card>
 
+              {/* Appointments - Modern Amber */}
               <Card 
-                className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-200 transition-all duration-300 cursor-pointer"
                 onClick={() => setActiveTab('appointments')}
               >
-                <CardHeader>
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
-                    <span>Appointments</span>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-500/10 to-amber-600/5 rounded-bl-full"></div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                      Appointments
+                    </span>
+                    <svg className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold">{stats.totalAppointments}</p>
+                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalAppointments}</p>
+                  <p className="text-xs text-slate-500 font-medium">Total appointments</p>
                 </CardContent>
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Department Information</CardTitle>
+            <Card className="border border-slate-200 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-slate-900 text-lg font-semibold">Department Information</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Department ID</p>
-                    <p className="text-lg font-semibold">{department.departmentId}</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Department ID</p>
+                    <p className="text-lg font-bold text-slate-900">{department.departmentId}</p>
                   </div>
                   {company && (
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Company</p>
-                      <p className="text-lg font-semibold">{company.name}</p>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Company</p>
+                      <p className="text-lg font-bold text-slate-900">{company.name}</p>
                     </div>
                   )}
                   {department.contactPerson && (
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Contact Person</p>
-                      <p className="text-lg font-semibold">{department.contactPerson}</p>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contact Person</p>
+                      <p className="text-lg font-bold text-slate-900">{department.contactPerson}</p>
                     </div>
                   )}
                   {department.contactEmail && (
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Contact Email</p>
-                      <p className="text-lg font-semibold">{department.contactEmail}</p>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contact Email</p>
+                      <p className="text-lg font-bold text-slate-900">{department.contactEmail}</p>
                     </div>
                   )}
                 </div>
                 {department.description && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-500">Description</p>
-                    <p className="text-gray-700">{department.description}</p>
+                  <div className="mt-6 pt-6 border-t border-slate-200">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Description</p>
+                    <p className="text-slate-700 leading-relaxed">{department.description}</p>
                   </div>
                 )}
               </CardContent>
