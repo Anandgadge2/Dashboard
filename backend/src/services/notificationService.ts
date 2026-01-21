@@ -359,6 +359,18 @@ interface NotificationData {
   remarks?: string;
   assignedTo?: any;
   assignedByName?: string;
+  resolvedBy?: any;
+  resolvedAt?: Date | string;
+  createdAt?: Date | string;
+  assignedAt?: Date | string;
+  appointmentDate?: Date | string;
+  appointmentTime?: string;
+  timeline?: Array<{
+    action: string;
+    details?: any;
+    performedBy?: any;
+    timestamp: Date | string;
+  }>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -451,17 +463,33 @@ export async function notifyDepartmentAdminOnCreation(
     const admin = await getDepartmentAdmin(data.departmentId);
     if (!admin) return;
 
+    const createdAt = data.createdAt || new Date();
+    const formattedDate = new Date(createdAt).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
     const notificationData = {
       companyName: company.name,
       recipientName: admin.getFullName(),
-      grievanceId: data.grievanceId || data.appointmentId,
+      grievanceId: data.grievanceId,
+      appointmentId: data.appointmentId,
       citizenName: data.citizenName,
       citizenPhone: data.citizenPhone,
       departmentName: department.name,
       category: data.category,
       priority: data.priority,
-      description: data.description || data.purpose,
-      location: data.location
+      description: data.description,
+      purpose: data.purpose,
+      location: data.location,
+      createdAt: data.createdAt,
+      timeline: data.timeline,
+      appointmentDate: data.appointmentDate,
+      appointmentTime: data.appointmentTime
     };
 
     // Email
@@ -481,16 +509,36 @@ export async function notifyDepartmentAdminOnCreation(
       logger.warn(`⚠️ Department admin ${admin.getFullName()} has no email address`);
     }
 
-    // WhatsApp
+    // WhatsApp - Professional and detailed message
+    const priorityText = data.priority 
+      ? `\n⚡ *Priority Level:* ${data.priority}\n` 
+      : '';
+    const categoryText = data.category 
+      ? `\n📂 *Category:* ${data.category}\n` 
+      : '';
+    const locationText = data.location 
+      ? `\n📍 *Location:* ${data.location}\n` 
+      : '';
+    
     const message =
-      `📋 *New ${data.type === 'grievance' ? 'Grievance' : 'Appointment'} Received*\n\n` +
-      `🎫 *ID:* ${data.grievanceId || data.appointmentId}\n` +
-      `👤 *Citizen:* ${data.citizenName}\n` +
-      `📞 *Phone:* ${data.citizenPhone}\n` +
-      `🏢 *Department:* ${department.name}\n` +
-      `${data.category ? `📂 *Category:* ${data.category}\n` : ''}` +
-      `${data.priority ? `⚡ *Priority:* ${data.priority}\n` : ''}` +
-      `📝 *Details:* ${data.description || data.purpose}`;
+      `*${company.name}*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📋 *NEW ${data.type === 'grievance' ? 'GRIEVANCE' : 'APPOINTMENT'} RECEIVED*\n\n` +
+      `Respected ${admin.getFullName()},\n\n` +
+      `This is to inform you that a new ${data.type === 'grievance' ? 'grievance' : 'appointment'} has been received through our digital portal and has been assigned to your department for immediate attention and necessary action.\n\n` +
+      `*Grievance/Appointment Details:*\n` +
+      `🎫 *Reference ID:* ${data.grievanceId || data.appointmentId}\n` +
+      `👤 *Citizen Name:* ${data.citizenName}\n` +
+      `📞 *Contact Number:* ${data.citizenPhone}\n` +
+      `🏢 *Department:* ${department.name}${categoryText}${priorityText}${locationText}` +
+      `📝 *Description:*\n${data.description || data.purpose}\n\n` +
+      `📅 *Received On:* ${formattedDate}\n\n` +
+      `*Action Required:*\n` +
+      `Please review this ${data.type === 'grievance' ? 'grievance' : 'appointment'} at your earliest convenience and take appropriate action. Kindly ensure timely resolution as per the service level agreement (SLA) guidelines.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*${company.name}*\n` +
+      `Digital Grievance Redressal System\n` +
+      `This is an automated notification.`;
 
     await safeSendWhatsApp(company, admin.phone, message);
 
@@ -516,16 +564,34 @@ export async function notifyUserOnAssignment(
     const department = await Department.findById(data.departmentId);
     const departmentName = department?.name || 'Unknown';
 
+    const assignedByName = data.assignedByName || 'Administrator';
+    const assignedAt = data.assignedAt || new Date();
+    const formattedDate = new Date(assignedAt).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
     const emailData = {
       companyName: company.name,
       recipientName: user.getFullName(),
-      grievanceId: data.grievanceId || data.appointmentId,
+      grievanceId: data.grievanceId,
+      appointmentId: data.appointmentId,
       citizenName: data.citizenName,
       citizenPhone: data.citizenPhone,
       departmentName,
       priority: data.priority,
       description: data.description || data.purpose,
-      assignedByName: data.assignedByName || 'System'
+      purpose: data.purpose,
+      assignedByName: assignedByName,
+      assignedAt: data.assignedAt,
+      createdAt: data.createdAt,
+      timeline: data.timeline,
+      appointmentDate: data.appointmentDate,
+      appointmentTime: data.appointmentTime
     };
 
     if (user.email) {
@@ -544,13 +610,31 @@ export async function notifyUserOnAssignment(
       logger.warn(`⚠️ Assigned user ${user.getFullName()} has no email address`);
     }
 
+    // WhatsApp - Professional and detailed message
+    const priorityText = data.priority 
+      ? `\n⚡ *Priority Level:* ${data.priority}\n` 
+      : '';
+    
     const message =
-      `📋 *${data.type === 'grievance' ? 'Grievance' : 'Appointment'} Assigned*\n\n` +
-      `🎫 *ID:* ${data.grievanceId || data.appointmentId}\n` +
-      `🏢 *Department:* ${departmentName}\n` +
-      `👤 *Citizen:* ${data.citizenName}\n` +
-      `📝 *Details:* ${data.description || data.purpose}\n` +
-      `👨‍💼 *Assigned by:* ${data.assignedByName || 'System'}`;
+      `*${company.name}*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `👤 *${data.type === 'grievance' ? 'GRIEVANCE' : 'APPOINTMENT'} ASSIGNED TO YOU*\n\n` +
+      `Respected ${user.getFullName()},\n\n` +
+      `This is to inform you that a ${data.type === 'grievance' ? 'grievance' : 'appointment'} has been assigned to you for resolution. You are requested to review the details and take necessary action at the earliest.\n\n` +
+      `*Assignment Details:*\n` +
+      `🎫 *Reference ID:* ${data.grievanceId || data.appointmentId}\n` +
+      `👤 *Citizen Name:* ${data.citizenName}\n` +
+      `📞 *Contact Number:* ${data.citizenPhone}\n` +
+      `🏢 *Department:* ${departmentName}${priorityText}` +
+      `📝 *Description:*\n${data.description || data.purpose}\n\n` +
+      `👨‍💼 *Assigned By:* ${assignedByName}\n` +
+      `📅 *Assigned On:* ${formattedDate}\n\n` +
+      `*Your Action Required:*\n` +
+      `Please contact the citizen, investigate the matter, and provide a resolution. Kindly update the status and add remarks as you progress with the resolution process.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*${company.name}*\n` +
+      `Digital Grievance Redressal System\n` +
+      `This is an automated notification.`;
 
     await safeSendWhatsApp(company, user.phone, message);
 
@@ -571,13 +655,109 @@ export async function notifyCitizenOnResolution(
     if (!company) return;
 
     const department = await Department.findById(data.departmentId);
-    const departmentName = department?.name || 'Unknown';
+    const departmentName = department?.name || 'Unknown Department';
+
+    // Fetch resolvedBy user details if available
+    let resolvedByName = 'Assigned Officer';
+    if (data.resolvedBy) {
+      try {
+        const resolvedByUser = typeof data.resolvedBy === 'object' && data.resolvedBy !== null
+          ? await User.findById(data.resolvedBy._id || data.resolvedBy)
+          : await User.findById(data.resolvedBy);
+        if (resolvedByUser) {
+          resolvedByName = resolvedByUser.getFullName();
+        }
+      } catch (error) {
+        logger.warn('Could not fetch resolvedBy user details');
+      }
+    }
+
+    const resolvedAt = data.resolvedAt || new Date();
+    const formattedResolvedDate = new Date(resolvedAt).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const createdAt = data.createdAt;
+    let resolutionTimeText = '';
+    if (createdAt && resolvedAt) {
+      const created = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
+      const resolved = typeof resolvedAt === 'string' ? new Date(resolvedAt) : resolvedAt;
+      const diffMs = resolved.getTime() - created.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      if (diffDays > 0) {
+        resolutionTimeText = `${diffDays} day${diffDays > 1 ? 's' : ''} and ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+      } else if (diffHours > 0) {
+        resolutionTimeText = `${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+      } else {
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        resolutionTimeText = `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+      }
+    }
+
+    // Email for appointments if citizen email is available
+    if (data.type === 'appointment' && (data as any).citizenEmail) {
+      try {
+        const emailData = {
+          companyName: company.name,
+          recipientName: data.citizenName,
+          appointmentId: data.appointmentId,
+          citizenName: data.citizenName,
+          citizenPhone: data.citizenPhone,
+          departmentName: departmentName,
+          remarks: data.remarks,
+          resolvedBy: data.resolvedBy,
+          resolvedAt: data.resolvedAt,
+          createdAt: data.createdAt,
+          assignedAt: data.assignedAt,
+          timeline: data.timeline,
+          appointmentDate: (data as any).appointmentDate,
+          appointmentTime: (data as any).appointmentTime
+        };
+        const email = generateNotificationEmail('appointment', 'resolved', emailData);
+        const result = await sendEmail((data as any).citizenEmail, email.subject, email.html, email.text);
+        if (result.success) {
+          logger.info(`✅ Email sent to citizen ${data.citizenName} (${(data as any).citizenEmail})`);
+        }
+      } catch (error) {
+        logger.error(`❌ Error sending email to citizen:`, error);
+      }
+    }
+
+    // WhatsApp - Professional and detailed message
+    const remarksText = data.remarks 
+      ? `\n\n*Officer's Resolution Remarks:*\n${data.remarks}\n` 
+      : '';
+    const resolutionTimeTextFormatted = resolutionTimeText 
+      ? `\n⏱️ *Resolution Time:* ${resolutionTimeText}\n` 
+      : '';
 
     const message =
-      `✅ *Your ${data.type === 'grievance' ? 'Grievance' : 'Appointment'} Has Been Resolved*\n\n` +
+      `*${company.name}*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `✅ *YOUR ${data.type === 'grievance' ? 'GRIEVANCE' : 'APPOINTMENT'} HAS BEEN RESOLVED*\n\n` +
+      `Respected ${data.citizenName},\n\n` +
+      `This is to inform you that your ${data.type === 'grievance' ? 'grievance' : 'appointment'} has been successfully resolved by our department. We appreciate your patience and cooperation.\n\n` +
+      `*Resolution Details:*\n` +
       `🎫 *Reference ID:* ${data.grievanceId || data.appointmentId}\n` +
       `🏢 *Department:* ${departmentName}\n` +
-      `${data.remarks ? `📝 *Remarks:*\n${data.remarks}` : ''}`;
+      `📊 *Status:* RESOLVED\n` +
+      `👨‍💼 *Resolved By:* ${resolvedByName}\n` +
+      `📅 *Resolved On:* ${formattedResolvedDate}${resolutionTimeTextFormatted}${remarksText}` +
+      `\n*Timeline Summary:*\n` +
+      `${data.createdAt ? `📝 Created: ${new Date(data.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}\n` : ''}` +
+      `${data.assignedAt ? `👤 Assigned: ${new Date(data.assignedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}\n` : ''}` +
+      `✅ Resolved: ${formattedResolvedDate}\n\n` +
+      `Thank you for using our digital portal. We hope this resolves your concern satisfactorily. If you have any further queries, please feel free to contact us.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*${company.name}*\n` +
+      `Digital Grievance Redressal System\n` +
+      `This is an automated notification.`;
 
     await safeSendWhatsApp(company, data.citizenWhatsApp || data.citizenPhone, message);
 
@@ -602,6 +782,21 @@ export async function notifyHierarchyOnStatusChange(
     const department = await Department.findById(data.departmentId);
     const departmentName = department?.name || 'Unknown Department';
 
+    // Fetch resolvedBy user details if available
+    let resolvedByName = 'Assigned Officer';
+    if (data.resolvedBy) {
+      try {
+        const resolvedByUser = typeof data.resolvedBy === 'object' && data.resolvedBy !== null
+          ? await User.findById(data.resolvedBy._id || data.resolvedBy)
+          : await User.findById(data.resolvedBy);
+        if (resolvedByUser) {
+          resolvedByName = resolvedByUser.getFullName();
+        }
+      } catch (error) {
+        logger.warn('Could not fetch resolvedBy user details');
+      }
+    }
+
     const users = await User.find({
       $or: [
         { role: UserRole.COMPANY_ADMIN, companyId: data.companyId },
@@ -612,28 +807,88 @@ export async function notifyHierarchyOnStatusChange(
       isDeleted: false
     });
 
+    const resolvedAt = data.resolvedAt || new Date();
+    const formattedResolvedDate = new Date(resolvedAt).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const createdAt = data.createdAt;
+    let resolutionTimeText = '';
+    if (createdAt && resolvedAt) {
+      const created = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
+      const resolved = typeof resolvedAt === 'string' ? new Date(resolvedAt) : resolvedAt;
+      const diffMs = resolved.getTime() - created.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      if (diffDays > 0) {
+        resolutionTimeText = `${diffDays} day${diffDays > 1 ? 's' : ''} and ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+      } else if (diffHours > 0) {
+        resolutionTimeText = `${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+      } else {
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        resolutionTimeText = `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+      }
+    }
+
+    // WhatsApp message - Professional and detailed
+    const remarksText = data.remarks 
+      ? `\n\n*Officer's Remarks:*\n${data.remarks}\n` 
+      : '';
+    const resolutionTimeTextFormatted = resolutionTimeText 
+      ? `\n⏱️ *Resolution Time:* ${resolutionTimeText}\n` 
+      : '';
+
     const message =
-      `📊 *Status Update*\n\n` +
-      `🎫 *ID:* ${data.grievanceId || data.appointmentId}\n` +
-      `👤 *Citizen:* ${data.citizenName}\n` +
+      `*${company.name}*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📊 *STATUS UPDATE - ${data.type === 'grievance' ? 'GRIEVANCE' : 'APPOINTMENT'} RESOLVED*\n\n` +
+      `Respected Sir/Madam,\n\n` +
+      `This is to inform you that the following ${data.type === 'grievance' ? 'grievance' : 'appointment'} has been successfully resolved by the assigned officer.\n\n` +
+      `*${data.type === 'grievance' ? 'Grievance' : 'Appointment'} Details:*\n` +
+      `🎫 *Reference ID:* ${data.grievanceId || data.appointmentId}\n` +
+      `👤 *Citizen Name:* ${data.citizenName}\n` +
+      `📞 *Contact Number:* ${data.citizenPhone}\n` +
       `🏢 *Department:* ${departmentName}\n` +
-      `📊 *Status:* ${oldStatus} → ${newStatus}` +
-      `${data.remarks ? `\n📝 *Remarks:* ${data.remarks}` : ''}`;
+      `📊 *Status Change:* ${oldStatus} → ${newStatus}\n` +
+      `👨‍💼 *Resolved By:* ${resolvedByName}\n` +
+      `📅 *Resolved On:* ${formattedResolvedDate}${resolutionTimeTextFormatted}${remarksText}` +
+      `\n*Processing Timeline:*\n` +
+      `${data.createdAt ? `📝 Created: ${new Date(data.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}\n` : ''}` +
+      `${data.assignedAt ? `👤 Assigned: ${new Date(data.assignedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}\n` : ''}` +
+      `✅ Resolved: ${formattedResolvedDate}\n\n` +
+      `The citizen has been notified of the resolution. This notification is for your information and records.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*${company.name}*\n` +
+      `Digital Grievance Redressal System\n` +
+      `This is an automated notification.`;
 
     for (const user of users) {
       await safeSendWhatsApp(company, user.phone, message);
 
       if (user.email) {
         try {
-          const email = generateNotificationEmail(data.type, 'resolved', {
+          const emailData = {
             companyName: company.name,
             recipientName: user.getFullName(),
             grievanceId: data.grievanceId || data.appointmentId,
             citizenName: data.citizenName,
             citizenPhone: data.citizenPhone,
             departmentName: departmentName,
-            remarks: data.remarks
-          });
+            remarks: data.remarks,
+            resolvedBy: data.resolvedBy,
+            resolvedAt: data.resolvedAt,
+            createdAt: data.createdAt,
+            assignedAt: data.assignedAt,
+            timeline: data.timeline,
+            appointmentDate: (data as any).appointmentDate,
+            appointmentTime: (data as any).appointmentTime
+          };
+          const email = generateNotificationEmail(data.type, 'resolved', emailData);
 
           const result = await sendEmail(user.email, email.subject, email.html, email.text);
           if (result.success) {

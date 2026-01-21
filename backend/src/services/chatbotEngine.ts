@@ -1131,7 +1131,9 @@ async function createGrievanceWithDepartment(
         description: session.data.description,
         category: session.data.category,
         priority: session.data.priority || 'MEDIUM',
-        location: session.data.address
+        location: session.data.address,
+        createdAt: grievance.createdAt,
+        timeline: grievance.timeline
       });
     }
     
@@ -1579,7 +1581,11 @@ async function createAppointment(
         departmentId: session.data.departmentId,
         companyId: company._id,
         purpose: session.data.purpose,
-        location: `${new Date(appointmentDate).toLocaleDateString('en-IN')} at ${appointmentTime}`
+        location: `${new Date(appointmentDate).toLocaleDateString('en-IN')} at ${appointmentTime}`,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        createdAt: appointment.createdAt,
+        timeline: appointment.timeline
       });
     }
     

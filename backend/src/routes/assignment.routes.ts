@@ -174,7 +174,10 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
       category: grievance.category,
       priority: grievance.priority,
       assignedTo: assignedUser._id,
-      assignedByName: currentUser.getFullName()
+      assignedByName: currentUser.getFullName(),
+      assignedAt: grievance.assignedAt,
+      createdAt: grievance.createdAt,
+      timeline: grievance.timeline
     });
 
     await logUserAction(
@@ -291,6 +294,10 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
     const oldDepartmentId = appointment.departmentId?._id;
 
     appointment.assignedTo = assignedUser._id;
+    // Set assignedAt if not already set, or update it on reassignment
+    if (!appointment.assignedAt || oldAssignedTo?.toString() !== assignedUser._id.toString()) {
+      appointment.assignedAt = new Date();
+    }
     
     // Auto-update department based on assigned user's department
     if (assignedUser.departmentId && (!oldDepartmentId || oldDepartmentId.toString() !== assignedUser.departmentId.toString())) {
@@ -348,8 +355,13 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
       companyId: appointment.companyId,
       purpose: appointment.purpose,
       assignedTo: assignedUser._id,
-      assignedByName: currentUser.getFullName()
-    });
+      assignedByName: currentUser.getFullName(),
+      assignedAt: appointment.assignedAt,
+      createdAt: appointment.createdAt,
+      timeline: appointment.timeline,
+      appointmentDate: appointment.appointmentDate,
+      appointmentTime: appointment.appointmentTime
+    } as any);
 
     await logUserAction(
       req,

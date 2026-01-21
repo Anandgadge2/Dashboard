@@ -162,7 +162,12 @@ router.put('/grievance/:id', requirePermission(Permission.STATUS_CHANGE_GRIEVANC
         citizenWhatsApp: grievance.citizenWhatsApp,
         departmentId: grievance.departmentId,
         companyId: grievance.companyId,
-        remarks: remarks
+        remarks: remarks,
+        resolvedBy: currentUser._id,
+        resolvedAt: grievance.resolvedAt,
+        createdAt: grievance.createdAt,
+        assignedAt: grievance.assignedAt,
+        timeline: grievance.timeline
       });
 
       // Notify hierarchy about status change
@@ -175,7 +180,12 @@ router.put('/grievance/:id', requirePermission(Permission.STATUS_CHANGE_GRIEVANC
         departmentId: grievance.departmentId,
         companyId: grievance.companyId,
         assignedTo: grievance.assignedTo,
-        remarks: remarks
+        remarks: remarks,
+        resolvedBy: currentUser._id,
+        resolvedAt: grievance.resolvedAt,
+        createdAt: grievance.createdAt,
+        assignedAt: grievance.assignedAt,
+        timeline: grievance.timeline
       }, oldStatus, status);
     }
 
@@ -310,7 +320,14 @@ router.put('/appointment/:id', requirePermission(Permission.STATUS_CHANGE_APPOIN
         departmentId: appointment.departmentId,
         companyId: appointment.companyId,
         remarks: remarks,
-        citizenEmail: appointment.citizenEmail
+        citizenEmail: appointment.citizenEmail,
+        resolvedBy: currentUser._id,
+        resolvedAt: appointment.completedAt,
+        createdAt: appointment.createdAt,
+        assignedAt: appointment.assignedAt,
+        timeline: appointment.timeline,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime
       } as any);
 
       // Notify hierarchy about status change
@@ -323,8 +340,15 @@ router.put('/appointment/:id', requirePermission(Permission.STATUS_CHANGE_APPOIN
         departmentId: appointment.departmentId,
         companyId: appointment.companyId,
         assignedTo: appointment.assignedTo,
-        remarks: remarks
-      }, oldStatus, status);
+        remarks: remarks,
+        resolvedBy: currentUser._id,
+        resolvedAt: appointment.completedAt,
+        createdAt: appointment.createdAt,
+        assignedAt: appointment.assignedAt,
+        timeline: appointment.timeline,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime
+      } as any, oldStatus, status);
     }
 
     await logUserAction(

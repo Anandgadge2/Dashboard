@@ -414,7 +414,10 @@ router.put('/:id/assign', requirePermission(Permission.ASSIGN_GRIEVANCE), async 
       category: grievance.category,
       priority: grievance.priority,
       assignedTo: assignedUser._id,
-      assignedByName: req.user!.getFullName()
+      assignedByName: req.user!.getFullName(),
+      assignedAt: grievance.assignedAt,
+      createdAt: grievance.createdAt,
+      timeline: grievance.timeline
     });
 
     await logUserAction(

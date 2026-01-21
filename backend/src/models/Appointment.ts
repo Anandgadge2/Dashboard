@@ -21,6 +21,7 @@ export interface IAppointment extends Document {
     remarks?: string;
   }>;
   assignedTo?: mongoose.Types.ObjectId;
+  assignedAt?: Date;
   location?: string;
   notes?: string;
   cancellationReason?: string;
@@ -119,6 +120,9 @@ const AppointmentSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
       index: true
+    },
+    assignedAt: {
+      type: Date
     },
     location: {
       type: String,
