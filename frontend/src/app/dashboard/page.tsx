@@ -160,14 +160,27 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (mounted && user && user.role !== 'SUPER_ADMIN') {
+      // Prioritize dashboard stats (KPI tiles) - fetch immediately
       fetchDashboardData();
-      fetchDepartments();
-      fetchUsers();
-      fetchGrievances();
-      fetchAppointments();
-      if (user.companyId) {
-        fetchCompany();
+      
+      // Fetch other data in parallel (non-blocking)
+      // These can load after KPI tiles are shown
+      const fetchPromises: Promise<any>[] = [
+        fetchDepartments(),
+        fetchUsers()
+      ];
+      
+      if (user.companyId && user.role === 'COMPANY_ADMIN') {
+        fetchPromises.push(fetchCompany());
       }
+      
+      Promise.all(fetchPromises).catch(err => console.error('Error fetching initial data:', err));
+      
+      // Fetch lists separately (less critical, can load later)
+      setTimeout(() => {
+        fetchGrievances();
+        fetchAppointments();
+      }, 100);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, user]);
@@ -444,7 +457,64 @@ export default function Dashboard() {
           <TabsContent value="overview" className="space-y-6">
             {/* Stats Grid - Moved to top */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats && (
+              {loadingStats ? (
+                <>
+                  {/* Skeleton Loaders */}
+                  <Card className="bg-gradient-to-br from-blue-400 to-blue-500 text-white border-0 shadow-lg animate-pulse">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center justify-between">
+                        <div className="h-5 w-32 bg-blue-300/50 rounded"></div>
+                        <div className="h-5 w-5 bg-blue-300/50 rounded"></div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-12 w-20 bg-blue-300/50 rounded mb-3"></div>
+                      <div className="h-4 w-24 bg-blue-300/50 rounded"></div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-green-300 to-green-400 text-white border-0 shadow-lg animate-pulse">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center justify-between">
+                        <div className="h-5 w-24 bg-green-200/50 rounded"></div>
+                        <div className="h-5 w-5 bg-green-200/50 rounded"></div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-12 w-16 bg-green-200/50 rounded mb-3"></div>
+                      <div className="h-4 w-28 bg-green-200/50 rounded"></div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-purple-300 to-purple-400 text-white border-0 shadow-lg animate-pulse">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center justify-between">
+                        <div className="h-5 w-28 bg-purple-200/50 rounded"></div>
+                        <div className="h-5 w-5 bg-purple-200/50 rounded"></div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-12 w-16 bg-purple-200/50 rounded mb-3"></div>
+                      <div className="h-4 w-24 bg-purple-200/50 rounded"></div>
+                    </CardContent>
+                  </Card>
+
+                  {isCompanyAdmin && (
+                    <Card className="bg-gradient-to-br from-orange-300 to-orange-400 text-white border-0 shadow-lg animate-pulse">
+                      <CardHeader>
+                        <CardTitle className="text-white text-lg flex items-center justify-between">
+                          <div className="h-5 w-28 bg-orange-200/50 rounded"></div>
+                          <div className="h-5 w-5 bg-orange-200/50 rounded"></div>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-12 w-12 bg-orange-200/50 rounded mb-3"></div>
+                        <div className="h-4 w-32 bg-orange-200/50 rounded"></div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              ) : stats ? (
                 <>
                   <Card 
                     className="bg-gradient-to-br from-blue-400 to-blue-500 text-white border-0 shadow-lg hover:shadow-blue-200/50 transition-all duration-300 cursor-pointer"
@@ -536,7 +606,7 @@ export default function Dashboard() {
                     </Card>
                   )}
                 </>
-              )}
+              ) : null}
             </div>
 
             {/* Company Info (for Company Admin) - Moved below tiles */}
