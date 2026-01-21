@@ -68,12 +68,14 @@ export enum Permission {
   UPDATE_GRIEVANCE = 'UPDATE_GRIEVANCE',
   DELETE_GRIEVANCE = 'DELETE_GRIEVANCE',
   ASSIGN_GRIEVANCE = 'ASSIGN_GRIEVANCE',
+  STATUS_CHANGE_GRIEVANCE = 'STATUS_CHANGE_GRIEVANCE', // For operators - status and comments only
   
   // Appointment Management
   CREATE_APPOINTMENT = 'CREATE_APPOINTMENT',
   READ_APPOINTMENT = 'READ_APPOINTMENT',
   UPDATE_APPOINTMENT = 'UPDATE_APPOINTMENT',
   DELETE_APPOINTMENT = 'DELETE_APPOINTMENT',
+  STATUS_CHANGE_APPOINTMENT = 'STATUS_CHANGE_APPOINTMENT', // For operators - status and comments only
   
   // Analytics
   VIEW_ANALYTICS = 'VIEW_ANALYTICS',
@@ -114,11 +116,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.READ_USER,
     Permission.UPDATE_USER,
     Permission.DELETE_USER,
+    Permission.CREATE_GRIEVANCE,
     Permission.READ_GRIEVANCE,
     Permission.UPDATE_GRIEVANCE,
+    Permission.DELETE_GRIEVANCE,
     Permission.ASSIGN_GRIEVANCE,
+    Permission.STATUS_CHANGE_GRIEVANCE,
+    Permission.CREATE_APPOINTMENT,
     Permission.READ_APPOINTMENT,
     Permission.UPDATE_APPOINTMENT,
+    Permission.DELETE_APPOINTMENT,
+    Permission.STATUS_CHANGE_APPOINTMENT,
     Permission.VIEW_ANALYTICS,
     Permission.EXPORT_DATA,
     Permission.IMPORT_DATA,
@@ -127,25 +135,33 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   
   [UserRole.DEPARTMENT_ADMIN]: [
+    Permission.CREATE_DEPARTMENT,
     Permission.READ_DEPARTMENT,
     Permission.UPDATE_DEPARTMENT,
     Permission.CREATE_USER,
     Permission.READ_USER,
     Permission.UPDATE_USER,
+    Permission.DELETE_USER,
+    Permission.CREATE_GRIEVANCE,
     Permission.READ_GRIEVANCE,
     Permission.UPDATE_GRIEVANCE,
+    Permission.DELETE_GRIEVANCE,
     Permission.ASSIGN_GRIEVANCE,
+    Permission.STATUS_CHANGE_GRIEVANCE,
+    Permission.CREATE_APPOINTMENT,
     Permission.READ_APPOINTMENT,
     Permission.UPDATE_APPOINTMENT,
+    Permission.DELETE_APPOINTMENT,
+    Permission.STATUS_CHANGE_APPOINTMENT,
     Permission.VIEW_ANALYTICS,
     Permission.EXPORT_DATA
   ],
   
   [UserRole.OPERATOR]: [
     Permission.READ_GRIEVANCE,
-    Permission.UPDATE_GRIEVANCE,
+    Permission.STATUS_CHANGE_GRIEVANCE, // Only status and comments, not full update
     Permission.READ_APPOINTMENT,
-    Permission.UPDATE_APPOINTMENT
+    Permission.STATUS_CHANGE_APPOINTMENT // Only status and comments, not full update
   ],
   
   [UserRole.ANALYTICS_VIEWER]: [

@@ -50,7 +50,7 @@ export async function uploadWhatsAppMediaToCloudinary(
           resource_type: 'auto',
           tags: ['whatsapp-chatbot', folder]
         },
-        (error, result) => {
+        (error: any, result: any) => {
           if (error) {
             logger.error('❌ Cloudinary upload failed:', error);
             resolve(null);

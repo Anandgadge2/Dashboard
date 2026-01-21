@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "npx tsc",
     "start": "node dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -19,7 +19,12 @@
     "fix:zpadmin": "ts-node src/scripts/fixZPAdminPassword.ts",
     "seed:departments": "ts-node src/scripts/seedDepartments.ts",
     "seed:users": "ts-node src/scripts/seedUsers.ts",
-    "generate:sso-token": "ts-node src/scripts/generateSSOToken.ts"
+    "generate:sso-token": "ts-node src/scripts/generateSSOToken.ts",
+    "test:email": "node test-email-direct.js",
+    "test:email:assignment": "node test-email-assignment-status.js",
+    "test:notifications": "node test-notifications.js",
+    "test:api": "bash test-api.sh",
+    "test:chatbot": "node test-chatbot-comprehensive.js"
   },
   "keywords": [
     "whatsapp",
@@ -49,6 +54,7 @@
     "mongoose": "^8.21.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
+    "nodemailer": "^6.10.1",
     "winston": "^3.11.0",
     "xlsx": "^0.18.5",
     "zod": "^3.22.4"
@@ -61,6 +67,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.19.28",
+    "@types/nodemailer": "^6.4.21",
     "@typescript-eslint/eslint-plugin": "^6.16.0",
     "@typescript-eslint/parser": "^6.16.0",
     "eslint": "^8.56.0",

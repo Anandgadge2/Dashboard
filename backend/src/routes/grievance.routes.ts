@@ -191,7 +191,7 @@ router.get('/:id', requirePermission(Permission.READ_GRIEVANCE), async (req: Req
 // @route   PUT /api/grievances/:id/status
 // @desc    Update grievance status
 // @access  Private
-router.put('/:id/status', requirePermission(Permission.UPDATE_GRIEVANCE), async (req: Request, res: Response) => {
+router.put('/:id/status', requirePermission(Permission.STATUS_CHANGE_GRIEVANCE, Permission.UPDATE_GRIEVANCE), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
     const { status, remarks } = req.body;
@@ -202,6 +202,20 @@ router.put('/:id/status', requirePermission(Permission.UPDATE_GRIEVANCE), async 
         message: 'Status is required'
       });
       return;
+    }
+
+    // Operators can only update status and remarks - validate request body
+    if (currentUser.role === UserRole.OPERATOR) {
+      const allowedFields = ['status', 'remarks'];
+      const providedFields = Object.keys(req.body);
+      const invalidFields = providedFields.filter(field => !allowedFields.includes(field));
+      
+      if (invalidFields.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `Operators can only update status and remarks. Invalid fields: ${invalidFields.join(', ')}`
+        });
+      }
     }
 
     const grievance = await Grievance.findById(req.params.id);
@@ -246,6 +260,36 @@ router.put('/:id/status', requirePermission(Permission.UPDATE_GRIEVANCE), async 
     });
 
     await grievance.save();
+
+    // Notify citizen if status changed to RESOLVED
+    if (oldStatus !== GrievanceStatus.RESOLVED && status === GrievanceStatus.RESOLVED) {
+      const { notifyCitizenOnResolution, notifyHierarchyOnStatusChange } = await import('../services/notificationService');
+      
+      await notifyCitizenOnResolution({
+        type: 'grievance',
+        action: 'resolved',
+        grievanceId: grievance.grievanceId,
+        citizenName: grievance.citizenName,
+        citizenPhone: grievance.citizenPhone,
+        citizenWhatsApp: grievance.citizenWhatsApp,
+        departmentId: grievance.departmentId,
+        companyId: grievance.companyId,
+        remarks: remarks
+      });
+
+      // Notify hierarchy about status change
+      await notifyHierarchyOnStatusChange({
+        type: 'grievance',
+        action: 'resolved',
+        grievanceId: grievance.grievanceId,
+        citizenName: grievance.citizenName,
+        citizenPhone: grievance.citizenPhone,
+        departmentId: grievance.departmentId,
+        companyId: grievance.companyId,
+        assignedTo: grievance.assignedTo,
+        remarks: remarks
+      }, oldStatus, status);
+    }
 
     await logUserAction(
       req,
@@ -356,6 +400,23 @@ router.put('/:id/assign', requirePermission(Permission.ASSIGN_GRIEVANCE), async 
 
     await grievance.save();
 
+    // Notify assigned user
+    const { notifyUserOnAssignment } = await import('../services/notificationService');
+    await notifyUserOnAssignment({
+      type: 'grievance',
+      action: 'assigned',
+      grievanceId: grievance.grievanceId,
+      citizenName: grievance.citizenName,
+      citizenPhone: grievance.citizenPhone,
+      departmentId: grievance.departmentId,
+      companyId: grievance.companyId,
+      description: grievance.description,
+      category: grievance.category,
+      priority: grievance.priority,
+      assignedTo: assignedUser._id,
+      assignedByName: req.user!.getFullName()
+    });
+
     await logUserAction(
       req,
       AuditAction.ASSIGN,
@@ -379,36 +440,65 @@ router.put('/:id/assign', requirePermission(Permission.ASSIGN_GRIEVANCE), async 
 });
 
 // @route   PUT /api/grievances/:id
-// @desc    Update grievance details
-// @access  Private
+// @desc    Update grievance details (Operators cannot use this - use /status endpoint instead)
+// @access  Private (CompanyAdmin, DepartmentAdmin only - Operators restricted)
 router.put('/:id', requirePermission(Permission.UPDATE_GRIEVANCE), async (req: Request, res: Response) => {
   try {
-    const grievance = await Grievance.findByIdAndUpdate(
+    const currentUser = req.user!;
+
+    // Operators can only update status/comments via /status endpoint, not full updates
+    if (currentUser.role === UserRole.OPERATOR) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operators can only update status and remarks. Please use the status update endpoint.'
+      });
+    }
+
+    // Check department/company access
+    const grievance = await Grievance.findById(req.params.id);
+    if (!grievance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Grievance not found'
+      });
+    }
+
+    // Permission checks for department/company scope
+    if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
+      if (grievance.departmentId?.toString() !== currentUser.departmentId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only update grievances in your department'
+        });
+      }
+    } else if (currentUser.role === UserRole.COMPANY_ADMIN) {
+      if (grievance.companyId.toString() !== currentUser.companyId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only update grievances in your company'
+        });
+      }
+    }
+
+    // Update grievance
+    const updatedGrievance = await Grievance.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
     );
 
-    if (!grievance) {
-      res.status(404).json({
-        success: false,
-        message: 'Grievance not found'
-      });
-      return;
-    }
-
     await logUserAction(
       req,
       AuditAction.UPDATE,
       'Grievance',
-      grievance._id.toString(),
+      updatedGrievance!._id.toString(),
       { updates: req.body }
     );
 
     res.json({
       success: true,
       message: 'Grievance updated successfully',
-      data: { grievance }
+      data: { grievance: updatedGrievance }
     });
   } catch (error: any) {
     res.status(500).json({

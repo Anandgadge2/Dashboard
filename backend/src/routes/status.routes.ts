@@ -48,7 +48,7 @@ const getStatusMessage = (type: 'grievance' | 'appointment', id: string, status:
 // @route   PUT /api/status/grievance/:id
 // @desc    Update grievance status and notify citizen via WhatsApp
 // @access  DepartmentAdmin, Operator, CompanyAdmin
-router.put('/grievance/:id', requirePermission(Permission.UPDATE_GRIEVANCE), async (req: Request, res: Response) => {
+router.put('/grievance/:id', requirePermission(Permission.STATUS_CHANGE_GRIEVANCE, Permission.UPDATE_GRIEVANCE), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
     const { status, remarks } = req.body;
@@ -67,6 +67,20 @@ router.put('/grievance/:id', requirePermission(Permission.UPDATE_GRIEVANCE), asy
         success: false,
         message: 'Invalid status value'
       });
+    }
+
+    // Operators can only update status and remarks - validate request body
+    if (currentUser.role === UserRole.OPERATOR) {
+      const allowedFields = ['status', 'remarks'];
+      const providedFields = Object.keys(req.body);
+      const invalidFields = providedFields.filter(field => !allowedFields.includes(field));
+      
+      if (invalidFields.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `Operators can only update status and remarks. Invalid fields: ${invalidFields.join(', ')}`
+        });
+      }
     }
 
     const grievance = await Grievance.findById(req.params.id)
@@ -135,21 +149,34 @@ router.put('/grievance/:id', requirePermission(Permission.UPDATE_GRIEVANCE), asy
 
     await grievance.save();
 
-    // Send WhatsApp notification ONLY if status is RESOLVED
-    if (status === GrievanceStatus.RESOLVED) {
-      try {
-        const company = await Company.findById(grievance.companyId);
-        if (company && grievance.citizenWhatsApp) {
-          const notificationMessage = getTranslation('grievanceResolvedNotify', grievance.language)
-            .replace('{id}', grievance.grievanceId)
-            .replace('{remarks}', remarks || getTranslation('label_no_remarks', grievance.language));
+    // Notify citizen and hierarchy if status changed to RESOLVED
+    if (oldStatus !== GrievanceStatus.RESOLVED && status === GrievanceStatus.RESOLVED) {
+      const { notifyCitizenOnResolution, notifyHierarchyOnStatusChange } = await import('../services/notificationService');
+      
+      await notifyCitizenOnResolution({
+        type: 'grievance',
+        action: 'resolved',
+        grievanceId: grievance.grievanceId,
+        citizenName: grievance.citizenName,
+        citizenPhone: grievance.citizenPhone,
+        citizenWhatsApp: grievance.citizenWhatsApp,
+        departmentId: grievance.departmentId,
+        companyId: grievance.companyId,
+        remarks: remarks
+      });
 
-          await sendWhatsAppMessage(company, grievance.citizenWhatsApp, notificationMessage);
-          console.log('✅ Localized Resolution notification sent to citizen:', grievance.citizenWhatsApp);
-        }
-      } catch (notifError: any) {
-        console.error('⚠️  Failed to send WhatsApp notification:', notifError.message);
-      }
+      // Notify hierarchy about status change
+      await notifyHierarchyOnStatusChange({
+        type: 'grievance',
+        action: 'resolved',
+        grievanceId: grievance.grievanceId,
+        citizenName: grievance.citizenName,
+        citizenPhone: grievance.citizenPhone,
+        departmentId: grievance.departmentId,
+        companyId: grievance.companyId,
+        assignedTo: grievance.assignedTo,
+        remarks: remarks
+      }, oldStatus, status);
     }
 
     await logUserAction(
@@ -183,7 +210,7 @@ router.put('/grievance/:id', requirePermission(Permission.UPDATE_GRIEVANCE), asy
 // @route   PUT /api/status/appointment/:id
 // @desc    Update appointment status and notify citizen via WhatsApp
 // @access  DepartmentAdmin, Operator, CompanyAdmin
-router.put('/appointment/:id', requirePermission(Permission.UPDATE_APPOINTMENT), async (req: Request, res: Response) => {
+router.put('/appointment/:id', requirePermission(Permission.STATUS_CHANGE_APPOINTMENT, Permission.UPDATE_APPOINTMENT), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
     const { status, remarks } = req.body;
@@ -269,16 +296,35 @@ router.put('/appointment/:id', requirePermission(Permission.UPDATE_APPOINTMENT),
 
     await appointment.save();
 
-    // Send WhatsApp notification
-    try {
-      const company = await Company.findById(appointment.companyId);
-      if (company && company.whatsappConfig?.phoneNumberId && appointment.citizenWhatsApp) {
-        const message = getStatusMessage('appointment', appointment.appointmentId, status, remarks);
-        await sendWhatsAppMessage(company, appointment.citizenWhatsApp, message);
-        console.log('✅ WhatsApp notification sent to citizen:', appointment.citizenWhatsApp);
-      }
-    } catch (notifError: any) {
-      console.error('⚠️  Failed to send WhatsApp notification:', notifError.message);
+    // Notify citizen if status changed to COMPLETED (similar to RESOLVED for grievances)
+    if (oldStatus !== AppointmentStatus.COMPLETED && status === AppointmentStatus.COMPLETED) {
+      const { notifyCitizenOnResolution, notifyHierarchyOnStatusChange } = await import('../services/notificationService');
+      
+      await notifyCitizenOnResolution({
+        type: 'appointment',
+        action: 'resolved',
+        appointmentId: appointment.appointmentId,
+        citizenName: appointment.citizenName,
+        citizenPhone: appointment.citizenPhone,
+        citizenWhatsApp: appointment.citizenWhatsApp,
+        departmentId: appointment.departmentId,
+        companyId: appointment.companyId,
+        remarks: remarks,
+        citizenEmail: appointment.citizenEmail
+      } as any);
+
+      // Notify hierarchy about status change
+      await notifyHierarchyOnStatusChange({
+        type: 'appointment',
+        action: 'resolved',
+        appointmentId: appointment.appointmentId,
+        citizenName: appointment.citizenName,
+        citizenPhone: appointment.citizenPhone,
+        departmentId: appointment.departmentId,
+        companyId: appointment.companyId,
+        assignedTo: appointment.assignedTo,
+        remarks: remarks
+      }, oldStatus, status);
     }
 
     await logUserAction(

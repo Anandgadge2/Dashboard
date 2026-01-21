@@ -1,16 +1,19 @@
 {
   "version": 2,
-  "routes": [
+  "buildCommand": "npm run build",
+  "installCommand": "npm install --include=dev",
+  "framework": null,
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "src/server.ts"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ],
   "env": {
     "NODE_ENV": "production"
   },
   "functions": {
-    "src/server.ts": {
+    "api/index.js": {
       "memory": 1024,
       "maxDuration": 30
     }

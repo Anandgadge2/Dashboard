@@ -5,10 +5,13 @@ import Company from '../models/Company';
 import Department from '../models/Department';
 import Grievance from '../models/Grievance';
 import Appointment from '../models/Appointment';
-import { GrievanceStatus, AppointmentStatus } from '../config/constants';
+import { GrievanceStatus, AppointmentStatus, Module } from '../config/constants';
 import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppList } from './whatsappService';
 import { findDepartmentByCategory, getAvailableCategories } from './departmentMapper';
+import { notifyDepartmentAdminOnCreation } from './notificationService';
 import { uploadWhatsAppMediaToCloudinary } from './mediaService';
+import { getSession, updateSession, clearSession, UserSession } from './sessionService';
+import { getNextGrievanceId, getNextAppointmentId } from '../utils/idGenerator';
 
 export interface ChatbotMessage {
   companyId: string;
@@ -21,17 +24,7 @@ export interface ChatbotMessage {
   buttonId?: string;
 }
 
-interface UserSession {
-  companyId: string;
-  phoneNumber: string;
-  language: 'en' | 'hi' | 'mr';
-  step: string;
-  data: Record<string, any>;
-  pendingAction?: string;
-  lastActivity: Date;
-}
-
-const userSessions: Map<string, UserSession> = new Map();
+// UserSession interface is now imported from sessionService
 
 // Professional Government Language Translations
 const translations = {
@@ -144,6 +137,7 @@ const translations = {
     nextActionPrompt: '🔄 *Next Step*\n\nWhat would you like to do?',
     msg_apt_enhanced: 'ℹ️ Appointment system is being upgraded.',
     msg_no_dept: '⚠️ No departments currently accepting appointments.',
+    msg_no_dept_grv: '⚠️ *No Departments Available*\n\nCurrently, there are no departments configured for grievance registration.\n\nPlease contact the administration or try again later.',
     header_grv_status: '📄 Grievance Status',
     header_apt_status: '🗓️ Appointment Status',
     status_PENDING: 'Pending Review',
@@ -266,6 +260,7 @@ const translations = {
     nextActionPrompt: '🔄 *अगला कदम*\n\nआप क्या करना चाहेंगे?',
     msg_apt_enhanced: 'ℹ️ नियुक्ति प्रणाली को अपग्रेड किया जा रहा है।',
     msg_no_dept: '⚠️ कोई भी विभाग वर्तमान में नियुक्तियाँ स्वीकार नहीं कर रहा है।',
+    msg_no_dept_grv: '⚠️ *कोई विभाग उपलब्ध नहीं*\n\nवर्तमान में, शिकायत पंजीकरण के लिए कोई विभाग कॉन्फ़िगर नहीं है।\n\nकृपया प्रशासन से संपर्क करें या बाद में पुनः प्रयास करें।',
     header_grv_status: '📄 शिकायत स्थिति',
     header_apt_status: '🗓️ नियुक्ति स्थिति',
     status_PENDING: 'समीक्षा लंबित',
@@ -390,6 +385,7 @@ const translations = {
     nextActionPrompt: '🔄 *पुढील स्टेप*\n\nतुम्ही काय करू इच्छिता?',
     msg_apt_enhanced: 'ℹ️ अपॉइंटमेंट सिस्टम अपग्रेड केली जात आहे.',
     msg_no_dept: '⚠️ सध्या कोणताही विभाग अपॉइंटमेंट स्वीकारत नाही.',
+    msg_no_dept_grv: '⚠️ *कोणतेही विभाग उपलब्ध नाहीत*\n\nसध्या, तक्रार नोंदणीसाठी कोणतेही विभाग कॉन्फ़िगर केलेले नाहीत.\n\nकृपया प्रशासनाशी संपर्क साधा किंवा नंतर पुन्हा प्रयत्न करा.',
     header_grv_status: '📄 तक्रार स्थिती',
     header_apt_status: '🗓️ अपॉइंटमेंट स्थिती',
     status_PENDING: 'पुनरावलोकन प्रलंबित',
@@ -415,43 +411,7 @@ export function getTranslation(key: string, language: 'en' | 'hi' | 'mr' = 'en')
   return langData?.[key] || enData[key] || key;
 }
 
-// Helper to get or create session
-function getSession(phoneNumber: string, companyId: string): UserSession {
-  const sessionKey = `${phoneNumber}_${companyId}`;
-  let session = userSessions.get(sessionKey);
-  
-  if (!session) {
-    session = {
-      companyId,
-      phoneNumber,
-      language: 'en',
-      step: 'start',
-      data: {},
-      lastActivity: new Date()
-    };
-    userSessions.set(sessionKey, session);
-  }
-  
-  // Check if session expired (30 minutes of inactivity)
-  const inactivityTime = Date.now() - session.lastActivity.getTime();
-  if (inactivityTime > 30 * 60 * 1000) {
-    userSessions.delete(sessionKey);
-    return getSession(phoneNumber, companyId); // Create new session
-  }
-  
-  session.lastActivity = new Date();
-  return session;
-}
-
-async function updateSession(session: UserSession) {
-  const sessionKey = `${session.phoneNumber}_${session.companyId}`;
-  userSessions.set(sessionKey, session);
-}
-
-async function clearSession(phoneNumber: string, companyId: string) {
-  const sessionKey = `${phoneNumber}_${companyId}`;
-  userSessions.delete(sessionKey);
-}
+// Session management functions are now imported from sessionService
 
 // Main message processor with voice note support
 export async function processWhatsAppMessage(message: ChatbotMessage): Promise<any> {
@@ -465,27 +425,46 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     return;
   }
 
-  // FORCE: Use the phone number ID that received the message
+  // Use the phone number ID that received the message, but only if:
+  // 1. Company doesn't have a phone number ID configured, OR
+  // 2. The metadata phone number ID matches the company's configured one
+  // This prevents using a phone number ID that the access token doesn't have permission for
   if (metadata?.phone_number_id) {
-    console.log(`🔌 Overriding Phone Number ID from metadata: ${metadata.phone_number_id}`);
+    const metadataPhoneId = metadata.phone_number_id as string;
+    const configuredPhoneId = company.whatsappConfig?.phoneNumberId;
     
     // Create whatsappConfig if it doesn't exist (cast to any to allow loose typing)
     if (!company.whatsappConfig) {
       company.whatsappConfig = {
         accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
-        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || ''
+        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
+        phoneNumberId: metadataPhoneId
       } as any;
-    }
-    
-    // Override phoneNumberId
-    if (company.whatsappConfig) {
-      company.whatsappConfig.phoneNumberId = metadata.phone_number_id as string;
+      console.log(`🔌 Setting Phone Number ID from metadata (no config): ${metadataPhoneId}`);
+    } else if (!configuredPhoneId) {
+      // Company has config but no phone number ID - use metadata
+      company.whatsappConfig.phoneNumberId = metadataPhoneId;
+      console.log(`🔌 Setting Phone Number ID from metadata (missing in config): ${metadataPhoneId}`);
+    } else if (configuredPhoneId === metadataPhoneId) {
+      // They match - use the configured one (already set)
+      console.log(`✅ Phone Number ID matches metadata: ${metadataPhoneId}`);
+    } else {
+      // They don't match - use configured one and log warning
+      console.warn(`⚠️ Phone Number ID mismatch! Metadata: ${metadataPhoneId}, Configured: ${configuredPhoneId}`);
+      console.warn(`⚠️ Using configured Phone Number ID: ${configuredPhoneId}`);
+      console.warn(`⚠️ If messages fail, ensure access token has permission for: ${configuredPhoneId}`);
     }
   }
 
   console.log('✅ Company found:', { name: company.name, _id: company._id, companyId: company.companyId });
 
-  const session = getSession(from, companyId);
+  // Ensure enabledModules is set - if not, default to GRIEVANCE and APPOINTMENT for ZP Amravati
+  if (!company.enabledModules || company.enabledModules.length === 0) {
+    console.warn('⚠️ Company has no enabledModules configured. Setting defaults: GRIEVANCE, APPOINTMENT');
+    company.enabledModules = [Module.GRIEVANCE, Module.APPOINTMENT] as any;
+  }
+
+  const session = await getSession(from, companyId);
   let userInput = (buttonId || messageText || '').trim().toLowerCase();
 
   console.log('📋 Session state:', { step: session.step, language: session.language, userInput });
@@ -518,7 +497,7 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
   if (!buttonId && greetings.includes(userInput)) {
     console.log('🔄 Global reset triggered by greeting:', userInput);
     await clearSession(from, companyId);
-    const newSession = getSession(from, companyId);
+    const newSession = await getSession(from, companyId);
     await showLanguageSelection(newSession, message, company);
     return;
   }
@@ -594,7 +573,7 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
   if (buttonId === 'menu_back') {
     console.log('↩️ User clicked Back to Main Menu');
     await clearSession(message.from, company._id.toString());
-    const newSession = getSession(message.from, company._id.toString());
+    const newSession = await getSession(message.from, company._id.toString());
     newSession.language = session.language || 'en';
     await showMainMenu(newSession, message, company);
     return;
@@ -606,6 +585,23 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     session.step = 'main_menu';
     await updateSession(session);
     await handleMainMenuSelection(session, message, company, buttonId || userInput);
+    return;
+  }
+
+  // Handle unrecognized text messages with helpful response
+  if (messageType === 'text' && messageText && !buttonId) {
+    const unrecognizedResponses = {
+      en: '⚠️ *Unrecognized Input*\n\nI didn\'t understand that. Please use the buttons provided or type one of these commands:\n\n• "Hi" or "Hello" - Start over\n• "Menu" - Show main menu\n• "Help" - Get assistance\n• "Track" - Track status\n\nOr select an option from the buttons above.',
+      hi: '⚠️ *अमान्य इनपुट*\n\nमैं इसे समझ नहीं पाया। कृपया प्रदान किए गए बटन का उपयोग करें या इनमें से कोई एक कमांड टाइप करें:\n\n• "Hi" या "Hello" - फिर से शुरू करें\n• "Menu" - मुख्य मेनू दिखाएं\n• "Help" - सहायता प्राप्त करें\n• "Track" - स्थिति ट्रैक करें\n\nया ऊपर दिए गए बटन से एक विकल्प चुनें।',
+      mr: '⚠️ *अमान्य इनपुट*\n\nमला ते समजले नाही. कृपया प्रदान केलेले बटण वापरा किंवा यापैकी एक आदेश टाइप करा:\n\n• "Hi" किंवा "Hello" - पुन्हा सुरू करा\n• "Menu" - मुख्य मेनू दाखवा\n• "Help" - मदत मिळवा\n• "Track" - स्थिती ट्रॅक करा\n\nकिंवा वर दिलेल्या बटणातून एक पर्याय निवडा.'
+    };
+
+    await sendWhatsAppMessage(
+      company,
+      from,
+      unrecognizedResponses[session.language] || unrecognizedResponses.en
+    );
+    await showMainMenu(session, message, company);
     return;
   }
 
@@ -826,8 +822,10 @@ async function continueGrievanceFlow(
         await sendWhatsAppMessage(
           company,
           message.from,
-          getTranslation('msg_no_dept', session.language)
+          getTranslation('msg_no_dept_grv', session.language)
         );
+        await showMainMenu(session, message, company);
+        return;
       }
       
       session.step = 'grievance_category';
@@ -1063,41 +1061,9 @@ async function createGrievanceWithDepartment(
     
     
     // Generate unique grievanceId by finding the highest existing ID
-    let grievanceId = '';
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while (attempts < maxAttempts) {
-      // Find the last grievance ID for this company
-      const lastGrievance = await Grievance.findOne({ companyId: company._id })
-        .sort({ grievanceId: -1 })
-        .select('grievanceId');
-      
-      let nextNumber = 1;
-      if (lastGrievance && lastGrievance.grievanceId) {
-        const match = lastGrievance.grievanceId.match(/^GRV(\d+)$/);
-        if (match) {
-          nextNumber = parseInt(match[1], 10) + 1;
-        }
-      }
-      
-      grievanceId = `GRV${String(nextNumber).padStart(8, '0')}`;
-      
-      // Check if this ID already exists
-      const existing = await Grievance.findOne({ grievanceId });
-      if (!existing) {
-        break; // ID is unique, we can use it
-      }
-      
-      console.log(`⚠️ Grievance ID ${grievanceId} already exists, trying next...`);
-      attempts++;
-    }
-    
-    if (attempts >= maxAttempts) {
-      throw new Error('Failed to generate unique grievance ID after multiple attempts');
-    }
-    
-    console.log('🆔 Generated grievanceId:', grievanceId);
+    // Use atomic counter for ID generation (prevents race conditions)
+    const grievanceId = await getNextGrievanceId();
+    console.log('🆔 Generated grievanceId (atomic):', grievanceId);
     
     const grievanceData = {
       grievanceId: grievanceId,  // Add the generated ID
@@ -1126,6 +1092,24 @@ async function createGrievanceWithDepartment(
     await grievance.save();
     
     console.log('✅ Grievance created:', { grievanceId: grievance.grievanceId, _id: grievance._id });
+    
+    // Notify department admin about new grievance
+    if (departmentId) {
+      await notifyDepartmentAdminOnCreation({
+        type: 'grievance',
+        action: 'created',
+        grievanceId: grievance.grievanceId,
+        citizenName: session.data.citizenName,
+        citizenPhone: message.from,
+        citizenWhatsApp: message.from,
+        departmentId: departmentId,
+        companyId: company._id,
+        description: session.data.description,
+        category: session.data.category,
+        priority: session.data.priority || 'MEDIUM',
+        location: session.data.address
+      });
+    }
     
     const department = departmentId ? await Department.findById(departmentId) : null;
     let deptName = department ? department.name : getTranslation('label_placeholder_dept', session.language);
@@ -1456,42 +1440,9 @@ async function createAppointment(
     const appointmentTime = session.data.appointmentTime;
     
     
-    // Generate unique appointmentId by finding the highest existing ID
-    let appointmentId = '';
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while (attempts < maxAttempts) {
-      // Find the last appointment ID for this company
-      const lastAppointment = await Appointment.findOne({ companyId: company._id })
-        .sort({ appointmentId: -1 })
-        .select('appointmentId');
-      
-      let nextNumber = 1;
-      if (lastAppointment && lastAppointment.appointmentId) {
-        const match = lastAppointment.appointmentId.match(/^APT(\d+)$/);
-        if (match) {
-          nextNumber = parseInt(match[1], 10) + 1;
-        }
-      }
-      
-      appointmentId = `APT${String(nextNumber).padStart(8, '0')}`;
-      
-      // Check if this ID already exists
-      const existing = await Appointment.findOne({ appointmentId });
-      if (!existing) {
-        break; // ID is unique, we can use it
-      }
-      
-      console.log(`⚠️ Appointment ID ${appointmentId} already exists, trying next...`);
-      attempts++;
-    }
-    
-    if (attempts >= maxAttempts) {
-      throw new Error('Failed to generate unique appointment ID after multiple attempts');
-    }
-    
-    console.log('🆔 Generated appointmentId:', appointmentId);
+    // Use atomic counter for ID generation (prevents race conditions)
+    const appointmentId = await getNextAppointmentId();
+    console.log('🆔 Generated appointmentId (atomic):', appointmentId);
     
     const appointmentData = {
       appointmentId: appointmentId,  // Add the generated ID
@@ -1513,6 +1464,22 @@ async function createAppointment(
     await appointment.save();
     
     console.log('✅ Appointment created:', { appointmentId: appointment.appointmentId, _id: appointment._id });
+    
+    // Notify department admin about new appointment
+    if (session.data.departmentId) {
+      await notifyDepartmentAdminOnCreation({
+        type: 'appointment',
+        action: 'created',
+        appointmentId: appointment.appointmentId,
+        citizenName: session.data.citizenName,
+        citizenPhone: message.from,
+        citizenWhatsApp: message.from,
+        departmentId: session.data.departmentId,
+        companyId: company._id,
+        purpose: session.data.purpose,
+        location: `${new Date(appointmentDate).toLocaleDateString('en-IN')} at ${appointmentTime}`
+      });
+    }
     
     const dateDisplay = appointmentDate.toLocaleDateString(session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN', { 
       weekday: 'long', 
@@ -1560,27 +1527,72 @@ async function handleStatusTracking(
   const refNumber = userInput.trim().toUpperCase();
   console.log(`🔍 Tracking request for: ${refNumber} from ${message.from}`);
   
-  // 1. Search for Grievance
-  const grievance = await Grievance.findOne({
-    companyId: company._id,
-    $or: [
-      { grievanceId: refNumber },
-      { citizenPhone: message.from }
-    ],
-    isDeleted: false
-  }).sort({ createdAt: -1 }); // Get latest
-
-  // 2. Search for Appointment
-  const appointment = await Appointment.findOne({
-    companyId: company._id,
-    $or: [
-      { appointmentId: refNumber },
-      { citizenPhone: message.from }
-    ],
-    isDeleted: false
-  }).sort({ createdAt: -1 }); // Get latest
-
+  let grievance = null;
+  let appointment = null;
   let foundRecord = false;
+
+  // SECURITY FIX: Require exact reference number match
+  // Only allow phone number lookup if:
+  // 1. User provided a valid reference number format (GRV... or APT...), OR
+  // 2. User provided phone number and exactly ONE record exists for that phone
+  
+  const isGrievanceRef = refNumber.startsWith('GRV') && /^GRV\d{8}$/.test(refNumber);
+  const isAppointmentRef = refNumber.startsWith('APT') && /^APT\d{8}$/.test(refNumber);
+
+  if (isGrievanceRef) {
+    // Exact reference number match for grievance
+    grievance = await Grievance.findOne({
+      companyId: company._id,
+      grievanceId: refNumber,
+      isDeleted: false
+    });
+  } else if (isAppointmentRef) {
+    // Exact reference number match for appointment
+    appointment = await Appointment.findOne({
+      companyId: company._id,
+      appointmentId: refNumber,
+      isDeleted: false
+    });
+  } else {
+    // Phone number lookup - only if exactly ONE record exists (privacy protection)
+    const grievanceCount = await Grievance.countDocuments({
+      companyId: company._id,
+      citizenPhone: message.from,
+      isDeleted: false
+    });
+    
+    const appointmentCount = await Appointment.countDocuments({
+      companyId: company._id,
+      citizenPhone: message.from,
+      isDeleted: false
+    });
+
+    // Only allow phone lookup if exactly one record exists
+    if (grievanceCount === 1 && appointmentCount === 0) {
+      grievance = await Grievance.findOne({
+        companyId: company._id,
+        citizenPhone: message.from,
+        isDeleted: false
+      });
+    } else if (appointmentCount === 1 && grievanceCount === 0) {
+      appointment = await Appointment.findOne({
+        companyId: company._id,
+        citizenPhone: message.from,
+        isDeleted: false
+      });
+    } else if (grievanceCount > 1 || appointmentCount > 1 || (grievanceCount > 0 && appointmentCount > 0)) {
+      // Multiple records found - require reference number
+      await sendWhatsAppMessage(
+        company,
+        message.from,
+        getTranslation('err_multiple_records', session.language) || 
+        '⚠️ *Multiple Records Found*\n\nWe found multiple records for your phone number. Please provide your exact Reference Number (GRV... or APT...) to track a specific record.\n\nExample: GRV00000001'
+      );
+      session.step = 'track_status';
+      await updateSession(session);
+      return;
+    }
+  }
 
   // Professional formatting for Grievance
   if (grievance && (refNumber.startsWith('GRV') || !appointment)) {
@@ -1675,244 +1687,4 @@ async function handleStatusTracking(
 
 
 
-
-
-
-// Consolidated Enterprise-Level Government Chatbot Engine
-// FIXED & STABLE VERSION (single-company-per-chatbot model preserved)
-
-// import Company from '../models/Company';
-// import Department from '../models/Department';
-// import Grievance from '../models/Grievance';
-// import Appointment from '../models/Appointment';
-// import { GrievanceStatus } from '../config/constants';
-// import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppList } from './whatsappService';
-// import { findDepartmentByCategory, getAvailableCategories } from './departmentMapper';
-
-// /* ============================================================
-//  * TYPES
-//  * ============================================================ */
-
-// export interface ChatbotMessage {
-//   companyId?: string; // Optional - single-tenant mode
-//   from: string;
-//   messageText: string;
-//   messageType: string;
-//   messageId: string;
-//   mediaUrl?: string;
-//   metadata?: any;
-//   buttonId?: string;
-// }
-
-// interface UserSession {
-//   companyId: string;
-//   phoneNumber: string;
-//   language: 'en' | 'hi' | 'mr';
-//   step: string;
-//   data: Record<string, any>;
-//   pendingAction?: 'grievance' | 'appointment';
-//   lastActivity: Date;
-// }
-
-// /* ============================================================
-//  * SESSION STORE (NOTE: MOVE TO REDIS FOR SCALE)
-//  * ============================================================ */
-
-// const userSessions: Map<string, UserSession> = new Map();
-// const SESSION_TIMEOUT = 30 * 60 * 1000;
-
-// function getSessionKey(phone: string, companyId: string) {
-//   return `${phone}_${companyId}`;
-// }
-
-// function getSession(phone: string, companyId: string): UserSession {
-//   const key = getSessionKey(phone, companyId);
-//   let session = userSessions.get(key);
-
-//   if (!session) {
-//     session = {
-//       companyId,
-//       phoneNumber: phone,
-//       language: 'en',
-//       step: 'start',
-//       data: {},
-//       lastActivity: new Date()
-//     };
-//     userSessions.set(key, session);
-//     return session;
-//   }
-
-//   if (Date.now() - session.lastActivity.getTime() > SESSION_TIMEOUT) {
-//     userSessions.delete(key);
-//     return getSession(phone, companyId);
-//   }
-
-//   session.lastActivity = new Date();
-//   return session;
-// }
-
-// function updateSession(session: UserSession) {
-//   userSessions.set(getSessionKey(session.phoneNumber, session.companyId), session);
-// }
-
-// function clearSession(phone: string, companyId: string) {
-//   userSessions.delete(getSessionKey(phone, companyId));
-// }
-
-// /* ============================================================
-//  * TRANSLATIONS (trimmed to essentials)
-//  * ============================================================ */
-
-// const translations: any = {
-//   en: {
-//     welcome: '🏛️ *Welcome to Zilla Parishad Digital Services* (Amravati)\n\nWe are here to help you. Please select your preferred language:',
-//     mainMenu: '📋 *Government Services Portal*\n\nHow can we assist you today?',
-//     invalidOption: '❌ Invalid selection. Please tap one of the buttons below.',
-//     otpVerified: '✅ *Verification Successful*\n\nYour mobile number has been verified.',
-//     otpInvalid: '❌ *Incorrect OTP*\n\nPlease check the code and try again or request a new one.',
-//     help: 'ℹ️ *Help & Support*\n\nFor urgent assistance, please visit the Zilla Parishad office during working hours (10 AM - 6 PM).',
-//     grievanceRaise: '📝 *Register Complaint*\n\nWe will help you file a grievance. First, we need a few details.',
-//     grievanceName: '👤 Please type your *Full Name*:',
-//     trackStatus: '🔍 Please enter your *Complaint Reference Number* (e.g., GRV12345):',
-//     sessionExpired: '⏰ *Session Reset*\n\nFor your security, the session has timed out. Please say "Hi" to start again.',
-//     serviceUnavailable: '⚠️ *System Maintenance*\n\nWe are currently upgrading our systems. Your request has been noted. Please try again in some time.',
-//     errorProcessing: '⚠️ *Something went wrong*\n\nWe could not process your last request. Please try again or go back to the Main Menu.'
-//   }
-// };
-
-// function t(key: string, lang: 'en' | 'hi' | 'mr' = 'en') {
-//   return translations[lang]?.[key] || translations.en[key] || key;
-// }
-
-// /* ============================================================
-//  * MAIN ENTRY
-//  * ============================================================ */
-
-// export async function processWhatsAppMessage(message: ChatbotMessage): Promise<void> {
-//   const { from, messageText, messageType, mediaUrl, buttonId } = message;
-
-//   // 1. ZP AMRAVATI CONTEXT (Hardcoded / Single Tenant)
-//   // We do NOT strictly verify if it exists in DB to prevent bot silence.
-//   // We try to fetch it for config, but fallback to defaults if missing.
-//   let company: any = await Company.findOne({ companyId: 'CMP000001', isActive: true, isDeleted: false });
-
-//   if (!company) {
-//     console.warn('⚠️ ZP Amravati (CMP000001) not found in DB. Using Virtual Context.');
-//     company = {
-//       _id: '000000000000000000000001', // Virtual ID
-//       name: 'ZP Amravati',
-//       companyId: 'CMP000001',
-//       enabledModules: ['GRIEVANCE', 'APPOINTMENT'],
-//       whatsappConfig: {
-//         phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-//         accessToken: process.env.WHATSAPP_ACCESS_TOKEN
-//       }
-//     };
-//   }
-
-//   const session = getSession(from, company._id.toString());
-//   let input = (buttonId || messageText || '').trim().toLowerCase();
-
-
-
-//   /* ---------------- START ---------------- */
-
-//   if (session.step === 'start') {
-//     await sendWhatsAppButtons(company, from, t('welcome'), [
-//       { id: 'lang_en', title: 'English' },
-//       { id: 'lang_hi', title: 'हिंदी' },
-//       { id: 'lang_mr', title: 'मराठी' }
-//     ]);
-//     session.step = 'language';
-//     updateSession(session);
-//     return;
-//   }
-
-//   /* ---------------- LANGUAGE ---------------- */
-
-//   if (session.step === 'language') {
-//     if (buttonId === 'lang_en') session.language = 'en';
-//     else if (buttonId === 'lang_hi') session.language = 'hi';
-//     else if (buttonId === 'lang_mr') session.language = 'mr';
-//     else {
-//       await sendWhatsAppMessage(company, from, t('invalidOption', session.language));
-//       return;
-//     }
-
-//     await showMainMenu(session, company, from);
-//     return;
-//   }
-
- 
-//   /* ---------------- MAIN MENU ---------------- */
-
-//   if (session.step === 'menu') {
-//     if (input === 'grievance') {
-
-//       await startGrievance(session, company, from);
-//       return;
-//     }
-
-//     if (input === 'track') {
-//       await sendWhatsAppMessage(company, from, t('trackStatus', session.language));
-//       session.step = 'track';
-//       updateSession(session);
-//       return;
-//     }
-
-//     await sendWhatsAppMessage(company, from, t('invalidOption', session.language));
-//     return;
-//   }
-
-//   /* ---------------- STATUS TRACKING (FIXED) ---------------- */
-
-//   if (session.step === 'track') {
-//     const ref = input.toUpperCase();
-
-//     const grievance = await Grievance.findOne({
-//       companyId: company._id,
-//       grievanceId: ref,
-//       citizenPhone: from,
-//       isDeleted: false
-//     });
-
-//     if (!grievance) {
-//       await sendWhatsAppMessage(company, from, '❌ No grievance found for this reference.');
-//       await showMainMenu(session, company, from);
-//       return;
-//     }
-
-//     await sendWhatsAppMessage(
-//       company,
-//       from,
-//       `📋 Status: ${grievance.status}\nCategory: ${grievance.category}`
-//     );
-
-//     await showMainMenu(session, company, from);
-//     return;
-//   }
-// }
-
-// /* ============================================================
-//  * HELPERS
-//  * ============================================================ */
-
-// async function showMainMenu(session: UserSession, company: any, to: string) {
-//   await sendWhatsAppButtons(company, to, t('mainMenu', session.language), [
-//     { id: 'grievance', title: 'Raise Grievance' },
-//     { id: 'track', title: 'Track Status' },
-//     { id: 'help', title: 'Help' }
-//   ]);
-
-//   session.step = 'menu';
-//   updateSession(session);
-// }
-
-// async function startGrievance(session: UserSession, company: any, to: string) {
-//   await sendWhatsAppMessage(company, to, t('grievanceRaise', session.language));
-//   await sendWhatsAppMessage(company, to, t('grievanceName', session.language));
-//   session.step = 'grievance_name';
-//   session.data = {};
-//   updateSession(session);
-// }
 

@@ -42,8 +42,9 @@ export const requirePermission = (...permissions: Permission[]) => {
     // Get role permissions
     const rolePermissions = ROLE_PERMISSIONS[req.user.role] || [];
 
-    // Check if user has all required permissions
-    const hasPermission = permissions.every(permission => 
+    // Check if user has at least one of the required permissions (OR logic)
+    // This allows routes to accept either STATUS_CHANGE or UPDATE permissions
+    const hasPermission = permissions.some(permission => 
       rolePermissions.includes(permission)
     );
 

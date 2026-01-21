@@ -83,7 +83,7 @@ export async function getAvailableCategories(companyId: mongoose.Types.ObjectId)
     const categories: string[] = [];
     const categoryMap: Record<string, boolean> = {};
 
-    departments.forEach(dept => {
+    departments.forEach((dept: any) => {
       const deptName = dept.name.toLowerCase();
       for (const [category, keywords] of Object.entries(CATEGORY_TO_DEPARTMENT)) {
         if (keywords.some(keyword => deptName.includes(keyword)) && !categoryMap[category]) {
