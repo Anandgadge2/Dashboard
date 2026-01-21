@@ -34,6 +34,7 @@ const translations = {
     mainMenu: '🏛️ *Citizen Services Menu*\n\nWelcome to the Zilla Parishad Digital Helpdesk.\n\n👇 *Please select a service from the options below:*',
     grievanceRaise: '📝 *Register a Grievance*\n\nYou can file a formal complaint regarding any ZP department.\n\nTo begin, please provide the details as requested.',
     appointmentBook: '📅 *Book an Offical Appointment*\n\nSchedule a meeting with government officials.\n\n👇 *Select the Department:*',
+    rtsServices: '⚖️ *Right to Service (RTS) Portal*\n\nAccess various government services under the Right to Service Act.\n\n👇 *Select a service:*',
     trackStatus: '🔍 *Track Application Status*\n\nCheck the status of your Grievance or Appointment.\n\nPlease enter your *Reference Number* (e.g., GRV... or APT...):',
     grievanceName: '👤 *Citizen Identification*\n\nPlease enter your *Full Name* as it appears on official documents:',
     grievanceCategory: '📂 *Select Category*\n\nChoose the department or category tailored to your issue:',
@@ -52,6 +53,7 @@ const translations = {
     sessionExpired: '⏳ *Session Timed Out*\n\nYour session has expired. Please type "Hi" to start again.',
     menu_grievance: '📝 File Grievance',
     menu_appointment: '📅 Book Appointment',
+    menu_rts: '⚖️ RTS Services',
     menu_track: '🔍 Track Status',
     menu_help: 'ℹ️ Help & Contact',
     nav_track_another: '🔍 Track Another',
@@ -158,6 +160,7 @@ const translations = {
     mainMenu: '🏛️ *नागरिक सेवा मेनू*\n\nजिला परिषद डिजिटल हेल्पडेस्क में आपका स्वागत है।\n\n👇 *कृपया नीचे दिए गए विकल्पों में से एक सेवा चुनें:*',
     grievanceRaise: '📝 *शिकायत दर्ज करें*\n\nआप किसी भी विभाग के संबंध में औपचारिक शिकायत दर्ज कर सकते हैं।\n\nशुरू करने के लिए, कृपया मांगी गई जानकारी प्रदान करें।',
     appointmentBook: '📅 *अधिकारी नियुक्ति (Appointment)*\n\nसरकारी अधिकारियों के साथ बैठक निर्धारित करें।\n\n👇 *विभाग चुनें:*',
+    rtsServices: '⚖️ *सेवा का अधिकार (RTS) पोर्टल*\n\nसेवा का अधिकार अधिनियम के तहत विभिन्न सरकारी सेवाओं तक पहुंचें।\n\n👇 *एक सेवा चुनें:*',
     trackStatus: '🔍 *आवेदन की स्थिति देखें*\n\nअपनी शिकायत या नियुक्ति की स्थिति की जाँच करें।\n\nकृपया अपना *संदर्भ संख्या* दर्ज करें (उदा., GRV... या APT...):',
     grievanceName: '👤 *नागरिक पहचान*\n\nकृपया अपना *पूरा नाम* दर्ज करें जैसा कि आधिकारिक दस्तावेजों में है:',
     grievanceCategory: '📂 *श्रेणी चुनें*\n\nअपनी समस्या के लिए उपयुक्त विभाग या श्रेणी चुनें:',
@@ -284,6 +287,7 @@ const translations = {
     mainMenu: '🏛️ *नागरिक सेवा मेनू*\n\nजिल्हा परिषद डिजिटल हेल्पडेस्कमध्ये आपले स्वागत आहे.\n\n👇 *कृपया खालील पर्यायांमधून सेवा निवडा:*',
     grievanceRaise: '📝 *तक्रार नोंदवा*\n\nआपण कोणत्याही विभागाशी संबंधित अधिकृत तक्रार नोंदवू शकता.\n\nसुरू करण्यासाठी, कृपया विचारलेली माहिती द्या.',
     appointmentBook: '📅 *अधिकारी भेट (Appointment)*\n\nसरकारी अधिकाऱ्यांशी भेट निश्चित करा.\n\n👇 *विभाग निवडा:*',
+    rtsServices: '⚖️ *सेवेचा अधिकार (RTS) पोर्टल*\n\nसेवेचा अधिकार कायद्याखाली विविध सरकारी सेवांमध्ये प्रवेश करा.\n\n👇 *एक सेवा निवडा:*',
     trackStatus: '🔍 *अर्जाची स्थिती तपासा*\n\nतुमच्या तक्रारीची किंवा भेटीची स्थिती तपासा.\n\nकृपया तुमचा *संदर्भ क्रमांक* प्रविष्ट करा (उदा., GRV... किंवा APT...):',
     grievanceName: '👤 *नागरिकाची ओळख*\n\nकृपया अधिकृत कागदपत्रांवर असल्याप्रमाणे तुमचे *पूर्ण नाव* प्रविष्ट करा:',
     grievanceCategory: '📂 *श्रेणी निवडा*\n\nतुमच्या समस्येसाठी योग्य विभाग किंवा श्रेणी निवडा:',
@@ -563,6 +567,12 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     return;
   }
 
+  // RTS flow
+  if (session.step.startsWith('rts_')) {
+    await continueRTSFlow(session, userInput, message, company);
+    return;
+  }
+
   // Track status flow
   if (session.step === 'track_status') {
     await handleStatusTracking(session, userInput, message, company);
@@ -647,6 +657,10 @@ async function showMainMenu(session: UserSession, message: ChatbotMessage, compa
     buttons.push({ id: 'appointment', title: getTranslation('menu_appointment', session.language) });
   }
   
+  if (company.enabledModules.includes('RTS')) {
+    buttons.push({ id: 'rts', title: getTranslation('menu_rts', session.language) });
+  }
+  
   if (buttons.length > 0) {
     buttons.push({ id: 'track', title: getTranslation('menu_track', session.language) });
   }
@@ -698,6 +712,16 @@ async function handleMainMenuSelection(
       
       // OTP verification removed - directly start appointment flow
       await startAppointmentFlow(session, message, company);
+      break;
+
+    case 'rts':
+      if (!company.enabledModules.includes('RTS')) {
+        await sendWhatsAppMessage(company, message.from, getTranslation('serviceUnavailable', session.language));
+        await showMainMenu(session, message, company);
+        return;
+      }
+      
+      await startRTSFlow(session, message, company);
       break;
 
     case 'track':
@@ -1200,6 +1224,84 @@ async function startAppointmentFlow(session: UserSession, message: ChatbotMessag
   session.step = 'appointment_department';
   session.data = {};
   await updateSession(session);
+}
+
+// Start RTS (Right to Service) flow
+async function startRTSFlow(session: UserSession, message: ChatbotMessage, company: any) {
+  // RTS services list - you can customize this based on your requirements
+  const rtsServices = [
+    { id: 'rts_certificate', title: '📜 Certificate Services', description: 'Birth, Death, Income, Caste certificates' },
+    { id: 'rts_license', title: '📋 License Services', description: 'Trade, Driving, Professional licenses' },
+    { id: 'rts_document', title: '📄 Document Services', description: 'Document verification and attestation' },
+    { id: 'rts_pension', title: '💰 Pension Services', description: 'Old age, widow, disability pensions' },
+    { id: 'rts_scheme', title: '🎯 Scheme Services', description: 'Government scheme applications' }
+  ];
+
+  if (rtsServices.length <= 3) {
+    const buttons = rtsServices.map(service => ({
+      id: service.id,
+      title: service.title
+    }));
+    
+    await sendWhatsAppButtons(
+      company,
+      message.from,
+      getTranslation('rtsServices', session.language),
+      buttons
+    );
+  } else {
+    const sections = [{
+      title: 'RTS Services',
+      rows: rtsServices.slice(0, 10).map(service => ({
+        id: service.id,
+        title: service.title.length > 24 ? service.title.substring(0, 21) + '...' : service.title,
+        description: service.description || ''
+      }))
+    }];
+    
+    await sendWhatsAppList(
+      company,
+      message.from,
+      getTranslation('rtsServices', session.language),
+      'Select Service',
+      sections
+    );
+  }
+  
+  session.step = 'rts_service_selection';
+  session.data = {};
+  await updateSession(session);
+}
+
+// Continue RTS flow
+async function continueRTSFlow(
+  session: UserSession,
+  userInput: string,
+  message: ChatbotMessage,
+  company: any
+) {
+  const { buttonId } = message;
+  
+  switch (session.step) {
+    case 'rts_service_selection':
+      // Handle RTS service selection
+      const selectedService = buttonId || userInput;
+      
+      // For now, redirect to main menu with a message
+      // You can implement specific RTS service flows here
+      await sendWhatsAppMessage(
+        company,
+        message.from,
+        `✅ *RTS Service Selected*\n\nYou selected: ${selectedService}\n\nThis service is currently being configured. Please contact the department for assistance.\n\nFor more information, visit: zpamravati.gov.in/rts`
+      );
+      
+      await showMainMenu(session, message, company);
+      break;
+
+    default:
+      await sendWhatsAppMessage(company, message.from, getTranslation('invalidOption', session.language));
+      await showMainMenu(session, message, company);
+  }
 }
 
 // Continue appointment flow
