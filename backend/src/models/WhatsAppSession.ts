@@ -52,8 +52,8 @@ const WhatsAppSessionSchema: Schema = new Schema(
     },
     expiresAt: {
       type: Date,
-      required: true,
-      index: true
+      required: true
+      // Note: Index is created below with TTL option
     }
   },
   {
@@ -64,7 +64,7 @@ const WhatsAppSessionSchema: Schema = new Schema(
 // Compound index for finding active sessions
 WhatsAppSessionSchema.index({ phoneNumber: 1, companyId: 1, isActive: 1 });
 
-// TTL index to auto-delete expired sessions
+// TTL index to auto-delete expired sessions (also creates regular index)
 WhatsAppSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const WhatsAppSession: Model<IWhatsAppSession> = mongoose.model<IWhatsAppSession>('WhatsAppSession', WhatsAppSessionSchema);
