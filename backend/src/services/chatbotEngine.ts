@@ -130,7 +130,7 @@ const translations = {
     'desc_Water Conservation Department': 'Water conservation and management',
     'desc_Animal Husbandry Department': 'Animal husbandry and dairy development',
     'desc_IT Cell': 'Information technology services',
-    goodbye: '👋 *Thank You*\n\nThank you for contacting Zilla Parishad Amravati. We are always ready to serve you.\n\nType "Hi" anytime for assistance.',
+    goodbye: '👋 *Thank You*\n\nThank you for contacting Zilla Parishad Amravati. We are always ready to serve you.\n\n📞 *For Support:*\n• Type "Hi" anytime for assistance\n• Type "Help" for helpdesk information\n• Type "Menu" to see all services\n\n🌐 *Website:* zpamravati.gov.in\n📍 *Office:* Zilla Parishad Bhavan, Amravati\n\n_Office Hours: 10:00 AM - 6:00 PM (Mon-Sat)_',
     appointmentConfirm: '📋 *Verify Appointment*\n\nPlease confirm your booking details:',
     err_no_record_found: '❌ *No Records Found*\n\nWe could not find any record matching that reference number.',
     grievanceCancel: '🚫 *Cancelled*\n\nThe grievance registration has been cancelled.',
@@ -255,7 +255,7 @@ const translations = {
     'desc_Water Conservation Department': 'जल संरक्षण और प्रबंधन',
     'desc_Animal Husbandry Department': 'पशुपालन और डेयरी विकास',
     'desc_IT Cell': 'सूचना प्रौद्योगिकी सेवाएं',
-    goodbye: '👋 *धन्यवाद*\n\nजिला परिषद अमरावती से संपर्क करने के लिए धन्यवाद। हम आपकी सेवा में हमेशा तत्पर हैं।\n\nसहायता के लिए कभी भी "Hi" टाइप करें।',
+    goodbye: '👋 *धन्यवाद*\n\nजिला परिषद अमरावती से संपर्क करने के लिए धन्यवाद। हम आपकी सेवा में हमेशा तत्पर हैं।\n\n📞 *सहायता के लिए:*\n• कभी भी "Hi" टाइप करें\n• "Help" टाइप करें हेल्पडेस्क जानकारी के लिए\n• "Menu" टाइप करें सभी सेवाएं देखने के लिए\n\n🌐 *वेबसाइट:* zpamravati.gov.in\n📍 *कार्यालय:* जिला परिषद भवन, अमरावती\n\n_कार्यालय समय: सुबह 10:00 - शाम 6:00 (सोम-शनि)_',
     appointmentConfirm: '📋 *नियुक्ति की पुष्टि करें*\n\nकृपया अपने बुकिंग विवरण की पुष्टि करें:',
     err_no_record_found: '❌ *कोई रिकॉर्ड नहीं मिला*\n\nहमें उस संदर्भ संख्या से मेल खाने वाला कोई रिकॉर्ड नहीं मिला।',
     grievanceCancel: '🚫 *रद्द किया गया*\n\nशिकायत पंजीकरण रद्द कर दिया गया है।',
@@ -382,7 +382,7 @@ const translations = {
     'desc_Water Conservation Department': 'जल संधारण आणि व्यवस्थापन',
     'desc_Animal Husbandry Department': 'पशुपालन आणि दुग्धव्यवसाय विकास',
     'desc_IT Cell': 'माहिती तंत्रज्ञान सेवा',
-    goodbye: '👋 *धन्यवाद*\n\nजिल्हा परिषद अमरावतीशी संपर्क साधल्याबद्दल धन्यवाद. आम्ही नेहमी तुमच्या सेवेसाठी तत्पर आहोत.\n\nमदतीसाठी कधीही "Hi" टाइप करा.',
+    goodbye: '👋 *धन्यवाद*\n\nजिल्हा परिषद अमरावतीशी संपर्क साधल्याबद्दल धन्यवाद. आम्ही नेहमी तुमच्या सेवेसाठी तत्पर आहोत.\n\n📞 *मदतीसाठी:*\n• कधीही "Hi" टाइप करा\n• "Help" टाइप करा हेल्पडेस्क माहितीसाठी\n• "Menu" टाइप करा सर्व सेवा पाहण्यासाठी\n\n🌐 *वेबसाइट:* zpamravati.gov.in\n📍 *कार्यालय:* जिल्हा परिषद भवन, अमरावती\n\n_कार्यालय वेळ: सकाळी 10:00 - संध्याकाळी 6:00 (सोम-शनि)_',
     appointmentConfirm: '📋 *अपॉइंटमेंटची पुष्टी करा*\n\nकृपया तुमच्या बुकिंग तपशीलाची पुष्टी करा:',
     err_no_record_found: '❌ *कोणताही रेकॉर्ड सापडला नाही*\n\nआम्हाला त्या संदर्भ क्रमांकाशी जुळणारा कोणताही रेकॉर्ड सापडला नाही.',
     grievanceCancel: '🚫 *रद्द केले*\n\nतक्रार नोंदणी रद्द केली आहे.',
@@ -1088,26 +1088,58 @@ async function continueGrievanceFlow(
         messageType: message.messageType 
       });
       
-      // Check if user confirmed (more flexible matching)
-      const isConfirmed = 
-        buttonId === 'confirm_yes' || 
-        buttonId?.includes('confirm') ||
-        userInput === 'yes' || 
-        userInput === 'confirm' ||
-        userInput.includes('confirm') ||
-        message.messageText?.toLowerCase().includes('confirm');
+      // Check if user cancelled first (explicit check)
+      const isCancelled = 
+        buttonId === 'confirm_no' ||
+        buttonId === 'cancel' ||
+        userInput === 'no' ||
+        userInput === 'cancel' ||
+        userInput.includes('cancel');
       
-      if (isConfirmed) {
-        console.log('✅ User confirmed grievance, creating...');
-        await createGrievanceWithDepartment(session, message, company);
-      } else {
+      if (isCancelled) {
         console.log('❌ User cancelled grievance');
         await sendWhatsAppMessage(
           company,
           message.from,
           getTranslation('grievanceCancel', session.language)
         );
-        await showMainMenu(session, message, company);
+        // Clear session completely when cancelled - delete all conversation data
+        await clearSession(message.from, company._id.toString());
+        // Show goodbye message with help instructions
+        await sendWhatsAppMessage(
+          company,
+          message.from,
+          getTranslation('goodbye', session.language)
+        );
+        return;
+      }
+      
+      // Check if user confirmed (only if not cancelled)
+      const isConfirmed = 
+        buttonId === 'confirm_yes' || 
+        userInput === 'yes' || 
+        userInput === 'confirm';
+      
+      if (isConfirmed) {
+        console.log('✅ User confirmed grievance, creating...');
+        await createGrievanceWithDepartment(session, message, company);
+      } else {
+        // Invalid input - ask again
+        console.log('⚠️ Invalid confirmation input, asking again');
+        const confirmMessage = getTranslation('grievanceConfirm', session.language)
+          .replace('{name}', session.data.citizenName)
+          .replace('{category}', session.data.category)
+          .replace('{description}', session.data.description.substring(0, 100) + '...');
+        
+        await sendWhatsAppButtons(
+          company,
+          message.from,
+          confirmMessage,
+          [
+            { id: 'confirm_yes', title: getTranslation('btn_confirm_submit', session.language) },
+            { id: 'confirm_no', title: getTranslation('btn_cancel', session.language) }
+          ]
+        );
       }
       break;
   }
@@ -1655,26 +1687,71 @@ async function continueAppointmentFlow(
         messageType: message.messageType
       });
       
-      // Check if user confirmed (more flexible matching)
-      const isAppointmentConfirmed = 
-        buttonId === 'appt_confirm_yes' || 
-        buttonId?.includes('confirm') ||
-        userInput === 'yes' || 
-        userInput === 'confirm' ||
-        userInput.includes('confirm') ||
-        message.messageText?.toLowerCase().includes('confirm');
+      // Check if user cancelled first (explicit check)
+      const isAppointmentCancelled = 
+        buttonId === 'appt_confirm_no' ||
+        buttonId === 'cancel' ||
+        userInput === 'no' ||
+        userInput === 'cancel' ||
+        userInput.includes('cancel');
       
-      if (isAppointmentConfirmed) {
-        console.log('✅ User confirmed appointment, creating...');
-        await createAppointment(session, message, company);
-      } else {
+      if (isAppointmentCancelled) {
         console.log('❌ User cancelled appointment');
         await sendWhatsAppMessage(
           company,
           message.from,
           getTranslation('aptCancel', session.language)
         );
-        await showMainMenu(session, message, company);
+        // Clear session completely when cancelled - delete all conversation data
+        await clearSession(message.from, company._id.toString());
+        // Show goodbye message with help instructions
+        await sendWhatsAppMessage(
+          company,
+          message.from,
+          getTranslation('goodbye', session.language)
+        );
+        return;
+      }
+      
+      // Check if user confirmed (only if not cancelled)
+      const isAppointmentConfirmed = 
+        buttonId === 'appt_confirm_yes' || 
+        userInput === 'yes' || 
+        userInput === 'confirm';
+      
+      if (isAppointmentConfirmed) {
+        console.log('✅ User confirmed appointment, creating...');
+        await createAppointment(session, message, company);
+      } else {
+        // Invalid input - ask again
+        console.log('⚠️ Invalid confirmation input, asking again');
+        const confirmDate = new Date(session.data.appointmentDate);
+        const dateDisplay = confirmDate.toLocaleDateString(session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        
+        const timeDisplay = session.data.appointmentTime.includes(':') ? session.data.appointmentTime : `${session.data.appointmentTime}:00`;
+        
+        const confirmMessage = `${getTranslation('appointmentConfirm', session.language)}\n\n` +
+          `*${getTranslation('label_citizen', session.language)}:* ${session.data.citizenName}\n` +
+          `*${getTranslation('label_department', session.language)}:* ${session.data.translatedDeptName || session.data.departmentName}\n` +
+          `*${getTranslation('label_purpose', session.language)}:* ${session.data.purpose}\n` +
+          `*${getTranslation('label_date', session.language)}:* ${dateDisplay}\n` +
+          `*${getTranslation('label_time', session.language)}:* ${timeDisplay}\n\n` +
+          `*${getTranslation('grievanceConfirm', session.language).split('\n').pop()}*`;
+        
+        await sendWhatsAppButtons(
+          company,
+          message.from,
+          confirmMessage,
+          [
+            { id: 'appt_confirm_yes', title: getTranslation('btn_confirm_book', session.language) },
+            { id: 'appt_confirm_no', title: getTranslation('btn_cancel', session.language) }
+          ]
+        );
       }
       break;
 

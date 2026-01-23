@@ -132,26 +132,17 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({ isOpen, onClo
 
     setLoading(true);
     try {
-      // Normalize phone numbers before sending (add 91 prefix if 10 digits)
-      const companyData: CreateCompanyData = {
-        ...formData,
-        contactPhone: formData.contactPhone ? normalizePhoneNumber(formData.contactPhone) : '',
-        admin: formData.admin ? {
-          ...formData.admin,
-          phone: formData.admin.phone ? normalizePhoneNumber(formData.admin.phone) : ''
-        } : formData.admin
-      };
-      
+      // Send phone numbers as-is (10 digits) - backend will normalize them
       let response;
       if (editingCompany) {
         // Update existing company
-        response = await companyAPI.update(editingCompany._id, companyData);
+        response = await companyAPI.update(editingCompany._id, formData);
         if (response.success) {
           toast.success('Company updated successfully!');
         }
       } else {
         // Create new company
-        response = await companyAPI.create(companyData);
+        response = await companyAPI.create(formData);
         if (response.success) {
           toast.success('Company created successfully!');
         }

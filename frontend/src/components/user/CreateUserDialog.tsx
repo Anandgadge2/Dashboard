@@ -236,12 +236,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
 
     setLoading(true);
     try {
-      // Normalize phone number before sending (add 91 prefix if 10 digits)
-      const userData = {
-        ...formData,
-        phone: formData.phone ? normalizePhoneNumber(formData.phone) : ''
-      };
-      const response = await userAPI.create(userData);
+      // Send phone number as-is (10 digits) - backend will normalize it
+      const response = await userAPI.create(formData);
       if (response.success) {
         toast.success('User created successfully!');
         setFormData({

@@ -70,10 +70,9 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      // Normalize phone number (add 91 prefix) before sending to backend
-      const normalizedPhone = normalizePhoneNumber(phone.trim());
-      console.log('🔐 Attempting login with:', { phone: normalizedPhone });
-      await login({ phone: normalizedPhone, password: password.trim() });
+      // Send phone number as-is (10 digits) - backend will normalize it
+      console.log('🔐 Attempting login with:', { phone: phone.trim() });
+      await login({ phone: phone.trim(), password: password.trim() });
       console.log('✅ Login successful');
       // Success - login function handles redirect
     } catch (error: any) {
@@ -204,7 +203,7 @@ export default function LoginPage() {
                     <Input
                       id="phone"
                       type="tel"
-                      placeholder="10 digit number (e.g., 9356150561)"
+                      placeholder="10 digit number"
                       value={phone}
                       onChange={(e) => {
                         // Only allow digits, max 10

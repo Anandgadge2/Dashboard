@@ -90,21 +90,17 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
 
     setLoading(true);
     try {
-      // Normalize phone number before sending (add 91 prefix if 10 digits)
-      const departmentData = {
-        ...formData,
-        contactPhone: formData.contactPhone ? normalizePhoneNumber(formData.contactPhone) : ''
-      };
+      // Send phone number as-is (10 digits) - backend will normalize it
       let response;
       if (editingDepartment) {
-        response = await departmentAPI.update(editingDepartment._id, departmentData);
+        response = await departmentAPI.update(editingDepartment._id, formData);
         if (response.success) {
           toast.success('Department updated successfully!');
         } else {
           toast.error('Failed to update department');
         }
       } else {
-        response = await departmentAPI.create(departmentData);
+        response = await departmentAPI.create(formData);
         if (response.success) {
           toast.success('Department created successfully!');
         } else {

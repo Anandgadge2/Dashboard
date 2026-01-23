@@ -199,11 +199,19 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // Normalize phone number if provided (add 91 prefix if 10 digits)
+    // Validate and normalize phone number if provided (add 91 prefix if 10 digits)
     let normalizedPhone = phone;
-    if (phone) {
-      const { normalizePhoneNumber } = await import('../utils/phoneUtils');
-      normalizedPhone = normalizePhoneNumber(phone);
+    if (phone && phone.trim()) {
+      const { validatePhoneNumber, normalizePhoneNumber } = await import('../utils/phoneUtils');
+      const phoneTrimmed = phone.trim();
+      // Validate phone number format (must be 10 digits)
+      if (!validatePhoneNumber(phoneTrimmed)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number must be exactly 10 digits'
+        });
+      }
+      normalizedPhone = normalizePhoneNumber(phoneTrimmed);
     }
 
     console.log('🔐 Login attempt for:', normalizedPhone || email);

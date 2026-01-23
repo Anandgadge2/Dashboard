@@ -135,15 +135,19 @@ router.post('/', requirePermission(Permission.CREATE_USER), async (req: Request,
 
     // Validate and normalize phone number if provided
     let normalizedPhone = phone;
-    if (phone) {
+    if (phone && phone.trim()) {
       const { validatePhoneNumber, normalizePhoneNumber } = await import('../utils/phoneUtils');
-      if (!validatePhoneNumber(phone)) {
+      const phoneTrimmed = phone.trim();
+      if (!validatePhoneNumber(phoneTrimmed)) {
         return res.status(400).json({
           success: false,
           message: 'Phone number must be exactly 10 digits'
         });
       }
-      normalizedPhone = normalizePhoneNumber(phone);
+      normalizedPhone = normalizePhoneNumber(phoneTrimmed);
+    } else {
+      // If phone is empty or not provided, set to undefined
+      normalizedPhone = undefined;
     }
     console.log('✅ Basic validation passed');
 
@@ -246,7 +250,7 @@ router.post('/', requirePermission(Permission.CREATE_USER), async (req: Request,
         lastName,
         email: email.toLowerCase().trim(),
         password,
-        phone: normalizedPhone || undefined,
+        phone: normalizedPhone,
         role,
         companyId: finalCompanyId || undefined,
         departmentId: departmentId || undefined,
