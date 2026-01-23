@@ -1562,14 +1562,15 @@ async function continueAppointmentFlow(
       session.data.appointmentDate = selectedDate;
       
       // Show time slots as clickable buttons
+      // Note: WhatsApp button titles have 20-character limit
       await sendWhatsAppButtons(
         company,
         message.from,
         getTranslation('label_select_time', session.language),
         [
-          { id: 'time_10:00', title: '🕙 10:00 AM - 11:00 AM' },
-          { id: 'time_14:00', title: '🕑 2:00 PM - 3:00 PM' },
-          { id: 'time_16:00', title: '🕓 4:00 PM - 5:00 PM' }
+          { id: 'time_10:00', title: '🕙 10:00-11:00 AM' },
+          { id: 'time_14:00', title: '🕑 2:00-3:00 PM' },
+          { id: 'time_16:00', title: '🕓 4:00-5:00 PM' }
         ]
       );
       
@@ -1600,9 +1601,9 @@ async function continueAppointmentFlow(
           message.from,
           getTranslation('label_select_time', session.language),
           [
-            { id: 'time_10:00', title: '🕙 10:00 AM - 11:00 AM' },
-            { id: 'time_14:00', title: '🕑 2:00 PM - 3:00 PM' },
-            { id: 'time_16:00', title: '🕓 4:00 PM - 5:00 PM' }
+            { id: 'time_10:00', title: '🕙 10:00-11:00 AM' },
+            { id: 'time_14:00', title: '🕑 2:00-3:00 PM' },
+            { id: 'time_16:00', title: '🕓 4:00-5:00 PM' }
           ]
         );
         return;
