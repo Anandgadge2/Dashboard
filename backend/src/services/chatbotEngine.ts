@@ -71,6 +71,7 @@ const translations = {
     label_time: '⏰ Time',
     selection_department: '🏢 *Department Selection*\n\nSelect the relevant department:',
     btn_select_dept: 'View Departments',
+    btn_load_more: 'Load More Departments',
     err_name_invalid: '⚠️ *Invalid Name*\n\nPlease enter a valid full name (min 2 chars).',
     err_description_short: '⚠️ *Insufficient Details*\n\nPlease provide more details (min 10 chars) to help us understand the issue.',
     err_purpose_short: '⚠️ *Purpose Required*\n\nPlease specify the purpose of the visit (min 5 chars).',
@@ -194,6 +195,7 @@ const translations = {
     label_time: '⏰ समय',
     selection_department: '🏢 *विभाग चयन*\n\nसंबंधित विभाग का चयन करें:',
     btn_select_dept: 'विभाग देखें',
+    btn_load_more: 'और विभाग देखें',
     err_name_invalid: '⚠️ *अमान्य नाम*\n\nकृपया एक मान्य पूरा नाम दर्ज करें (न्यूनतम 2 अक्षर)।',
     err_description_short: '⚠️ *अपर्याप्त विवरण*\n\nकृपया समस्या को समझने में हमारी सहायता के लिए अधिक विवरण (न्यूनतम 10 अक्षर) प्रदान करें।',
     err_purpose_short: '⚠️ *उद्देश्य आवश्यक*\n\nकृपया यात्रा का उद्देश्य निर्दिष्ट करें (न्यूनतम 5 अक्षर)।',
@@ -321,6 +323,7 @@ const translations = {
     label_time: '⏰ वेळ',
     selection_department: '🏢 *विभाग निवड*\n\nसंबंधित विभाग निवडा:',
     btn_select_dept: 'विभाग पहा',
+    btn_load_more: 'अधिक विभाग पहा',
     err_name_invalid: '⚠️ *अवैध नाव*\n\nकृपया वैध पूर्ण नाव प्रविष्ट करा (किमान २ अक्षरे).',
     err_description_short: '⚠️ *अपुरा तपशील*\n\nकृपया समस्या समजून घेण्यात आम्हाला मदत करण्यासाठी अधिक तपशील (किमान १० अक्षरे) द्या.',
     err_purpose_short: '⚠️ *उद्देश आवश्यक*\n\nकृपया भेटीचा उद्देश नमूद करा (किमान ५ अक्षरे).',
@@ -497,7 +500,7 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
   }
 
   // Handle global reset on greetings (like "Hi", "Hello", "Start")
-  const greetings = ['hi', 'hello', 'start', 'namaste', 'नमस्ते', 'restart', 'menu'];
+  const greetings = ['hi', 'hii','hello', 'start', 'namaste', 'नमस्ते', 'restart', 'menu'];
   if (!buttonId && greetings.includes(userInput)) {
     console.log('🔄 Global reset triggered by greeting:', userInput);
     await clearSession(from, companyId);
@@ -794,8 +797,14 @@ async function continueGrievanceFlow(
       console.log('🏬 All departments:', departments.map(d => ({ name: d.name, id: d._id })));
       
       if (departments.length > 0) {
-        // WhatsApp allows max 10 rows per section, so split if needed
-        const deptRows = departments.slice(0, 10).map(dept => {
+        // Initialize department offset if not set
+        if (!session.data.deptOffset) {
+          session.data.deptOffset = 0;
+        }
+        
+        const offset = session.data.deptOffset || 0;
+        const showLoadMore = departments.length > offset + 9;
+        const deptRows = departments.slice(offset, offset + 9).map(dept => {
           // Try to translate department name
           const translatedName = getTranslation(`dept_${dept.name}`, session.language);
           const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
@@ -807,13 +816,22 @@ async function continueGrievanceFlow(
           };
         });
         
+        // Add "Load More" button if there are more departments
+        if (showLoadMore) {
+          deptRows.push({
+            id: 'grv_load_more',
+            title: getTranslation('btn_load_more', session.language),
+            description: `${departments.length - offset - 9} more departments available`
+          });
+        }
+        
         // Create sections (WhatsApp requires at least 1 section with 1-10 rows)
         const sections = [{
           title: getTranslation('btn_select_dept', session.language),
           rows: deptRows
         }];
         
-        console.log('📋 Sending department list with', deptRows.length, 'departments');
+        console.log('📋 Sending department list with', deptRows.length, 'items (offset:', offset, ')');
         
         try {
           await sendWhatsAppList(
@@ -857,6 +875,56 @@ async function continueGrievanceFlow(
       break;
 
     case 'grievance_category':
+      // Handle "Load More" button
+      if (buttonId === 'grv_load_more' || userInput === 'load_more' || userInput.includes('load more')) {
+        // Increment offset and show next batch
+        session.data.deptOffset = (session.data.deptOffset || 0) + 9;
+        
+        // Get all departments again
+        const departments = await Department.find({ 
+          companyId: company._id, 
+          isActive: true, 
+          isDeleted: false 
+        });
+        
+        if (departments.length > 0) {
+          const offset = session.data.deptOffset || 0;
+          const showLoadMore = departments.length > offset + 9;
+          const deptRows = departments.slice(offset, offset + 9).map(dept => {
+            const translatedName = getTranslation(`dept_${dept.name}`, session.language);
+            const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
+            
+            return {
+              id: `grv_dept_${dept._id}`,
+              title: displayName.length > 24 ? displayName.substring(0, 21) + '...' : displayName,
+              description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || ''
+            };
+          });
+          
+          if (showLoadMore) {
+            deptRows.push({
+              id: 'grv_load_more',
+              title: getTranslation('btn_load_more', session.language),
+              description: `${departments.length - offset - 9} more departments available`
+            });
+          }
+          
+          const sections = [{
+            title: getTranslation('btn_select_dept', session.language),
+            rows: deptRows
+          }];
+          
+          await sendWhatsAppList(
+            company,
+            message.from,
+            getTranslation('selection_department', session.language),
+            getTranslation('btn_select_dept', session.language),
+            sections
+          );
+        }
+        return;
+      }
+      
       // Extract department ID from selection
       let selectedDeptId = userInput.replace('grv_dept_', '').trim();
       if (buttonId && buttonId.startsWith('grv_dept_')) {
@@ -1199,20 +1267,38 @@ async function startAppointmentFlow(session: UserSession, message: ChatbotMessag
       buttons
     );
   } else {
+    // Initialize department offset if not set
+    if (!session.data.deptOffset) {
+      session.data.deptOffset = 0;
+    }
+    
+    const offset = session.data.deptOffset || 0;
+    const showLoadMore = departments.length > offset + 9;
+    const deptRows = departments.slice(offset, offset + 9).map(dept => {
+      const translatedName = getTranslation(`dept_${dept.name}`, session.language);
+      const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
+      return {
+        id: `dept_${dept._id}`,
+        title: displayName.length > 24 ? displayName.substring(0, 21) + '...' : displayName,
+        description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || ''
+      };
+    });
+    
+    // Add "Load More" button if there are more departments
+    if (showLoadMore) {
+      deptRows.push({
+        id: 'apt_load_more',
+        title: getTranslation('btn_load_more', session.language),
+        description: `${departments.length - offset - 9} more departments available`
+      });
+    }
+    
     const sections = [{
       title: getTranslation('btn_select_dept', session.language),
-      rows: departments.slice(0, 10).map(dept => {
-        const translatedName = getTranslation(`dept_${dept.name}`, session.language);
-        const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
-        return {
-          id: `dept_${dept._id}`,
-          title: displayName.length > 24 ? displayName.substring(0, 21) + '...' : displayName,
-          description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || ''
-        };
-      })
+      rows: deptRows
     }];
     
-    console.log('📋 Sending department list:', sections);
+    console.log('📋 Sending department list:', sections, 'offset:', offset);
     
     await sendWhatsAppList(
       company,
@@ -1224,7 +1310,12 @@ async function startAppointmentFlow(session: UserSession, message: ChatbotMessag
   }
   
   session.step = 'appointment_department';
-  session.data = {};
+  if (!session.data) {
+    session.data = {};
+  }
+  if (!session.data.deptOffset) {
+    session.data.deptOffset = 0;
+  }
   await updateSession(session);
 }
 
@@ -1317,6 +1408,52 @@ async function continueAppointmentFlow(
   
   switch (session.step) {
     case 'appointment_department':
+      // Handle "Load More" button
+      if (buttonId === 'apt_load_more' || userInput === 'load_more' || userInput.includes('load more')) {
+        // Increment offset and show next batch
+        session.data.deptOffset = (session.data.deptOffset || 0) + 9;
+        
+        // Get all departments again
+        const departments = await Department.find({ companyId: company._id, isActive: true, isDeleted: false });
+        
+        if (departments.length > 0) {
+          const offset = session.data.deptOffset || 0;
+          const showLoadMore = departments.length > offset + 9;
+          const deptRows = departments.slice(offset, offset + 9).map(dept => {
+            const translatedName = getTranslation(`dept_${dept.name}`, session.language);
+            const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
+            return {
+              id: `dept_${dept._id}`,
+              title: displayName.length > 24 ? displayName.substring(0, 21) + '...' : displayName,
+              description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || ''
+            };
+          });
+          
+          if (showLoadMore) {
+            deptRows.push({
+              id: 'apt_load_more',
+              title: getTranslation('btn_load_more', session.language),
+              description: `${departments.length - offset - 9} more departments available`
+            });
+          }
+          
+          const sections = [{
+            title: getTranslation('btn_select_dept', session.language),
+            rows: deptRows
+          }];
+          
+          await sendWhatsAppList(
+            company,
+            message.from,
+            getTranslation('appointmentBook', session.language),
+            getTranslation('btn_select_dept', session.language),
+            sections
+          );
+        }
+        await updateSession(session);
+        return;
+      }
+      
       // Extract department ID from button or input
       let deptId = userInput.replace('dept_', '');
       if (buttonId && buttonId.startsWith('dept_')) {
@@ -1424,7 +1561,7 @@ async function continueAppointmentFlow(
       
       session.data.appointmentDate = selectedDate;
       
-      // Show time slots with enhanced UI
+      // Show time slots as clickable buttons
       await sendWhatsAppButtons(
         company,
         message.from,
@@ -1441,9 +1578,34 @@ async function continueAppointmentFlow(
       break;
 
     case 'appointment_time':
-      let selectedTime = userInput.replace('time_', '');
+      // Handle button click or text input
+      let selectedTime = '';
       if (buttonId && buttonId.startsWith('time_')) {
+        // User clicked a button
         selectedTime = buttonId.replace('time_', '');
+        console.log('⏰ Time selected via button:', selectedTime);
+      } else if (userInput) {
+        // Fallback: user typed the time
+        selectedTime = userInput.replace('time_', '').trim();
+        console.log('⏰ Time selected via text:', selectedTime);
+      } else {
+        await sendWhatsAppMessage(
+          company,
+          message.from,
+          getTranslation('invalidOption', session.language)
+        );
+        // Resend time slot buttons
+        await sendWhatsAppButtons(
+          company,
+          message.from,
+          getTranslation('label_select_time', session.language),
+          [
+            { id: 'time_10:00', title: '🕙 10:00 AM - 11:00 AM' },
+            { id: 'time_14:00', title: '🕑 2:00 PM - 3:00 PM' },
+            { id: 'time_16:00', title: '🕓 4:00 PM - 5:00 PM' }
+          ]
+        );
+        return;
       }
       
       console.log('⏰ Time selected:', { buttonId, userInput, selectedTime });
