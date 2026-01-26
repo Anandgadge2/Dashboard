@@ -808,14 +808,14 @@ function DashboardContent() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <Tabs value={activeTab} onValueChange={(value) => {
           if (activeTab !== value) {
             setPreviousTab(activeTab);
           }
           setActiveTab(value);
-        }} className="space-y-6">
-          <TabsList className="inline-flex h-12 items-center justify-center rounded-2xl bg-white/80 backdrop-blur-sm p-1.5 shadow-lg border border-slate-200/50 gap-1">
+        }} className="space-y-4 sm:space-y-6">
+          <TabsList className="inline-flex h-auto sm:h-12 flex-wrap sm:flex-nowrap items-center justify-center rounded-2xl bg-white/80 backdrop-blur-sm p-1.5 shadow-lg border border-slate-200/50 gap-1">
             {/* Hide Overview tab for operators - they should only see assigned items */}
             {!isOperator && (
               <TabsTrigger 
@@ -1522,9 +1522,10 @@ function DashboardContent() {
                         <p className="text-gray-400 text-sm mt-1">Add a department to get started</p>
                       </div>
                     ) : (
-                      <div className="overflow-hidden">
-                        <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                          <table className="w-full relative border-collapse">
+                      <div className="overflow-hidden rounded-2xl border border-slate-200">
+                        <div className="overflow-x-auto">
+                          <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                            <table className="w-full relative border-collapse min-w-[800px]">
                             <thead className="sticky top-0 z-20 bg-gradient-to-r from-cyan-50 via-teal-50 to-emerald-50 border-b border-teal-100">
                               <tr>
                                 <th className="px-3 py-4 text-center text-[11px] font-bold text-teal-700 uppercase tracking-wider">Sr. No.</th>
@@ -1686,6 +1687,7 @@ function DashboardContent() {
                               ))}
                             </tbody>
                           </table>
+                          </div>
                         </div>
                       </div>
                     )}
