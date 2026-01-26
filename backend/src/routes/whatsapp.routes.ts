@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { requireDatabaseConnection } from '../middleware/dbConnection';
 import { processWhatsAppMessage } from '../services/chatbotEngine';
 import { getRedisClient, isRedisConnected } from '../config/redis';
+import Company from '../models/Company';
 
 const router = express.Router();
 
@@ -89,21 +90,103 @@ router.post('/', requireDatabaseConnection, async (req: Request, res: Response) 
 
 /**
  * ============================================================
- * ZP AMRAVATI CONTEXT (SINGLE-TENANT)
+ * DYNAMIC COMPANY RESOLUTION (MULTI-TENANT)
  * ============================================================
- * This chatbot exclusively serves Zilla Parishad Amravati.
- * Every message is implicitly from a ZP Amravati citizen.
- * No company validation or selection is performed.
+ * Finds the company based on phone number ID from metadata.
+ * Falls back to environment variables if company not found.
  */
-function getZPAmravatiContext() {
+async function getCompanyFromMetadata(metadata: any): Promise<any> {
+  const phoneNumberId = metadata?.phone_number_id;
+  
+  if (!phoneNumberId) {
+    console.warn('⚠️ No phone number ID in metadata, using fallback');
+    return getFallbackCompany();
+  }
+  
+  console.log(`🔍 Looking up company by phone number ID: ${phoneNumberId}`);
+  
+  // Try to find company by phone number ID in WhatsApp config
+  const company = await Company.findOne({
+    'whatsappConfig.phoneNumberId': phoneNumberId,
+    isActive: true,
+    isDeleted: false
+  });
+  
+  if (company) {
+    console.log(`✅ Company found: ${company.name} (${company.companyId})`);
+    
+    // Ensure WhatsApp config is set correctly from metadata
+    if (!company.whatsappConfig) {
+      company.whatsappConfig = {
+        phoneNumberId: phoneNumberId,
+        accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+        businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || ''
+      } as any;
+    } else {
+      // Update phone number ID to match metadata (in case it changed)
+      if (company.whatsappConfig.phoneNumberId !== phoneNumberId) {
+        console.log(`🔄 Updating phone number ID: ${company.whatsappConfig.phoneNumberId} → ${phoneNumberId}`);
+        company.whatsappConfig.phoneNumberId = phoneNumberId;
+      }
+      
+      // Use env token if company doesn't have one or if it matches env phone number ID
+      if (!company.whatsappConfig.accessToken || 
+          (process.env.WHATSAPP_PHONE_NUMBER_ID === phoneNumberId && process.env.WHATSAPP_ACCESS_TOKEN)) {
+        company.whatsappConfig.accessToken = process.env.WHATSAPP_ACCESS_TOKEN || company.whatsappConfig.accessToken || '';
+      }
+    }
+    
+    return company;
+  }
+  
+  // If no company found, check if phone number ID matches env var
+  if (phoneNumberId === process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    console.log('⚠️ Company not found in DB, but phone number ID matches env. Using fallback.');
+    return getFallbackCompany();
+  }
+  
+  // Last resort: try to find any active company (for backward compatibility)
+  console.warn('⚠️ No company found for phone number ID, trying to find any active company');
+  const anyCompany = await Company.findOne({
+    isActive: true,
+    isDeleted: false
+  });
+  
+  if (anyCompany) {
+    console.log(`⚠️ Using first active company found: ${anyCompany.name} (${anyCompany.companyId})`);
+    // Update its config to use the metadata phone number ID
+    if (!anyCompany.whatsappConfig) {
+      anyCompany.whatsappConfig = {
+        phoneNumberId: phoneNumberId,
+        accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+        businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || ''
+      } as any;
+    } else {
+      anyCompany.whatsappConfig.phoneNumberId = phoneNumberId;
+      if (process.env.WHATSAPP_ACCESS_TOKEN) {
+        anyCompany.whatsappConfig.accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+      }
+    }
+    return anyCompany;
+  }
+  
+  console.error('❌ No company found. Using fallback.');
+  return getFallbackCompany();
+}
+
+/**
+ * Fallback company context when no company is found in database
+ */
+function getFallbackCompany() {
   return {
     _id: '000000000000000000000001',
-    name: 'Zilla Parishad Amravati',
+    name: 'Default Company',
     companyId: 'CMP000001',
     enabledModules: ['GRIEVANCE', 'APPOINTMENT'],
     whatsappConfig: {
       phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-      accessToken: process.env.WHATSAPP_ACCESS_TOKEN
+      accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
+      businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID
     }
   } as any;
 }
@@ -114,45 +197,56 @@ function getZPAmravatiContext() {
  * ============================================================
  */
 async function handleIncomingMessage(message: any, metadata: any) {
-  const company = getZPAmravatiContext();
+  try {
+    // Dynamically resolve company from metadata
+    const company = await getCompanyFromMetadata(metadata);
+    
+    if (!company) {
+      console.error('❌ Could not resolve company for message');
+      return;
+    }
 
-  const from = message.from;
-  const messageId = message.id;
-  const messageType = message.type;
+    const from = message.from;
+    const messageId = message.id;
+    const messageType = message.type;
 
-  let messageText = '';
-  let mediaUrl = '';
+    let messageText = '';
+    let mediaUrl = '';
 
-  if (messageType === 'text') {
-    messageText = message.text?.body || '';
-  } else if (messageType === 'image') {
-    messageText = message.image?.caption || '';
-    mediaUrl = message.image?.id || '';
-  } else if (messageType === 'document') {
-    messageText = message.document?.caption || '';
-    mediaUrl = message.document?.id || '';
-  } else if (messageType === 'audio' || messageType === 'voice') {
-    mediaUrl = message.audio?.id || message.voice?.id || '';
-  } else if (messageType === 'video') {
-    messageText = message.video?.caption || '';
-    mediaUrl = message.video?.id || '';
+    if (messageType === 'text') {
+      messageText = message.text?.body || '';
+    } else if (messageType === 'image') {
+      messageText = message.image?.caption || '';
+      mediaUrl = message.image?.id || '';
+    } else if (messageType === 'document') {
+      messageText = message.document?.caption || '';
+      mediaUrl = message.document?.id || '';
+    } else if (messageType === 'audio' || messageType === 'voice') {
+      mediaUrl = message.audio?.id || message.voice?.id || '';
+    } else if (messageType === 'video') {
+      messageText = message.video?.caption || '';
+      mediaUrl = message.video?.id || '';
+    }
+
+    console.log(
+      `📨 Message from ${from} → Company: ${company.name} (ID: ${company.companyId})`
+    );
+
+    const response = await processWhatsAppMessage({
+      companyId: company.companyId,
+      from,
+      messageText,
+      messageType,
+      messageId,
+      mediaUrl,
+      metadata
+    });
+
+    return response;
+  } catch (error) {
+    console.error('❌ Error in handleIncomingMessage:', error);
+    throw error;
   }
-
-  console.log(
-    `📨 Message from ${from} → Company: ${company.name} (ID: ${company.companyId})`
-  );
-
-  const response = await processWhatsAppMessage({
-    companyId: company.companyId,
-    from,
-    messageText,
-    messageType,
-    messageId,
-    mediaUrl,
-    metadata
-  });
-
-  return response;
 }
 
 /**
@@ -161,40 +255,51 @@ async function handleIncomingMessage(message: any, metadata: any) {
  * ============================================================
  */
 async function handleInteractiveMessage(message: any, metadata: any) {
-  const company = getZPAmravatiContext();
+  try {
+    // Dynamically resolve company from metadata
+    const company = await getCompanyFromMetadata(metadata);
+    
+    if (!company) {
+      console.error('❌ Could not resolve company for interactive message');
+      return;
+    }
 
-  const from = message.from;
-  const messageId = message.id;
-  const interactive = message.interactive;
+    const from = message.from;
+    const messageId = message.id;
+    const interactive = message.interactive;
 
-  let buttonId = '';
-  let messageText = '';
+    let buttonId = '';
+    let messageText = '';
 
-  if (interactive?.type === 'button_reply') {
-    buttonId = interactive.button_reply?.id || '';
-    messageText = interactive.button_reply?.title || '';
+    if (interactive?.type === 'button_reply') {
+      buttonId = interactive.button_reply?.id || '';
+      messageText = interactive.button_reply?.title || '';
+    }
+
+    if (interactive?.type === 'list_reply') {
+      buttonId = interactive.list_reply?.id || '';
+      messageText = interactive.list_reply?.title || '';
+    }
+
+    if (!buttonId) return;
+
+    console.log(`🔘 Button "${buttonId}" clicked by ${from}`);
+
+    const response = await processWhatsAppMessage({
+      companyId: company.companyId,
+      from,
+      messageText,
+      messageType: 'interactive',
+      messageId,
+      metadata,
+      buttonId
+    });
+
+    return response;
+  } catch (error) {
+    console.error('❌ Error in handleInteractiveMessage:', error);
+    throw error;
   }
-
-  if (interactive?.type === 'list_reply') {
-    buttonId = interactive.list_reply?.id || '';
-    messageText = interactive.list_reply?.title || '';
-  }
-
-  if (!buttonId) return;
-
-  console.log(`🔘 Button "${buttonId}" clicked by ${from}`);
-
-  const response = await processWhatsAppMessage({
-    companyId: company.companyId,
-    from,
-    messageText,
-    messageType: 'interactive',
-    messageId,
-    metadata,
-    buttonId
-  });
-
-  return response;
 }
 
 /**

@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import { CheckCircle, Building, Users, FileText, Calendar, BarChart2, ArrowLeft, Search, ArrowUpDown, Download, RefreshCw, TrendingUp, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +16,7 @@ import { grievanceAPI, Grievance } from '@/lib/api/grievance';
 import { appointmentAPI, Appointment } from '@/lib/api/appointment';
 import GrievanceDetailDialog from '@/components/grievance/GrievanceDetailDialog';
 import AppointmentDetailDialog from '@/components/appointment/AppointmentDetailDialog';
+import StatusUpdateModal from '@/components/grievance/StatusUpdateModal';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -30,7 +33,7 @@ export default function DepartmentDetail() {
   const [company, setCompany] = useState<Company | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [grievances, setGrievances] = useState<Grievance[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  // Appointments removed - only managed by Company Admin
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalGrievances: 0,
@@ -45,6 +48,15 @@ export default function DepartmentDetail() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showGrievanceDetail, setShowGrievanceDetail] = useState(false);
   const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
+  const [updatingGrievanceStatus, setUpdatingGrievanceStatus] = useState<Set<string>>(new Set());
+  const [showGrievanceStatusModal, setShowGrievanceStatusModal] = useState(false);
+  const [selectedGrievanceForStatus, setSelectedGrievanceForStatus] = useState<Grievance | null>(null);
+
+  // Filter & Sort states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({ key: '', direction: null });
 
   useEffect(() => {
     if (!user || user.role === 'SUPER_ADMIN') {
@@ -81,17 +93,16 @@ export default function DepartmentDetail() {
         setUsers(usersRes.data.users);
       }
 
-      // Fetch grievances
+      // Fetch grievances (filter out resolved - they are on the Resolved Grievances page)
       const grievancesRes = await grievanceAPI.getAll({ departmentId, limit: 100 });
       if (grievancesRes.success) {
-        setGrievances(grievancesRes.data.grievances);
+        const activeGrievances = grievancesRes.data.grievances.filter(
+          (g) => g.status !== 'RESOLVED'
+        );
+        setGrievances(activeGrievances);
       }
 
-      // Fetch appointments
-      const appointmentsRes = await appointmentAPI.getAll({ departmentId, limit: 100 });
-      if (appointmentsRes.success) {
-        setAppointments(appointmentsRes.data.appointments);
-      }
+      // Appointments are only managed by Company Admin - not fetching here
 
       // Calculate stats
       const statsRes = await apiClient.get(`/analytics/dashboard?departmentId=${departmentId}`);
@@ -111,6 +122,87 @@ export default function DepartmentDetail() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Sort handler
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' | null = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = null;
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Filtered users
+  const filteredUsers = useMemo(() => {
+    let filtered = [...users];
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(u => 
+        u.firstName?.toLowerCase().includes(search) ||
+        u.lastName?.toLowerCase().includes(search) ||
+        u.email?.toLowerCase().includes(search)
+      );
+    }
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(u => u.role === roleFilter);
+    }
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(u => statusFilter === 'active' ? u.isActive : !u.isActive);
+    }
+    if (sortConfig.key && sortConfig.direction) {
+      filtered.sort((a: any, b: any) => {
+        const aVal = a[sortConfig.key] || '';
+        const bVal = b[sortConfig.key] || '';
+        if (typeof aVal === 'string') {
+          return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      });
+    }
+    return filtered;
+  }, [users, searchTerm, roleFilter, statusFilter, sortConfig]);
+
+  // Filtered grievances
+  const filteredGrievances = useMemo(() => {
+    let filtered = [...grievances];
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(g => 
+        g.citizenName?.toLowerCase().includes(search) ||
+        g.grievanceId?.toLowerCase().includes(search)
+      );
+    }
+    if (statusFilter !== 'all' && statusFilter !== 'active') {
+      filtered = filtered.filter(g => g.status === statusFilter);
+    }
+    return filtered;
+  }, [grievances, searchTerm, statusFilter]);
+
+  // Appointments are only managed by Company Admin - no filtering needed here
+
+  // Export function
+  const exportToCSV = (data: any[], filename: string) => {
+    if (data.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+    const headers = Object.keys(data[0]).filter(k => !k.startsWith('_'));
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => JSON.stringify(row[h] || '')).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Export successful!');
   };
 
   if (loading) {
@@ -134,9 +226,9 @@ export default function DepartmentDetail() {
 
   // Prepare chart data
   const grievanceStatusData = [
-    { name: 'Pending', value: stats.pendingGrievances },
-    { name: 'Resolved', value: stats.resolvedGrievances },
-    { name: 'In Progress', value: stats.totalGrievances - stats.pendingGrievances - stats.resolvedGrievances }
+    { name: 'Pending', value: stats.pendingGrievances, color: '#FFBB28' },
+    { name: 'Resolved', value: stats.resolvedGrievances, color: '#00C49F' },
+    { name: 'In Progress', value: stats.totalGrievances - stats.pendingGrievances - stats.resolvedGrievances, color: '#0088FE' }
   ].filter(item => item.value > 0);
 
   const userRoleData = users.reduce((acc: any[], user) => {
@@ -150,640 +242,458 @@ export default function DepartmentDetail() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50/30">
+      {/* Header with Gradient */}
+      <header className="bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 sticky top-0 z-50 shadow-xl">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdjJoLTYweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIvPjwvc3ZnPg==')] opacity-30"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <div>
-              <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-2">
-                ← Back to Dashboard
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => router.push('/dashboard')} 
+                className="text-white/80 hover:text-white hover:bg-white/10 transition-all -ml-2"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
               </Button>
-              <h1 className="text-2xl font-bold text-gray-900">{department.name}</h1>
-              <p className="text-sm text-gray-600">
-                Department Dashboard - {department.departmentId}
-                {company && ` • ${company.name}`}
-              </p>
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg">
+                <Building className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">{department.name}</h1>
+                <p className="text-sm text-white/80 mt-0.5">
+                  Department Dashboard • <span className="font-semibold">{department.departmentId}</span>
+                  {company && ` • ${company.name}`}
+                </p>
+              </div>
             </div>
+            <button
+              onClick={fetchData}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all border border-white/30"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="grievances">Grievances</TabsTrigger>
-            <TabsTrigger value="appointments">Appointments</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsList className="inline-flex h-12 items-center justify-center rounded-2xl bg-white/80 backdrop-blur-sm p-1.5 shadow-lg border border-slate-200/50 gap-1">
+            <TabsTrigger value="overview" className="px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100">Overview</TabsTrigger>
+            <TabsTrigger value="users" className="px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100">Users</TabsTrigger>
+            <TabsTrigger value="grievances" className="px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100">Grievances</TabsTrigger>
+            <TabsTrigger value="analytics" className="px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100">Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Total Users - Modern Blue */}
+              {/* Total Users - Gradient Blue Card */}
               <Card 
-                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300 cursor-pointer"
+                className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 border-0 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer rounded-2xl"
                 onClick={() => setActiveTab('users')}
               >
-                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-bl-full"></div>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdjJoLTYweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIvPjwvc3ZnPg==')] opacity-30"></div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-bl-[100px]"></div>
+                <CardHeader className="pb-2 relative">
+                  <CardTitle className="text-white/90 text-sm font-medium flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
+                        <Users className="w-4 h-4 text-white" />
+                      </div>
                       Total Users
                     </span>
-                    <svg className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalUsers}</p>
-                  <p className="text-xs text-slate-500 font-medium">
-                    <span className="text-emerald-600 font-semibold">{stats.activeUsers}</span> active
+                <CardContent className="relative">
+                  <p className="text-4xl font-bold text-white mb-2">{stats.totalUsers}</p>
+                  <p className="text-sm text-white/80 font-medium">
+                    <span className="inline-flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      {stats.activeUsers} active
+                    </span>
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Grievances - Modern Purple */}
+              {/* Grievances - Gradient Purple Card */}
               <Card 
-                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-violet-200 transition-all duration-300 cursor-pointer"
+                className="group relative overflow-hidden bg-gradient-to-br from-purple-500 via-purple-600 to-fuchsia-700 border-0 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer rounded-2xl"
                 onClick={() => setActiveTab('grievances')}
               >
-                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-violet-500/10 to-violet-600/5 rounded-bl-full"></div>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdjJoLTYweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIvPjwvc3ZnPg==')] opacity-30"></div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-bl-[100px]"></div>
+                <CardHeader className="pb-2 relative">
+                  <CardTitle className="text-white/90 text-sm font-medium flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-violet-500"></div>
-                      Grievances
+                      <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-white" />
+                      </div>
+                      Active Grievances
                     </span>
-                    <svg className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalGrievances}</p>
-                  <p className="text-xs text-slate-500 font-medium">
-                    <span className="text-amber-600 font-semibold">{stats.pendingGrievances}</span> pending
+                <CardContent className="relative">
+                  <p className="text-4xl font-bold text-white mb-2">{grievances.length}</p>
+                  <p className="text-sm text-white/80 font-medium">
+                    <span className="inline-flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                      {stats.pendingGrievances} pending
+                    </span>
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Appointments - Modern Amber */}
-              <Card 
-                className="group relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-200 transition-all duration-300 cursor-pointer"
-                onClick={() => setActiveTab('appointments')}
-              >
-                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-500/10 to-amber-600/5 rounded-bl-full"></div>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-slate-600 text-sm font-semibold flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                      Appointments
-                    </span>
-                    <svg className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-slate-900 mb-1">{stats.totalAppointments}</p>
-                  <p className="text-xs text-slate-500 font-medium">Total appointments</p>
-                </CardContent>
-              </Card>
+              {/* Appointments card removed - Appointments are only for CEO/Company Admin, not for departments */}
             </div>
 
-            <Card className="border border-slate-200 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-slate-900 text-lg font-semibold">Department Information</CardTitle>
+            {/* Department Details */}
+            <Card className="rounded-2xl border-0 shadow-xl overflow-hidden bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-slate-100 to-cyan-50 border-b px-6 py-4">
+                <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Building className="w-5 h-5 text-cyan-600" />
+                  Department Information
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Department ID</p>
-                    <p className="text-lg font-bold text-slate-900">{department.departmentId}</p>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="p-4 bg-gradient-to-br from-slate-50 to-cyan-50 rounded-xl border border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Department ID</p>
+                    <p className="text-lg font-bold text-slate-800">{department.departmentId}</p>
                   </div>
-                  {company && (
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Company</p>
-                      <p className="text-lg font-bold text-slate-900">{company.name}</p>
-                    </div>
-                  )}
-                  {department.contactPerson && (
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contact Person</p>
-                      <p className="text-lg font-bold text-slate-900">{department.contactPerson}</p>
-                    </div>
-                  )}
-                  {department.contactEmail && (
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contact Email</p>
-                      <p className="text-lg font-bold text-slate-900">{department.contactEmail}</p>
-                    </div>
-                  )}
+                  <div className="p-4 bg-gradient-to-br from-slate-50 to-cyan-50 rounded-xl border border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Company</p>
+                    <p className="text-lg font-bold text-slate-800">{company?.name || 'N/A'}</p>
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-slate-50 to-cyan-50 rounded-xl border border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</p>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${department.isActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      Active
+                    </span>
+                  </div>
                 </div>
-                {department.description && (
-                  <div className="mt-6 pt-6 border-t border-slate-200">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Description</p>
-                    <p className="text-slate-700 leading-relaxed">{department.description}</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* Users Tab */}
           <TabsContent value="users" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Users ({users.length})</CardTitle>
+            <Card className="rounded-2xl border-0 shadow-xl overflow-hidden bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white px-6 py-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                      <Users className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl font-bold text-white">Users ({filteredUsers.length})</CardTitle>
+                      <CardDescription className="text-emerald-100">All users in this department</CardDescription>
+                    </div>
+                  </div>
+                  <button onClick={() => exportToCSV(filteredUsers, 'users')} className="flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-all border border-white/30">
+                    <Download className="w-4 h-4" />
+                    Export
+                  </button>
+                </div>
               </CardHeader>
-              <CardContent>
-                {users.length === 0 ? (
-                  <p className="text-center py-8 text-gray-500">No users found</p>
+              
+              {/* Filters */}
+              <div className="px-6 py-4 bg-white/50 border-b border-slate-200">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input type="text" placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                  </div>
+                  <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="px-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                    <option value="all">All Roles</option>
+                    <option value="DEPARTMENT_ADMIN">Department Admin</option>
+                    <option value="OPERATOR">Operator</option>
+                  </select>
+                </div>
+              </div>
+              
+              <CardContent className="p-0">
+                {filteredUsers.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg">No users found</p>
+                  </div>
                 ) : (
-                  <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
-                    <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                      <table className="w-full relative border-collapse">
-                        <thead className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur-sm shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gradient-to-r from-emerald-50 via-green-50 to-teal-50 border-b border-emerald-100">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                          <th className="px-3 py-4 text-center text-[11px] font-bold text-emerald-700 uppercase">Sr. No.</th>
+                          <th className="px-6 py-4 text-left">
+                            <button onClick={() => handleSort('firstName')} className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 uppercase hover:text-emerald-800">
+                              User <ArrowUpDown className="w-3.5 h-3.5" />
+                            </button>
+                          </th>
+                          <th className="px-6 py-4 text-left text-[11px] font-bold text-emerald-700 uppercase">Email</th>
+                          <th className="px-6 py-4 text-left text-[11px] font-bold text-emerald-700 uppercase">Role</th>
+                          <th className="px-6 py-4 text-left text-[11px] font-bold text-emerald-700 uppercase">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map((u) => (
-                          <tr key={u._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {u.firstName} {u.lastName}
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredUsers.map((u, index) => (
+                          <tr key={u._id} className="hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-green-50/50 transition-all">
+                            <td className="px-3 py-4 text-center">
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-100 to-green-100 text-emerald-700 text-xs font-bold">{index + 1}</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-green-500 rounded-xl flex items-center justify-center text-white font-bold shadow-sm">
+                                  {u.firstName?.[0]}{u.lastName?.[0]}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-gray-900">{u.firstName} {u.lastName}</p>
+                                  <p className="text-xs text-gray-500">{u.userId}</p>
+                                </div>
                               </div>
-                              <div className="text-sm text-gray-500">{u.userId}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.email}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {u.role}
-                              </span>
+                            <td className="px-6 py-4 text-sm text-gray-600">{u.email}</td>
+                            <td className="px-6 py-4">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">{u.role}</span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            <td className="px-6 py-4">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${u.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
                                 {u.isActive ? 'Active' : 'Inactive'}
                               </span>
                             </td>
                           </tr>
                         ))}
-                        </tbody>
-                      </table>
-                    </div>
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* Grievances Tab */}
           <TabsContent value="grievances" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Grievances ({grievances.length})</CardTitle>
+            <Card className="rounded-2xl border-0 shadow-xl overflow-hidden bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl font-bold text-white">Active Grievances ({filteredGrievances.length})</CardTitle>
+                      <CardDescription className="text-blue-100">All active grievances in this department</CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link href="/resolved-grievances" className="flex items-center gap-2 px-4 py-2 bg-emerald-500/80 text-white rounded-xl hover:bg-emerald-500 transition-all">
+                      <CheckCircle className="w-4 h-4" />
+                      View Resolved
+                    </Link>
+                    <button onClick={() => exportToCSV(filteredGrievances, 'grievances')} className="flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-all border border-white/30">
+                      <Download className="w-4 h-4" />
+                      Export
+                    </button>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
-                {grievances.length === 0 ? (
-                  <p className="text-center py-8 text-gray-500">No grievances found</p>
+              
+              {/* Filters */}
+              <div className="px-6 py-4 bg-white/50 border-b border-slate-200">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input type="text" placeholder="Search grievances..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Status</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="ASSIGNED">Assigned</option>
+                  </select>
+                </div>
+              </div>
+              
+              <CardContent className="p-0">
+                {filteredGrievances.length === 0 ? (
+                  <div className="text-center py-16">
+                    <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg">No grievances found</p>
+                  </div>
                 ) : (
-                  <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
-                    <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                      <table className="w-full relative border-collapse">
-                        <thead className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur-sm shadow-sm border-b">
-                        <tr className="whitespace-nowrap">
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Application No</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Citizen Details</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Raised On</th>
-                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                  <div className="overflow-x-auto max-h-[600px]">
+                    <table className="w-full">
+                      <thead className="sticky top-0 z-20 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-100">
+                        <tr>
+                          <th className="px-3 py-4 text-center text-[11px] font-bold text-blue-700 uppercase">Sr. No.</th>
+                          <th className="px-4 py-4 text-left text-[11px] font-bold text-blue-700 uppercase">Grievance ID</th>
+                          <th className="px-4 py-4 text-left text-[11px] font-bold text-blue-700 uppercase">Citizen</th>
+                          <th className="px-4 py-4 text-left text-[11px] font-bold text-blue-700 uppercase">Category</th>
+                          <th className="px-4 py-4 text-left text-[11px] font-bold text-blue-700 uppercase">Status</th>
+                          <th className="px-4 py-4 text-left text-[11px] font-bold text-blue-700 uppercase">Created</th>
+                          <th className="px-4 py-4 text-center text-[11px] font-bold text-blue-700 uppercase">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {grievances.map((g) => (
-                          <tr key={g._id} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="px-4 py-4">
-                              <span className="font-bold text-sm text-blue-700">{g.grievanceId}</span>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredGrievances.map((g, index) => (
+                          <tr key={g._id} className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all">
+                            <td className="px-3 py-4 text-center">
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 text-xs font-bold">{index + 1}</span>
                             </td>
+                            <td className="px-4 py-4"><span className="font-bold text-sm text-blue-700">{g.grievanceId}</span></td>
                             <td className="px-4 py-4">
-                              <div className="flex flex-col">
-                                <button
-                                  onClick={async () => {
-                                    const response = await grievanceAPI.getById(g._id);
-                                    if (response.success) {
-                                      setSelectedGrievance(response.data.grievance);
-                                      setShowGrievanceDetail(true);
-                                    }
-                                  }}
-                                  className="text-gray-900 font-bold text-sm text-left hover:text-blue-600 hover:underline"
-                                >
-                                  {g.citizenName}
-                                </button>
-                                <span className="text-xs text-gray-500">{g.citizenPhone}</span>
-                              </div>
+                              <button onClick={async () => {
+                                const response = await grievanceAPI.getById(g._id);
+                                if (response.success) { setSelectedGrievance(response.data.grievance); setShowGrievanceDetail(true); }
+                              }} className="text-left hover:text-blue-600">
+                                <p className="font-semibold text-gray-900 hover:underline">{g.citizenName}</p>
+                                <p className="text-xs text-gray-500">{g.citizenPhone}</p>
+                              </button>
                             </td>
+                            <td className="px-4 py-4"><span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-1 rounded">{g.category || 'General'}</span></td>
                             <td className="px-4 py-4">
-                              <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-100 italic">
-                                {g.category || 'General'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4">
-                              <select
-                                value={g.status}
-                                onChange={async (e) => {
-                                  try {
-                                    const response = await grievanceAPI.updateStatus(g._id, e.target.value);
-                                    if (response.success) {
-                                      toast.success('Status updated successfully');
-                                      fetchData();
-                                    } else {
-                                      toast.error('Failed to update status');
-                                    }
-                                  } catch (error: any) {
-                                    toast.error(error.message || 'Failed to update status');
-                                  }
+                              <button
+                                onClick={() => {
+                                  setSelectedGrievanceForStatus(g);
+                                  setShowGrievanceStatusModal(true);
                                 }}
-                                className="px-2 py-1 text-[10px] font-bold border border-gray-200 rounded bg-white hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-tight"
+                                disabled={updatingGrievanceStatus.has(g._id)}
+                                className={`px-3 py-1.5 text-[10px] font-bold border border-gray-200 rounded bg-white hover:border-purple-400 hover:bg-purple-50 focus:outline-none focus:ring-1 focus:ring-purple-500 uppercase tracking-tight transition-all ${
+                                  updatingGrievanceStatus.has(g._id) ? 'opacity-50 cursor-wait' : ''
+                                }`}
                               >
-                                <option value="PENDING">PENDING</option>
-                                <option value="ASSIGNED">ASSIGNED</option>
-                                <option value="IN_PROGRESS">IN_PROGRESS</option>
-                                <option value="RESOLVED">RESOLVED</option>
-                                <option value="CLOSED">CLOSED</option>
-                              </select>
+                                {g.status}
+                              </button>
                             </td>
-                            <td className="px-4 py-4 text-xs text-gray-600">
+                            <td className="px-4 py-4 text-sm text-gray-600">
                               <div className="flex flex-col">
                                 <span className="font-medium text-gray-800">{new Date(g.createdAt).toLocaleDateString()}</span>
-                                <span className="text-[10px] text-gray-400 font-mono">
-                                  {new Date(g.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                                <span className="text-[10px] text-gray-400">{new Date(g.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
                             </td>
-                            <td className="px-4 py-4">
-                              <div className="flex items-center justify-center">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async () => {
-                                    const response = await grievanceAPI.getById(g._id);
-                                    if (response.success) {
-                                      setSelectedGrievance(response.data.grievance);
-                                      setShowGrievanceDetail(true);
-                                    }
-                                  }}
-                                  title="View Details"
-                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                                </Button>
-                              </div>
+                            <td className="px-4 py-4 text-center">
+                              <button onClick={async () => {
+                                const response = await grievanceAPI.getById(g._id);
+                                if (response.success) { setSelectedGrievance(response.data.grievance); setShowGrievanceDetail(true); }
+                              }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="View Details">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
                             </td>
                           </tr>
                         ))}
-                        </tbody>
-                      </table>
-                    </div>
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="appointments" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Appointments ({appointments.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {appointments.length === 0 ? (
-                  <p className="text-center py-8 text-gray-500">No appointments found</p>
-                ) : (
-                  <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
-                    <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-                      <table className="w-full relative border-collapse">
-                        <thead className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur-sm shadow-sm border-b">
-                        <tr className="whitespace-nowrap">
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Appointment ID</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Citizen Details</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Purpose</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Scheduled At</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {appointments.map((a) => (
-                          <tr key={a._id} className="hover:bg-purple-50/30 transition-colors">
-                            <td className="px-4 py-4 text-sm">
-                              <span className="font-bold text-purple-700">{a.appointmentId}</span>
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="flex flex-col">
-                                <button
-                                  onClick={async () => {
-                                    const response = await appointmentAPI.getById(a._id);
-                                    if (response.success) {
-                                      setSelectedAppointment(response.data.appointment);
-                                      setShowAppointmentDetail(true);
-                                    }
-                                  }}
-                                  className="text-gray-900 font-bold text-sm text-left hover:text-purple-600 hover:underline"
-                                >
-                                  {a.citizenName}
-                                </button>
-                                <span className="text-xs text-gray-500">{a.citizenPhone}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className="text-xs text-gray-600 line-clamp-1 italic">{a.purpose}</span>
-                            </td>
-                            <td className="px-4 py-4 text-xs">
-                              <div className="flex flex-col">
-                                <span className="font-bold text-gray-800">{new Date(a.appointmentDate).toLocaleDateString()}</span>
-                                <span className="text-[10px] text-amber-600 font-bold uppercase">{a.appointmentTime}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <select
-                                value={a.status}
-                                onChange={async (e) => {
-                                  try {
-                                    const response = await appointmentAPI.updateStatus(a._id, e.target.value);
-                                    if (response.success) {
-                                      toast.success('Status updated successfully');
-                                      fetchData();
-                                    } else {
-                                      toast.error('Failed to update status');
-                                    }
-                                  } catch (error: any) {
-                                    toast.error(error.message || 'Failed to update status');
-                                  }
-                                }}
-                                className="px-2 py-1 text-[10px] font-bold border border-gray-200 rounded bg-white hover:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-500 uppercase tracking-tight"
-                              >
-                                <option value="PENDING">PENDING</option>
-                                <option value="CONFIRMED">CONFIRMED</option>
-                                <option value="COMPLETED">COMPLETED</option>
-                                <option value="CANCELLED">CANCELLED</option>
-                                <option value="NO_SHOW">NO_SHOW</option>
-                              </select>
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="flex items-center justify-center">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async () => {
-                                    const response = await appointmentAPI.getById(a._id);
-                                    if (response.success) {
-                                      setSelectedAppointment(response.data.appointment);
-                                      setShowAppointmentDetail(true);
-                                    }
-                                  }}
-                                  title="View Details"
-                                  className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                  </svg>
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/* Appointments Tab - Removed for Department Admin */}
+          {/* Appointments are only managed by Company Admin */}
 
+          {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card 
-                className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
-                onClick={() => setActiveTab('grievances')}
-              >
-                <CardHeader>
-                  <CardTitle className="text-white text-sm flex items-center justify-between">
-                    <span>Total Grievances</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold">{stats.totalGrievances}</p>
-                  <p className="text-blue-100 text-sm mt-1">{stats.pendingGrievances} pending</p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
-                onClick={() => setActiveTab('grievances')}
-              >
-                <CardHeader>
-                  <CardTitle className="text-white text-sm flex items-center justify-between">
-                    <span>Resolved</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold">{stats.resolvedGrievances}</p>
-                  <p className="text-green-100 text-sm mt-1">
-                    {stats.totalGrievances > 0 
-                      ? Math.round((stats.resolvedGrievances / stats.totalGrievances) * 100) 
-                      : 0}% rate
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
-                onClick={() => setActiveTab('appointments')}
-              >
-                <CardHeader>
-                  <CardTitle className="text-white text-sm flex items-center justify-between">
-                    <span>Total Appointments</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold">{stats.totalAppointments}</p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
-                onClick={() => setActiveTab('users')}
-              >
-                <CardHeader>
-                  <CardTitle className="text-white text-sm flex items-center justify-between">
-                    <span>Active Users</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold">{stats.activeUsers}</p>
-                  <p className="text-orange-100 text-sm mt-1">of {stats.totalUsers} total</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Grievance Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={grievanceStatusData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {grievanceStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Users by Role</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={userRoleData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#8884d8" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Grievance and Appointment Lists */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Grievances</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {grievances.length === 0 ? (
-                    <p className="text-center py-8 text-gray-500">No grievances found</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {grievances.slice(0, 5).map((g) => (
-                        <div key={g._id} className="border rounded-lg p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-sm">{g.citizenName}</h4>
-                              <p className="text-xs text-gray-500 truncate">{g.description}</p>
-                            </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              g.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-                              g.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {g.status}
-                            </span>
-                          </div>
+            <Card className="rounded-2xl border-0 shadow-xl overflow-hidden bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white px-6 py-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold text-white">Department Analytics</CardTitle>
+                    <CardDescription className="text-violet-100">View department statistics and insights</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Grievance Status Chart */}
+                  <Card className="rounded-2xl border border-slate-200/50 shadow-md bg-white/80">
+                    <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b px-5 py-4">
+                      <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                        Grievance Status
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                      {grievanceStatusData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                          <PieChart>
+                            <Pie data={grievanceStatusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                              {grievanceStatusData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-[250px] text-gray-400">
+                          <p>No grievance data available</p>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                      )}
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Appointments</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {appointments.length === 0 ? (
-                    <p className="text-center py-8 text-gray-500">No appointments found</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {appointments.slice(0, 5).map((a) => (
-                        <div key={a._id} className="border rounded-lg p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-sm">{a.citizenName}</h4>
-                              <p className="text-xs text-gray-500">{a.purpose}</p>
-                              <p className="text-xs text-gray-400">
-                                {new Date(a.appointmentDate).toLocaleDateString()} at {a.appointmentTime}
-                              </p>
-                            </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              a.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                              a.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {a.status}
-                            </span>
-                          </div>
+                  {/* User Roles Chart */}
+                  <Card className="rounded-2xl border border-slate-200/50 shadow-md bg-white/80">
+                    <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b px-5 py-4">
+                      <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-emerald-600" />
+                        Users by Role
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                      {userRoleData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={250}>
+                          <BarChart data={userRoleData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-[250px] text-gray-400">
+                          <p>No user data available</p>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
 
-      {/* Detail Dialogs */}
-      <GrievanceDetailDialog
-        isOpen={showGrievanceDetail}
-        grievance={selectedGrievance}
+      {/* Dialogs */}
+      <GrievanceDetailDialog grievance={selectedGrievance} isOpen={showGrievanceDetail} onClose={() => { setShowGrievanceDetail(false); setSelectedGrievance(null); }} />
+      <AppointmentDetailDialog appointment={selectedAppointment} isOpen={showAppointmentDetail} onClose={() => { setShowAppointmentDetail(false); setSelectedAppointment(null); }} />
+
+      <StatusUpdateModal
+        isOpen={showGrievanceStatusModal}
         onClose={() => {
-          setShowGrievanceDetail(false);
-          setSelectedGrievance(null);
+          setShowGrievanceStatusModal(false);
+          setSelectedGrievanceForStatus(null);
         }}
-      />
-      <AppointmentDetailDialog
-        isOpen={showAppointmentDetail}
-        appointment={selectedAppointment}
-        onClose={() => {
-          setShowAppointmentDetail(false);
-          setSelectedAppointment(null);
+        itemId={selectedGrievanceForStatus?._id || ''}
+        itemType="grievance"
+        currentStatus={selectedGrievanceForStatus?.status || ''}
+        onSuccess={() => {
+          fetchData();
         }}
       />
     </div>

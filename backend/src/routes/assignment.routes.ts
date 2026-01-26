@@ -17,7 +17,7 @@ router.use(authenticate);
 
 // @route   PUT /api/assignments/grievance/:id/assign
 // @desc    Assign grievance to a department admin or operator
-// @access  CompanyAdmin, DepartmentAdmin
+// @access  CompanyAdmin, DepartmentAdmin, Operator (operators can only assign to other operators)
 router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANCE), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
@@ -52,6 +52,14 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
       });
     }
 
+    // Prevent assignment to resolved/closed grievances (frozen)
+    if (grievance.status === 'RESOLVED') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot assign a resolved or closed grievance. Grievance is frozen.'
+      });
+    }
+
     // Get the user to assign to - handle both _id and userId
     let assignedUser;
     if (mongoose.Types.ObjectId.isValid(assignedTo)) {
@@ -66,6 +74,14 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
       return res.status(404).json({
         success: false,
         message: 'User to assign not found'
+      });
+    }
+
+    // Prevent self-assignment: A user cannot assign a grievance to themselves
+    if (assignedUser._id.toString() === currentUser._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot assign a grievance to yourself. Please select another user.'
       });
     }
 
@@ -98,6 +114,28 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
         return res.status(403).json({
           success: false,
           message: 'Can only assign to users within your department'
+        });
+      }
+    } else if (currentUser.role === UserRole.OPERATOR) {
+      // Operators can only assign to other operators in their department
+      if (grievance.departmentId?._id.toString() !== currentUser.departmentId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only assign grievances within your department'
+        });
+      }
+      // Operators can only assign to other operators, not to department admins
+      if (assignedUser.role !== UserRole.OPERATOR) {
+        return res.status(403).json({
+          success: false,
+          message: 'Operators can only assign grievances to other operators'
+        });
+      }
+      // Ensure assigned user is in the same department
+      if (assignedUser.departmentId?.toString() !== currentUser.departmentId?.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Can only assign to operators within your department'
         });
       }
     } else {
@@ -160,27 +198,28 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
     
     await grievance.save();
 
-    // Notify assigned user
-    const { notifyUserOnAssignment } = await import('../services/notificationService');
-    await notifyUserOnAssignment({
-      type: 'grievance',
-      action: 'assigned',
-      grievanceId: grievance.grievanceId,
-      citizenName: grievance.citizenName,
-      citizenPhone: grievance.citizenPhone,
-      departmentId: grievance.departmentId,
-      companyId: grievance.companyId,
-      description: grievance.description,
-      category: grievance.category,
-      priority: grievance.priority,
-      assignedTo: assignedUser._id,
-      assignedByName: currentUser.getFullName(),
-      assignedAt: grievance.assignedAt,
-      createdAt: grievance.createdAt,
-      timeline: grievance.timeline
+    // Notify assigned user (fire and forget - don't block response)
+    import('../services/notificationService').then(({ notifyUserOnAssignment }) => {
+      notifyUserOnAssignment({
+        type: 'grievance',
+        action: 'assigned',
+        grievanceId: grievance.grievanceId,
+        citizenName: grievance.citizenName,
+        citizenPhone: grievance.citizenPhone,
+        departmentId: grievance.departmentId,
+        companyId: grievance.companyId,
+        description: grievance.description,
+        category: grievance.category,
+        assignedTo: assignedUser._id,
+        assignedByName: currentUser.getFullName(),
+        assignedAt: grievance.assignedAt,
+        createdAt: grievance.createdAt,
+        timeline: grievance.timeline
+      }).catch(err => console.error('Failed to send assignment notification:', err));
     });
 
-    await logUserAction(
+    // Log action (fire and forget - don't block response)
+    logUserAction(
       req,
       AuditAction.UPDATE,
       'Grievance',
@@ -190,7 +229,7 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
         assignedTo: assignedUser.getFullName(),
         grievanceId: grievance.grievanceId
       }
-    );
+    ).catch(err => console.error('Failed to log user action:', err));
 
     res.json({
       success: true,
@@ -208,11 +247,19 @@ router.put('/grievance/:id/assign', requirePermission(Permission.UPDATE_GRIEVANC
 
 // @route   PUT /api/assignments/appointment/:id/assign
 // @desc    Assign appointment to a department admin or operator
-// @access  CompanyAdmin, DepartmentAdmin
+// @access  CompanyAdmin, DepartmentAdmin (Operators cannot assign appointments)
 router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOINTMENT), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
     const { assignedTo, departmentId } = req.body;
+
+    // Operators cannot assign appointments
+    if (currentUser.role === UserRole.OPERATOR) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operators are not authorized to assign appointments. Only Company Admin and Department Admin can assign appointments.'
+      });
+    }
 
     if (!assignedTo) {
       return res.status(400).json({
@@ -257,6 +304,14 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
       return res.status(404).json({
         success: false,
         message: 'User to assign not found'
+      });
+    }
+
+    // Prevent self-assignment: A user cannot assign an appointment to themselves
+    if (assignedUser._id.toString() === currentUser._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot assign an appointment to yourself. Please select another user.'
       });
     }
 
@@ -343,27 +398,29 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
     
     await appointment.save();
 
-    // Notify assigned user
-    const { notifyUserOnAssignment } = await import('../services/notificationService');
-    await notifyUserOnAssignment({
-      type: 'appointment',
-      action: 'assigned',
-      appointmentId: appointment.appointmentId,
-      citizenName: appointment.citizenName,
-      citizenPhone: appointment.citizenPhone,
-      departmentId: appointment.departmentId,
-      companyId: appointment.companyId,
-      purpose: appointment.purpose,
-      assignedTo: assignedUser._id,
-      assignedByName: currentUser.getFullName(),
-      assignedAt: appointment.assignedAt,
-      createdAt: appointment.createdAt,
-      timeline: appointment.timeline,
-      appointmentDate: appointment.appointmentDate,
-      appointmentTime: appointment.appointmentTime
-    } as any);
+    // Notify assigned user (fire and forget - don't block response)
+    import('../services/notificationService').then(({ notifyUserOnAssignment }) => {
+      notifyUserOnAssignment({
+        type: 'appointment',
+        action: 'assigned',
+        appointmentId: appointment.appointmentId,
+        citizenName: appointment.citizenName,
+        citizenPhone: appointment.citizenPhone,
+        departmentId: appointment.departmentId,
+        companyId: appointment.companyId,
+        purpose: appointment.purpose,
+        assignedTo: assignedUser._id,
+        assignedByName: currentUser.getFullName(),
+        assignedAt: appointment.assignedAt,
+        createdAt: appointment.createdAt,
+        timeline: appointment.timeline,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime
+      } as any).catch(err => console.error('Failed to send assignment notification:', err));
+    });
 
-    await logUserAction(
+    // Log action (fire and forget - don't block response)
+    logUserAction(
       req,
       AuditAction.UPDATE,
       'Appointment',
@@ -373,7 +430,7 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
         assignedTo: assignedUser.getFullName(),
         appointmentId: appointment.appointmentId
       }
-    );
+    ).catch(err => console.error('Failed to log user action:', err));
 
     res.json({
       success: true,
@@ -390,12 +447,18 @@ router.put('/appointment/:id/assign', requirePermission(Permission.UPDATE_APPOIN
 });
 
 // @route   GET /api/assignments/users/available
-// @desc    Get list of users available for assignment
-// @access  CompanyAdmin, DepartmentAdmin
+// @desc    Get list of users available for assignment (excludes current user)
+// @access  CompanyAdmin, DepartmentAdmin, Operator
 router.get('/users/available', async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
-    const query: any = { isActive: true, isDeleted: false };
+    const { type } = req.query; // 'grievance' or 'appointment'
+    const query: any = { 
+      isActive: true, 
+      isDeleted: false,
+      // Exclude current user from the list - cannot assign to self
+      _id: { $ne: currentUser._id }
+    };
 
     if (currentUser.role === UserRole.COMPANY_ADMIN) {
       // Get all admins and operators in the company
@@ -403,6 +466,18 @@ router.get('/users/available', async (req: Request, res: Response) => {
       query.role = { $in: [UserRole.DEPARTMENT_ADMIN, UserRole.OPERATOR] };
     } else if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
       // Get all operators in the department
+      query.departmentId = currentUser.departmentId;
+      query.role = UserRole.OPERATOR;
+    } else if (currentUser.role === UserRole.OPERATOR) {
+      // Operators can only see other operators in their department (for grievance assignment)
+      // For appointments, operators cannot assign, so return empty if type is appointment
+      if (type === 'appointment') {
+        return res.json({
+          success: true,
+          data: [],
+          message: 'Operators cannot assign appointments'
+        });
+      }
       query.departmentId = currentUser.departmentId;
       query.role = UserRole.OPERATOR;
     } else {
@@ -413,7 +488,7 @@ router.get('/users/available', async (req: Request, res: Response) => {
     }
 
     const users = await User.find(query)
-      .select('firstName lastName email role departmentId')
+      .select('firstName lastName email role departmentId userId')
       .populate('departmentId', 'name')
       .sort({ firstName: 1 });
 

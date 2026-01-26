@@ -72,17 +72,50 @@ export async function sendWhatsAppMessage(
     const response = await axios.post(url, payload, { headers });
 
     console.log(`✅ WhatsApp text sent → ${to}`);
+    console.log(`   Message ID: ${response.data.messages?.[0]?.id || 'N/A'}`);
     return {
       success: true,
       messageId: response.data.messages?.[0]?.id
     };
 
   } catch (error: any) {
-    logMetaError(error, {
+    const errorDetails = {
       action: 'send_text',
       to,
-      company: company?.name
-    });
+      company: company?.name,
+      phoneNumberId: company?.whatsappConfig?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID
+    };
+    
+    logMetaError(error, errorDetails);
+    
+    // CRITICAL: Log detailed error for debugging
+    if (error.response) {
+      console.error('❌ WhatsApp API Error Details:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        errorCode: error.response.data?.error?.code,
+        errorMessage: error.response.data?.error?.message,
+        errorType: error.response.data?.error?.type,
+        errorSubcode: error.response.data?.error?.error_subcode,
+        fbtraceId: error.response.data?.error?.fbtrace_id,
+        ...errorDetails
+      });
+      
+      // Specific error code handling
+      if (error.response.data?.error?.code === 190) {
+        console.error('   ⚠️ Error 190: Invalid or expired access token');
+      } else if (error.response.data?.error?.code === 100) {
+        console.error('   ⚠️ Error 100: Invalid parameter (check phone number ID)');
+      } else if (error.response.data?.error?.code === 131047) {
+        console.error('   ⚠️ Error 131047: Message template required (24-hour window expired)');
+      }
+    } else {
+      console.error('❌ WhatsApp Network Error:', {
+        message: error.message,
+        code: error.code,
+        ...errorDetails
+      });
+    }
 
     return {
       success: false,

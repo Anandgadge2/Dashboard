@@ -2,8 +2,9 @@
 
 import { Grievance } from '@/lib/api/grievance';
 import { Appointment } from '@/lib/api/appointment';
-import { X, MapPin, Phone, Calendar, Image as ImageIcon, FileText } from 'lucide-react';
+import { X, MapPin, Phone, Calendar, Image as ImageIcon, FileText, User, MessageCircle, Tag, Clock } from 'lucide-react';
 import Image from 'next/image';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface CitizenDetailsModalProps {
   isOpen: boolean;
@@ -22,142 +23,238 @@ export default function CitizenDetailsModal({
 
   const data = (grievance || appointment) as any;
   const type = grievance ? 'Grievance' : 'Appointment';
+  const createdDate = new Date(data?.createdAt || '');
+  const timeAgo = formatDistanceToNow(createdDate, { addSuffix: true });
+  const id = grievance?.grievanceId || appointment?.appointmentId;
+
+  // Get status config for header gradient
+  const getStatusConfig = () => {
+    const status = data?.status || 'PENDING';
+    switch (status) {
+      case 'RESOLVED':
+      case 'COMPLETED':
+        return { gradient: 'from-emerald-500 to-green-600', icon: <FileText className="w-6 h-6 text-white" /> };
+      case 'CONFIRMED':
+      case 'IN_PROGRESS':
+        return { gradient: 'from-blue-500 to-indigo-600', icon: <FileText className="w-6 h-6 text-white" /> };
+      case 'SCHEDULED':
+        return { gradient: 'from-indigo-500 to-purple-600', icon: <FileText className="w-6 h-6 text-white" /> };
+      case 'CANCELLED':
+        return { gradient: 'from-red-500 to-rose-600', icon: <FileText className="w-6 h-6 text-white" /> };
+      default:
+        return { gradient: 'from-amber-500 to-orange-600', icon: <FileText className="w-6 h-6 text-white" /> };
+    }
+  };
+
+  const statusConfig = getStatusConfig();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Citizen Details</h2>
-            <p className="text-blue-100 text-sm mt-1">
-              {type} ID: {grievance?.grievanceId || appointment?.appointmentId}
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white animate-in fade-in zoom-in duration-200 flex flex-col">
+        {/* Gradient Header */}
+        <div className={`bg-gradient-to-r ${statusConfig.gradient} p-5 relative overflow-hidden flex-shrink-0`}>
+          {/* Background pattern */}
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdjJoLTYweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA4KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIvPjwvc3ZnPg==')] opacity-50"></div>
+          
+          <div className="relative">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+                  {statusConfig.icon}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-white">Citizen Details</h2>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="px-2 py-0.5 bg-white/20 rounded-full text-[11px] font-bold text-white backdrop-blur-sm">
+                      {type} ID: {id}
+                    </span>
+                    <span className="text-white/80 text-xs">•</span>
+                    <span className="text-white/80 text-xs">{timeAgo}</span>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={onClose}
+                className="w-9 h-9 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all backdrop-blur-sm flex-shrink-0"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Citizen Information */}
-          <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white mr-3">
-                {data?.citizenName?.charAt(0) || 'C'}
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+          {/* Quick Info Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="text-xs font-bold text-blue-600 uppercase">Citizen</span>
               </div>
-              Citizen Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Full Name</label>
-                <p className="text-lg font-semibold text-gray-900">{data?.citizenName}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Phone Number</label>
-                <p className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Phone className="w-4 h-4 mr-2 text-green-600" />
-                  {data?.citizenPhone}
+              <p className="text-base font-bold text-gray-900 truncate" title={data?.citizenName}>{data?.citizenName}</p>
+            </div>
+
+            {grievance && (
+              <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 rounded-xl p-4 border border-purple-100 group relative">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Tag className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="text-xs font-bold text-purple-600 uppercase">Category</span>
+                </div>
+                <p className="text-base font-bold text-gray-900 truncate" title={grievance.category || 'General'}>
+                  {grievance.category || 'General'}
                 </p>
               </div>
-              {data?.citizenWhatsApp && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">WhatsApp Number</label>
-                  <p className="text-lg font-semibold text-gray-900 flex items-center">
-                    <Phone className="w-4 h-4 mr-2 text-green-600" />
-                    {data?.citizenWhatsApp}
-                  </p>
+            )}
+
+            {appointment && (
+              <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 rounded-xl p-4 border border-purple-100 group relative">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="text-xs font-bold text-purple-600 uppercase">Date</span>
                 </div>
-              )}
-              {/* {data?.citizenEmail && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Email</label>
-                  <p className="text-lg font-semibold text-gray-900">{data?.citizenEmail}</p>
+                <p className="text-base font-bold text-gray-900">
+                  {format(new Date(appointment.appointmentDate), 'dd MMM yyyy')}
+                </p>
+              </div>
+            )}
+
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-4 h-4 text-emerald-600" />
                 </div>
-              )} */}
+                <span className="text-xs font-bold text-emerald-600 uppercase">Created</span>
+              </div>
+              <p className="text-base font-bold text-gray-900">{format(createdDate, 'dd MMM yyyy')}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                </div>
+                <span className="text-xs font-bold text-amber-600 uppercase">Time</span>
+              </div>
+              <p className="text-base font-bold text-gray-900">{format(createdDate, 'hh:mm a')}</p>
+            </div>
+          </div>
+
+          {/* Citizen Information */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-6 py-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <User className="w-6 h-6 text-blue-600" />
+                Citizen Information
+              </h3>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <User className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Full Name</p>
+                    <p className="text-base font-bold text-slate-800 truncate">{data?.citizenName}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Phone Number</p>
+                    <p className="text-base font-bold text-slate-800">{data?.citizenPhone}</p>
+                  </div>
+                </div>
+
+                {data?.citizenWhatsApp && (
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <MessageCircle className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">WhatsApp</p>
+                      <p className="text-base font-bold text-slate-800">{data?.citizenWhatsApp}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Grievance/Appointment Details */}
-          <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FileText className="w-5 h-5 mr-2 text-blue-600" />
-              {type} Details
-            </h3>
-            <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="bg-gradient-to-r from-slate-50 to-purple-50 px-6 py-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <FileText className="w-6 h-6 text-purple-600" />
+                {type} Details
+              </h3>
+            </div>
+            <div className="p-6 space-y-5">
               {grievance && (
                 <>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Category</label>
-                    <span className="ml-3 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Category</p>
+                    <span className="inline-block px-4 py-2 rounded-lg text-base font-medium bg-blue-100 text-blue-800 border border-blue-200">
                       {grievance.category || 'General'}
                     </span>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Description</label>
-                    <p className="text-gray-900 mt-1 p-4 bg-white rounded border">{grievance.description}</p>
-                  </div>
-                  {grievance.priority && (
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Priority</label>
-                      <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${
-                        grievance.priority === 'HIGH' ? 'bg-red-100 text-red-800' :
-                        grievance.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {grievance.priority}
-                      </span>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Description</p>
+                    <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-5 border border-slate-100">
+                      <p className="text-base text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {grievance.description || 'No description provided'}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </>
               )}
               
               {appointment && (
                 <>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Purpose</label>
-                    <p className="text-gray-900 mt-1 p-4 bg-white rounded border">{appointment.purpose}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Date</label>
-                      <p className="text-lg font-semibold text-gray-900 flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-                        {new Date(appointment.appointmentDate).toLocaleDateString()}
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Purpose</p>
+                    <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-5 border border-slate-100">
+                      <p className="text-base text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {appointment.purpose || 'No purpose provided'}
                       </p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Time</label>
-                      <p className="text-lg font-semibold text-gray-900">{appointment.appointmentTime}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-5">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Date</p>
+                      <p className="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                        {format(new Date(appointment.appointmentDate), 'dd MMM yyyy')}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Time</p>
+                      <p className="text-base font-bold text-slate-800">{appointment.appointmentTime}</p>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* <div>
-                <label className="text-sm font-medium text-gray-500">Status</label>
-                <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${
-                  data?.status === 'RESOLVED' || data?.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                  data?.status === 'IN_PROGRESS' || data?.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                  data?.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {data?.status}
-                </span>
-              </div> */}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Created At</label>
-                  <p className="text-gray-900">{new Date(data?.createdAt || '').toLocaleString()}</p>
+              <div className="grid grid-cols-2 gap-5 pt-2">
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Created At</p>
+                  <p className="text-base font-semibold text-slate-800">{format(createdDate, 'dd/MM/yyyy, hh:mm:ss a')}</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                  <p className="text-gray-900">{new Date(data?.updatedAt || '').toLocaleString()}</p>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Last Updated</p>
+                  <p className="text-base font-semibold text-slate-800">
+                    {format(new Date(data?.updatedAt || data?.createdAt || ''), 'dd/MM/yyyy, hh:mm:ss a')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -210,102 +307,112 @@ export default function CitizenDetailsModal({
 
           {/* Media/Photos */}
           {grievance?.media && grievance.media.length > 0 && (
-            <div className="bg-gradient-to-br from-purple-50 to-white border border-purple-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <ImageIcon className="w-5 h-5 mr-2 text-purple-600" />
-                Attached Photos ({grievance.media.length})
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {grievance.media.map((media: any, index: number) => (
-                  <div key={index} className="relative group">
-                    <Image
-                      src={media.url}
-                      alt={`Evidence ${index + 1}`}
-                      width={400}
-                      height={300}
-                      className="w-full h-48 object-cover rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-shadow"
-                      onClick={() => window.open(media.url, '_blank')}
-                    />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-lg transition-all flex items-center justify-center">
-                      <span className="text-white opacity-0 group-hover:opacity-100 font-semibold">
-                        Click to enlarge
-                      </span>
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="bg-gradient-to-r from-slate-50 to-pink-50 px-5 py-4 border-b border-slate-100">
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-pink-600" />
+                  Attached Photos
+                  <span className="ml-2 px-2 py-0.5 bg-pink-100 text-pink-600 rounded-full text-xs font-bold">
+                    {grievance.media.length}
+                  </span>
+                </h3>
+              </div>
+              <div className="p-5">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {grievance.media.map((media: any, index: number) => (
+                    <div key={index} className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-video">
+                      <Image
+                        src={media.url}
+                        alt={`Evidence ${index + 1}`}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        onClick={() => window.open(media.url, '_blank')}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 text-center">
-                      {new Date(media.uploadedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
           {/* Status History */}
           {grievance?.statusHistory && grievance.statusHistory.length > 0 && (
-            <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status History</h3>
-              <div className="space-y-3">
-                {grievance.statusHistory.map((history: any, index: number) => (
-                  <div key={index} className="flex items-start space-x-4 p-3 bg-white rounded-lg border border-gray-200">
-                    <div className={`w-3 h-3 rounded-full mt-1 ${
-                      history.status === 'RESOLVED' ? 'bg-green-500' :
-                      history.status === 'IN_PROGRESS' ? 'bg-blue-500' :
-                      'bg-yellow-500'
-                    }`} />
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{history.status}</p>
-                      <p className="text-sm text-gray-600">{history.remarks || 'Status updated'}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(history.changedAt).toLocaleString()}
-                      </p>
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="bg-gradient-to-r from-slate-50 to-indigo-50 px-5 py-4 border-b border-slate-100">
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-indigo-600" />
+                  Status History
+                </h3>
+              </div>
+              <div className="p-5">
+                <div className="space-y-3">
+                  {grievance.statusHistory.map((history: any, index: number) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                        history.status === 'RESOLVED' ? 'bg-green-500' :
+                        history.status === 'IN_PROGRESS' ? 'bg-blue-500' :
+                        'bg-yellow-500'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800">{history.status}</p>
+                        <p className="text-xs text-slate-600 mt-1">{history.remarks || 'Status updated'}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {format(new Date(history.changedAt), 'dd/MM/yyyy, hh:mm:ss a')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
           {/* Department & Assignment */}
           {(data?.departmentId || data?.assignedTo) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data?.departmentId && (
-                <div className="bg-gray-50 rounded-lg p-4 border">
-                  <label className="text-sm font-medium text-gray-500">Department</label>
-                  <p className="text-lg font-semibold text-gray-900 mt-1">
-                    {typeof data.departmentId === 'object' ? (data.departmentId as any).name : data.departmentId}
-                  </p>
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="bg-gradient-to-r from-slate-50 to-slate-50 px-5 py-4 border-b border-slate-100">
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-slate-600" />
+                  Assignment Information
+                </h3>
+              </div>
+              <div className="p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {data?.departmentId && (
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Department</p>
+                      <p className="text-sm font-bold text-slate-800">
+                        {typeof data.departmentId === 'object' ? (data.departmentId as any).name : data.departmentId}
+                      </p>
+                    </div>
+                  )}
+                  {data?.assignedTo && (
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Assigned To</p>
+                      <p className="text-sm font-bold text-slate-800">
+                        {typeof data.assignedTo === 'object' 
+                          ? `${(data.assignedTo as any).firstName} ${(data.assignedTo as any).lastName}`
+                          : data.assignedTo}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-              {data?.assignedTo && (
-                <div className="bg-gray-50 rounded-lg p-4 border">
-                  <label className="text-sm font-medium text-gray-500">Assigned To</label>
-                  <p className="text-lg font-semibold text-gray-900 mt-1">
-                    {typeof data.assignedTo === 'object' 
-                      ? `${(data.assignedTo as any).firstName} ${(data.assignedTo as any).lastName}`
-                      : data.assignedTo}
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 flex justify-end border-t">
-          <Button
+        <div className="p-5 border-t border-gray-200 flex justify-end bg-white flex-shrink-0">
+          <button
             onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+            className="px-6 py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors"
           >
             Close
-          </Button>
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
-const Button = ({ onClick, className, children }: any) => (
-  <button onClick={onClick} className={className}>
-    {children}
-  </button>
-);

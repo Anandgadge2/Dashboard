@@ -355,9 +355,7 @@ const seedZPAmaravatiData = async () => {
       const statuses = [
         GrievanceStatus.PENDING,
         GrievanceStatus.ASSIGNED,
-        GrievanceStatus.IN_PROGRESS,
-        GrievanceStatus.RESOLVED,
-        GrievanceStatus.CLOSED
+        GrievanceStatus.RESOLVED
       ];
       const priorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
       
@@ -403,14 +401,11 @@ const seedZPAmaravatiData = async () => {
           } as any);
         }
 
-        // Resolved/Closed dates
+        // Resolved dates
         let resolvedAt = null;
         let closedAt = null;
-        if (status === GrievanceStatus.RESOLVED || status === GrievanceStatus.CLOSED) {
+        if (status === GrievanceStatus.RESOLVED) {
           resolvedAt = new Date(createdAt.getTime() + (3 + Math.random() * 7) * 24 * 60 * 60 * 1000);
-          if (status === GrievanceStatus.CLOSED) {
-            closedAt = new Date(resolvedAt.getTime() + Math.random() * 2 * 24 * 60 * 60 * 1000);
-          }
         }
 
         // Generate grievanceId manually to ensure it's set before validation
@@ -440,7 +435,7 @@ const seedZPAmaravatiData = async () => {
             address: addresses[Math.floor(Math.random() * addresses.length)]
           },
           media: [],
-          resolution: status === GrievanceStatus.RESOLVED || status === GrievanceStatus.CLOSED
+          resolution: status === GrievanceStatus.RESOLVED
             ? 'Issue has been resolved. Citizen satisfied with the resolution.'
             : undefined,
           resolvedAt,
@@ -449,7 +444,7 @@ const seedZPAmaravatiData = async () => {
           slaDueDate: new Date(createdAt.getTime() + 5 * 24 * 60 * 60 * 1000),
           isDeleted: false,
           createdAt,
-          updatedAt: status === GrievanceStatus.RESOLVED || status === GrievanceStatus.CLOSED 
+          updatedAt: status === GrievanceStatus.RESOLVED 
             ? resolvedAt 
             : new Date()
         });
@@ -470,8 +465,7 @@ const seedZPAmaravatiData = async () => {
     if (existingAppointments === 0) {
       const appointmentsToCreate = 100; // Create 100 appointments
       const statuses = [
-        AppointmentStatus.PENDING,
-        AppointmentStatus.CONFIRMED,
+        AppointmentStatus.SCHEDULED,
         AppointmentStatus.COMPLETED,
         AppointmentStatus.CANCELLED
       ];
@@ -487,9 +481,9 @@ const seedZPAmaravatiData = async () => {
         const purposes = appointmentPurposes[dept.name] || ['General inquiry'];
         const purpose = purposes[Math.floor(Math.random() * purposes.length)];
         
-        // Assign to operator if status is not PENDING
+        // Assign to operator if status is not SCHEDULED
         let assignedTo = null;
-        if (status !== AppointmentStatus.PENDING) {
+        if (status !== AppointmentStatus.SCHEDULED) {
           const deptUsers = allUsers.filter(u => 
             u.departmentId?.toString() === dept._id.toString()
           );
@@ -512,11 +506,11 @@ const seedZPAmaravatiData = async () => {
         
         // Status history
         const statusHistory = [{
-          status: AppointmentStatus.PENDING,
+          status: AppointmentStatus.SCHEDULED,
           changedAt: createdAt
         }];
         
-        if (status !== AppointmentStatus.PENDING) {
+        if (status !== AppointmentStatus.SCHEDULED) {
           statusHistory.push({
             status,
             changedAt: new Date(createdAt.getTime() + Math.random() * 2 * 24 * 60 * 60 * 1000),

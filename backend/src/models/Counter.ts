@@ -10,8 +10,7 @@ const CounterSchema: Schema = new Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
-      index: true
+      unique: true
     },
     value: {
       type: Number,
@@ -24,8 +23,7 @@ const CounterSchema: Schema = new Schema(
   }
 );
 
-// Ensure unique index on name
-CounterSchema.index({ name: 1 }, { unique: true });
+// Note: unique: true on the name field automatically creates a unique index, so no need for explicit index call
 
 const Counter: Model<ICounter> = mongoose.model<ICounter>('Counter', CounterSchema);
 

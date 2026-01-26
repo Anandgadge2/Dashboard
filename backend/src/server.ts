@@ -5,6 +5,9 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import 'express-async-errors';
 
+// Load environment variables
+dotenv.config();
+
 // Import configurations
 import { connectDatabase, closeDatabase } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
@@ -27,13 +30,13 @@ import auditRoutes from './routes/audit.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import assignmentRoutes from './routes/assignment.routes';
 import statusRoutes from './routes/status.routes';
+import availabilityRoutes from './routes/availability.routes';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 
-// Load environment variables
-dotenv.config();
+
 
 const app: Application = express();
 const PORT = process.env.PORT || 5001;
@@ -112,6 +115,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/availability', availabilityRoutes);
 
 // ================================
 // Error Handling

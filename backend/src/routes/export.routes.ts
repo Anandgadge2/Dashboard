@@ -220,7 +220,6 @@ router.get('/grievances', requirePermission(Permission.EXPORT_DATA), async (req:
       citizenWhatsApp: g.citizenWhatsApp,
       description: g.description,
       category: g.category,
-      priority: g.priority,
       status: g.status,
       assignedTo: g.assignedTo ? `${(g.assignedTo as any).firstName} ${(g.assignedTo as any).lastName}` : '',
       assignedAt: g.assignedAt,

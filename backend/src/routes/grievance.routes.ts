@@ -242,8 +242,6 @@ router.put('/:id/status', requirePermission(Permission.STATUS_CHANGE_GRIEVANCE, 
     // Update timestamps based on status
     if (status === GrievanceStatus.RESOLVED) {
       grievance.resolvedAt = new Date();
-    } else if (status === GrievanceStatus.CLOSED) {
-      grievance.closedAt = new Date();
     }
 
     // Add to timeline
@@ -412,8 +410,7 @@ router.put('/:id/assign', requirePermission(Permission.ASSIGN_GRIEVANCE), async 
       companyId: grievance.companyId,
       description: grievance.description,
       category: grievance.category,
-      priority: grievance.priority,
-      assignedTo: assignedUser._id,
+    assignedTo: assignedUser._id,
       assignedByName: req.user!.getFullName(),
       assignedAt: grievance.assignedAt,
       createdAt: grievance.createdAt,
@@ -512,10 +509,78 @@ router.put('/:id', requirePermission(Permission.UPDATE_GRIEVANCE), async (req: R
   }
 });
 
+// @route   DELETE /api/grievances/bulk
+// @desc    Bulk soft delete grievances (Super Admin only)
+// @access  Private (Super Admin only)
+router.delete('/bulk', requirePermission(Permission.DELETE_GRIEVANCE), async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body;
+    const currentUser = req.user!;
+
+    // Only Super Admin can delete
+    if (currentUser.role !== UserRole.SUPER_ADMIN) {
+      res.status(403).json({
+        success: false,
+        message: 'Only Super Admin can delete grievances'
+      });
+      return;
+    }
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Please provide an array of grievance IDs to delete'
+      });
+      return;
+    }
+
+    const result = await Grievance.updateMany(
+      { _id: { $in: ids } },
+      {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: currentUser._id
+      }
+    );
+
+    // Log each deletion
+    for (const id of ids) {
+      await logUserAction(
+        req,
+        AuditAction.DELETE,
+        'Grievance',
+        id
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} grievance(s) deleted successfully`,
+      data: { deletedCount: result.modifiedCount }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete grievances',
+      error: error.message
+    });
+  }
+});
+
 // @route   DELETE /api/grievances/:id
-// @desc    Soft delete grievance
-// @access  Private
+// @desc    Soft delete grievance (Super Admin only)
+// @access  Private (Super Admin only)
 router.delete('/:id', requirePermission(Permission.DELETE_GRIEVANCE), async (req: Request, res: Response) => {
+  const currentUser = req.user!;
+  
+  // Only Super Admin can delete
+  if (currentUser.role !== UserRole.SUPER_ADMIN) {
+    res.status(403).json({
+      success: false,
+      message: 'Only Super Admin can delete grievances'
+    });
+    return;
+  }
   try {
     const grievance = await Grievance.findByIdAndUpdate(
       req.params.id,

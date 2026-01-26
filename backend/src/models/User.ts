@@ -17,6 +17,7 @@ export interface IUser extends Document {
   lastLogin?: Date;
   deletedAt?: Date;
   deletedBy?: mongoose.Types.ObjectId;
+  createdBy?: mongoose.Types.ObjectId; // Track who created this user for hierarchical rights
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -96,6 +97,11 @@ const UserSchema: Schema = new Schema(
     deletedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User'
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true
     }
   },
   {

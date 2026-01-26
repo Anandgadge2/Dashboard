@@ -16,10 +16,6 @@ export enum UserRole {
 
 export enum CompanyType {
   GOVERNMENT = 'GOVERNMENT',
-  GOV_GRIEVANCE = 'GOV_GRIEVANCE',
-  SERVICE_BOOKING = 'SERVICE_BOOKING',
-  SURVEY_FEEDBACK = 'SURVEY_FEEDBACK',
-  LEAD_COLLECTION = 'LEAD_COLLECTION',
   CUSTOM_ENTERPRISE = 'CUSTOM_ENTERPRISE'
 }
 
@@ -32,9 +28,6 @@ export enum Module {
   APPOINTMENT = 'APPOINTMENT',
   STATUS_TRACKING = 'STATUS_TRACKING',
   RTS = 'RTS', // Right to Service
-  LEAD_CAPTURE = 'LEAD_CAPTURE',
-  SURVEY = 'SURVEY',
-  FEEDBACK = 'FEEDBACK',
   DOCUMENT_UPLOAD = 'DOCUMENT_UPLOAD',
   GEO_LOCATION = 'GEO_LOCATION',
   MULTI_LANGUAGE = 'MULTI_LANGUAGE'
@@ -61,7 +54,7 @@ export enum Permission {
   CREATE_USER = 'CREATE_USER',
   READ_USER = 'READ_USER',
   UPDATE_USER = 'UPDATE_USER',
-  DELETE_USER = 'DELETE_USER',
+  DELETE_USER = 'DELETE_USER',    
   
   // Grievance Management
   CREATE_GRIEVANCE = 'CREATE_GRIEVANCE',
@@ -120,13 +113,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CREATE_GRIEVANCE,
     Permission.READ_GRIEVANCE,
     Permission.UPDATE_GRIEVANCE,
-    Permission.DELETE_GRIEVANCE,
+    // DELETE_GRIEVANCE removed - Super Admin only
     Permission.ASSIGN_GRIEVANCE,
     Permission.STATUS_CHANGE_GRIEVANCE,
     Permission.CREATE_APPOINTMENT,
     Permission.READ_APPOINTMENT,
     Permission.UPDATE_APPOINTMENT,
-    Permission.DELETE_APPOINTMENT,
+    // DELETE_APPOINTMENT removed - Super Admin only
     Permission.STATUS_CHANGE_APPOINTMENT,
     Permission.VIEW_ANALYTICS,
     Permission.EXPORT_DATA,
@@ -146,13 +139,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CREATE_GRIEVANCE,
     Permission.READ_GRIEVANCE,
     Permission.UPDATE_GRIEVANCE,
-    Permission.DELETE_GRIEVANCE,
+    // DELETE_GRIEVANCE removed - Super Admin only
     Permission.ASSIGN_GRIEVANCE,
     Permission.STATUS_CHANGE_GRIEVANCE,
     Permission.CREATE_APPOINTMENT,
     Permission.READ_APPOINTMENT,
     Permission.UPDATE_APPOINTMENT,
-    Permission.DELETE_APPOINTMENT,
+    // DELETE_APPOINTMENT removed - Super Admin only
     Permission.STATUS_CHANGE_APPOINTMENT,
     Permission.VIEW_ANALYTICS,
     Permission.EXPORT_DATA
@@ -169,6 +162,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   
   [UserRole.ANALYTICS_VIEWER]: [
+    Permission.READ_GRIEVANCE,
+    Permission.READ_DEPARTMENT, // For viewing department information
+    Permission.READ_USER,
+    Permission.READ_APPOINTMENT, // For viewing appointments in their department
     Permission.VIEW_ANALYTICS,
     Permission.EXPORT_DATA
   ]
@@ -181,10 +178,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 export enum GrievanceStatus {
   PENDING = 'PENDING',
   ASSIGNED = 'ASSIGNED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  RESOLVED = 'RESOLVED',
-  CLOSED = 'CLOSED',
-  REJECTED = 'REJECTED'
+  RESOLVED = 'RESOLVED'
 }
 
 // ================================
@@ -192,11 +186,11 @@ export enum GrievanceStatus {
 // ================================
 
 export enum AppointmentStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
+  REQUESTED = 'REQUESTED', // Citizen requested appointment, waiting for admin approval
+  SCHEDULED = 'SCHEDULED', // Admin scheduled the appointment
+  CONFIRMED = 'CONFIRMED', // Appointment confirmed by admin
   COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-  NO_SHOW = 'NO_SHOW'
+  CANCELLED = 'CANCELLED'
 }
 
 // ================================
@@ -236,9 +230,7 @@ export enum AuditAction {
 
 export enum NotificationType {
   EMAIL = 'EMAIL',
-  SMS = 'SMS',
   WHATSAPP = 'WHATSAPP',
-  IN_APP = 'IN_APP'
 }
 
 // ================================
@@ -247,8 +239,7 @@ export enum NotificationType {
 
 export const SLA_CONFIG = {
   [GrievanceStatus.PENDING]: 24, // Must be assigned within 24 hours
-  [GrievanceStatus.ASSIGNED]: 48, // Must be in progress within 48 hours
-  [GrievanceStatus.IN_PROGRESS]: 120, // Must be resolved within 5 days
+  [GrievanceStatus.ASSIGNED]: 120, // Must be resolved within 5 days
 };
 
 // ================================

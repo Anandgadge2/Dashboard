@@ -95,8 +95,8 @@ class APIClient {
     return response.data;
   }
 
-  public async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.delete(url, config);
+  public async delete<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.delete(url, { ...config, data });
     return response.data;
   }
 }

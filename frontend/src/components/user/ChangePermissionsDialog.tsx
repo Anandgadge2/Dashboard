@@ -79,7 +79,9 @@ const ChangePermissionsDialog: React.FC<ChangePermissionsDialogProps> = ({
       ];
     } else if (currentUser?.role === 'DEPARTMENT_ADMIN') {
       return [
-        { value: 'OPERATOR', label: 'Operator' }
+        { value: 'DEPARTMENT_ADMIN', label: 'Department Admin' },
+        { value: 'OPERATOR', label: 'Operator' },
+        { value: 'ANALYTICS_VIEWER', label: 'Analytics Viewer' }
       ];
     }
     return [];
@@ -104,39 +106,41 @@ const ChangePermissionsDialog: React.FC<ChangePermissionsDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-purple-600" />
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 -m-6 mb-4 rounded-t-lg">
+          <DialogTitle className="flex items-center gap-3 text-white text-xl">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
             Change User Permissions
           </DialogTitle>
-          <DialogDescription>
-            Change the role and permissions for {user.firstName} {user.lastName}
+          <DialogDescription className="text-purple-100 mt-2">
+            Change the role and permissions for <span className="font-semibold text-white">{user.firstName} {user.lastName}</span>
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Current Role</Label>
-              <div className="p-3 bg-gray-50 rounded-md">
-                <div className="font-semibold text-gray-900">
+          <div className="space-y-6 py-4">
+            <div className="space-y-3">
+              <Label className="text-base font-semibold text-gray-700">Current Role</Label>
+              <div className="p-4 bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl border-2 border-slate-200">
+                <div className="font-bold text-lg text-gray-900">
                   {currentRoleInfo?.label || user.role}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-sm text-gray-600 mt-2">
                   {getRoleDescription(user.role)}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">New Role *</Label>
+            <div className="space-y-3">
+              <Label htmlFor="role" className="text-base font-semibold text-gray-700">New Role *</Label>
               <select
                 id="role"
                 name="role"
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-12 w-full rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-base font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:border-purple-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
                 required
               >
                 {availableRoles.map((role) => (
@@ -146,30 +150,38 @@ const ChangePermissionsDialog: React.FC<ChangePermissionsDialogProps> = ({
                 ))}
               </select>
               {selectedRoleInfo && (
-                <p className="text-sm text-gray-600 mt-1">
-                  {getRoleDescription(selectedRole)}
-                </p>
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-800 font-medium">
+                    {getRoleDescription(selectedRole)}
+                  </p>
+                </div>
               )}
             </div>
 
             {selectedRole !== user.role && selectedRole && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Changing the role will update all permissions for this user. 
+              <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                <p className="text-sm text-amber-800 font-medium">
+                  <strong>⚠️ Note:</strong> Changing the role will update all permissions for this user. 
                   Make sure this is the correct role assignment.
                 </p>
               </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+          <DialogFooter className="gap-3 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose} 
+              disabled={loading}
+              className="px-6 py-2 border-2 border-slate-300 hover:bg-slate-50"
+            >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading || selectedRole === user.role}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
             >
               {loading ? 'Updating...' : 'Update Permissions'}
             </Button>

@@ -65,6 +65,7 @@ export const appointmentAPI = {
     page?: number;
     limit?: number;
     status?: string;
+    companyId?: string;
     departmentId?: string;
     assignedTo?: string;
     date?: string;
@@ -73,6 +74,7 @@ export const appointmentAPI = {
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.status) queryParams.append('status', params.status);
+    if (params?.companyId) queryParams.append('companyId', params.companyId);
     if (params?.departmentId) queryParams.append('departmentId', params.departmentId);
     if (params?.assignedTo) queryParams.append('assignedTo', params.assignedTo);
     if (params?.date) queryParams.append('date', params.date);
@@ -102,5 +104,9 @@ export const appointmentAPI = {
 
   delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     return apiClient.delete(`/appointments/${id}`);
+  },
+
+  deleteBulk: async (ids: string[]): Promise<{ success: boolean; message: string; data: { deletedCount: number } }> => {
+    return apiClient.delete('/appointments/bulk', { ids });
   }
 };

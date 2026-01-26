@@ -27,19 +27,37 @@ router.get('/', requirePermission(Permission.READ_APPOINTMENT), async (req: Requ
     if (currentUser.role === UserRole.SUPER_ADMIN) {
       // SuperAdmin can see all appointments
     } else if (currentUser.role === UserRole.COMPANY_ADMIN) {
-      // CompanyAdmin can see all appointments in their company
+      // CompanyAdmin can see all appointments in their company (including CEO appointments with null departmentId)
       query.companyId = currentUser.companyId;
+      // Don't filter by departmentId - this allows CEO appointments (null departmentId) to show
     } else if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
       // DepartmentAdmin can see appointments in their department
       query.departmentId = currentUser.departmentId;
     } else if (currentUser.role === UserRole.OPERATOR) {
       // Operator can only see assigned appointments
       query.assignedTo = currentUser._id;
+    } else if (currentUser.role === UserRole.ANALYTICS_VIEWER) {
+      // Analytics Viewer can see appointments in their department
+      if (currentUser.departmentId) {
+        query.departmentId = currentUser.departmentId;
+      } else {
+        // If analytics viewer has no department, return empty
+        res.json({
+          success: true,
+          data: {
+            appointments: [],
+            pagination: { page: 1, limit: Number(limit), total: 0, pages: 0 }
+          }
+        });
+        return;
+      }
     }
 
     // Apply filters
     if (status) query.status = status;
-    if (departmentId) query.departmentId = departmentId;
+    // Note: departmentId filter removed - appointments are CEO-only (no department)
+    // For Company Admin, show all appointments including CEO appointments (null departmentId)
+    // MongoDB query will return appointments with null/undefined departmentId automatically
     if (assignedTo) query.assignedTo = assignedTo;
     if (date) {
       const startDate = new Date(date as string);
@@ -48,13 +66,16 @@ router.get('/', requirePermission(Permission.READ_APPOINTMENT), async (req: Requ
       query.appointmentDate = { $gte: startDate, $lt: endDate };
     }
 
+    // Exclude soft-deleted appointments
+    query.isDeleted = { $ne: true };
+
     const appointments = await Appointment.find(query)
       .populate('companyId', 'name companyId')
       .populate('departmentId', 'name departmentId')
       .populate('assignedTo', 'firstName lastName email')
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
-      .sort({ appointmentDate: 1, appointmentTime: 1 });
+      .sort({ createdAt: -1, appointmentDate: 1, appointmentTime: 1 }); // Newest first
 
     const total = await Appointment.countDocuments(query);
 
@@ -119,7 +140,7 @@ router.post('/', async (req: Request, res: Response) => {
       appointmentTime,
       duration: duration || 30,
       location,
-      status: AppointmentStatus.PENDING
+      status: AppointmentStatus.SCHEDULED
     });
 
     res.status(201).json({
@@ -142,7 +163,10 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/:id', requirePermission(Permission.READ_APPOINTMENT), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
-    const appointment = await Appointment.findById(req.params.id)
+    const appointment = await Appointment.findOne({ 
+      _id: req.params.id,
+      isDeleted: { $ne: true }
+    })
       .populate('companyId', 'name companyId')
       .populate('departmentId', 'name departmentId')
       .populate('assignedTo', 'firstName lastName email')
@@ -225,7 +249,10 @@ router.put('/:id/status', requirePermission(Permission.STATUS_CHANGE_APPOINTMENT
       }
     }
 
-    const appointment = await Appointment.findById(req.params.id);
+    const appointment = await Appointment.findOne({ 
+      _id: req.params.id,
+      isDeleted: { $ne: true }
+    });
 
     if (!appointment) {
       res.status(404).json({
@@ -278,17 +305,40 @@ router.put('/:id/status', requirePermission(Permission.STATUS_CHANGE_APPOINTMENT
       .populate('assignedTo', 'firstName lastName email')
       .populate('statusHistory.changedBy', 'firstName lastName');
 
+    // Notify citizen on status change (if status changed)
+    if (oldStatus !== status) {
+      const { notifyCitizenOnAppointmentStatusChange } = await import('../services/notificationService');
+      try {
+        await notifyCitizenOnAppointmentStatusChange({
+          appointmentId: appointment.appointmentId,
+          citizenName: appointment.citizenName,
+          citizenPhone: appointment.citizenPhone,
+          citizenWhatsApp: appointment.citizenWhatsApp,
+          companyId: appointment.companyId,
+          oldStatus,
+          newStatus: status,
+          remarks: remarks || '',
+          appointmentDate: appointment.appointmentDate,
+          appointmentTime: appointment.appointmentTime,
+          purpose: appointment.purpose
+        });
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+        // Don't fail the request if notification fails
+      }
+    }
+
     await logUserAction(
       req,
       AuditAction.STATUS_CHANGE,
       'Appointment',
       appointment._id.toString(),
-      { oldStatus: appointment.status, newStatus: status, remarks }
+      { oldStatus, newStatus: status, remarks }
     );
 
     res.json({
       success: true,
-      message: 'Appointment status updated successfully',
+      message: 'Appointment status updated successfully. Citizen has been notified via WhatsApp.',
       data: { appointment: updatedAppointment }
     });
   } catch (error: any) {
@@ -316,7 +366,10 @@ router.put('/:id', requirePermission(Permission.UPDATE_APPOINTMENT), async (req:
     }
 
     // Check department/company access
-    const appointment = await Appointment.findById(req.params.id);
+    const appointment = await Appointment.findOne({ 
+      _id: req.params.id,
+      isDeleted: { $ne: true }
+    });
     if (!appointment) {
       return res.status(404).json({
         success: false,
@@ -377,10 +430,78 @@ router.put('/:id', requirePermission(Permission.UPDATE_APPOINTMENT), async (req:
   }
 });
 
+// @route   DELETE /api/appointments/bulk
+// @desc    Bulk soft delete appointments (Super Admin only)
+// @access  Private (Super Admin only)
+router.delete('/bulk', requirePermission(Permission.DELETE_APPOINTMENT), async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body;
+    const currentUser = req.user!;
+
+    // Only Super Admin can delete
+    if (currentUser.role !== UserRole.SUPER_ADMIN) {
+      res.status(403).json({
+        success: false,
+        message: 'Only Super Admin can delete appointments'
+      });
+      return;
+    }
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Please provide an array of appointment IDs to delete'
+      });
+      return;
+    }
+
+    const result = await Appointment.updateMany(
+      { _id: { $in: ids } },
+      {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: currentUser._id
+      }
+    );
+
+    // Log each deletion
+    for (const id of ids) {
+      await logUserAction(
+        req,
+        AuditAction.DELETE,
+        'Appointment',
+        id
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} appointment(s) deleted successfully`,
+      data: { deletedCount: result.modifiedCount }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete appointments',
+      error: error.message
+    });
+  }
+});
+
 // @route   DELETE /api/appointments/:id
-// @desc    Soft delete appointment
-// @access  Private
+// @desc    Soft delete appointment (Super Admin only)
+// @access  Private (Super Admin only)
 router.delete('/:id', requirePermission(Permission.DELETE_APPOINTMENT), async (req: Request, res: Response) => {
+  const currentUser = req.user!;
+  
+  // Only Super Admin can delete
+  if (currentUser.role !== UserRole.SUPER_ADMIN) {
+    res.status(403).json({
+      success: false,
+      message: 'Only Super Admin can delete appointments'
+    });
+    return;
+  }
   try {
     const appointment = await Appointment.findByIdAndUpdate(
       req.params.id,

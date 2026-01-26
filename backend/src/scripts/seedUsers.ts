@@ -35,7 +35,7 @@ const seedUsers = async () => {
         lastName: 'Jadhav',
         email: 'zp@portal.gov.in',
         password: 'Admin@123',
-        phone: '+91-9876543200',
+        phone: '919876543200',
         role: UserRole.COMPANY_ADMIN,
         companyId: zpCompany._id,
         departmentId: null
@@ -46,7 +46,7 @@ const seedUsers = async () => {
         lastName: 'Kumar',
         email: 'revenue.admin@zpamaravati.gov.in',
         password: 'Admin@123',
-        phone: '+91-9876543210',
+        phone: '919876543210',
         role: UserRole.DEPARTMENT_ADMIN,
         companyId: zpCompany._id,
         departmentId: departments.find(d => d.name === 'Revenue Department')?._id || null
@@ -56,7 +56,7 @@ const seedUsers = async () => {
         lastName: 'Patil',
         email: 'health.admin@zpamaravati.gov.in',
         password: 'Admin@123',
-        phone: '+91-9876543211',
+        phone: '919876543211',
         role: UserRole.DEPARTMENT_ADMIN,
         companyId: zpCompany._id,
         departmentId: departments.find(d => d.name === 'Health Department')?._id || null
@@ -66,7 +66,7 @@ const seedUsers = async () => {
         lastName: 'Sharma',
         email: 'water.admin@zpamaravati.gov.in',
         password: 'Admin@123',
-        phone: '+91-9876543212',
+        phone: '919876543212',
         role: UserRole.DEPARTMENT_ADMIN,
         companyId: zpCompany._id,
         departmentId: departments.find(d => d.name === 'Water Supply Department')?._id || null
@@ -77,7 +77,7 @@ const seedUsers = async () => {
         lastName: 'Singh',
         email: 'rajesh.singh@zpamaravati.gov.in',
         password: 'Operator@123',
-        phone: '+91-9876543213',
+        phone: '919876543213',
         role: UserRole.OPERATOR,
         companyId: zpCompany._id,
         departmentId: departments.find(d => d.name === 'Revenue Department')?._id || null
@@ -87,7 +87,7 @@ const seedUsers = async () => {
         lastName: 'Sharma',
         email: 'priya.sharma@zpamaravati.gov.in',
         password: 'Operator@123',
-        phone: '+91-9876543214',
+        phone: '919876543214',
         role: UserRole.OPERATOR,
         companyId: zpCompany._id,
         departmentId: departments.find(d => d.name === 'Health Department')?._id || null
@@ -97,7 +97,7 @@ const seedUsers = async () => {
         lastName: 'Patel',
         email: 'amit.patel@zpamaravati.gov.in',
         password: 'Operator@123',
-        phone: '+91-9876543215',
+        phone: '919876543215',
         role: UserRole.OPERATOR,
         companyId: zpCompany._id,
         departmentId: departments.find(d => d.name === 'Water Supply Department')?._id || null

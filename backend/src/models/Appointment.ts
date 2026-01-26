@@ -96,14 +96,12 @@ const AppointmentSchema: Schema = new Schema(
     },
     status: {
       type: String,
-      enum: Object.values(AppointmentStatus),
-      default: AppointmentStatus.PENDING,
+      default: AppointmentStatus.REQUESTED, // Changed default to REQUESTED
       index: true
     },
     statusHistory: [{
       status: {
         type: String,
-        enum: Object.values(AppointmentStatus),
         required: true
       },
       changedBy: {

@@ -5,6 +5,7 @@ import Company from '../models/Company';
 import Department from '../models/Department';
 import Grievance from '../models/Grievance';
 import Appointment from '../models/Appointment';
+import AppointmentAvailability, { IAppointmentAvailability, IDayAvailability } from '../models/AppointmentAvailability';
 import { GrievanceStatus, AppointmentStatus, Module } from '../config/constants';
 import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppList } from './whatsappService';
 import { findDepartmentByCategory, getAvailableCategories } from './departmentMapper';
@@ -33,7 +34,12 @@ const translations = {
     serviceUnavailable: '⚠️ *Service Notice*\n\nThe requested service is currently under maintenance. We apologize for the inconvenience.\n\nPlease try again later or visit our official website.',
     mainMenu: '🏛️ *Citizen Services Menu*\n\nWelcome to the Zilla Parishad Digital Helpdesk.\n\n👇 *Please select a service from the options below:*',
     grievanceRaise: '📝 *Register a Grievance*\n\nYou can file a formal complaint regarding any ZP department.\n\nTo begin, please provide the details as requested.',
-    appointmentBook: '📅 *Book an Offical Appointment*\n\nSchedule a meeting with government officials.\n\n👇 *Select the Department:*',
+    appointmentBook: '📅 *Book an Official Appointment*\n\nSchedule a meeting with the Chief Executive Officer (CEO), Zilla Parishad.\n\nPlease provide the required details to proceed with your appointment request.',
+    appointmentBookCEO: '📅 *New Appointment Request*\n\nPlease enter your Full Name (as per official records):',
+    aptRequested: '✅ *Appointment Request Submitted*\n\nYour appointment request has been received.\n\n🎫 *Ref No:* `{id}`\n👤 *Name:* {name}\n📅 *Requested Date:* {date}\n⏰ *Requested Time:* {time}\n🎯 *Purpose:* {purpose}\n\n⏳ *Status:* Your request is pending approval. You will receive a confirmation message once the appointment is scheduled.\n\nThank you for your patience.',
+    aptScheduled: '✅ *Appointment Confirmed*\n\nYour appointment has been scheduled.\n\n🎫 *Ref No:* `{id}`\n👤 *Name:* {name}\n📅 *Date:* {date}\n⏰ *Time:* {time}\n🎯 *Purpose:* {purpose}\n\nPlease arrive 15 minutes early with valid ID.\n\n📝 *Remarks:* {remarks}',
+    aptCancelled: '❌ *Appointment Cancelled*\n\nYour appointment request has been cancelled.\n\n🎫 *Ref No:* `{id}`\n📅 *Date:* {date}\n⏰ *Time:* {time}\n\n📝 *Reason:* {remarks}\n\nIf you have any questions, please contact us.',
+    status_REQUESTED: 'Requested',
     rtsServices: '⚖️ *Right to Service (RTS) Portal*\n\nAccess various government services under the Right to Service Act.\n\n👇 *Select a service:*',
     trackStatus: '🔍 *Track Application Status*\n\nCheck the status of your Grievance or Appointment.\n\nPlease enter your *Reference Number* (e.g., GRV... or APT...):',
     grievanceName: '👤 *Citizen Identification*\n\nPlease enter your *Full Name* as it appears on official documents:',
@@ -41,9 +47,8 @@ const translations = {
     grievanceDescription: '✍️ *Grievance Details*\n\nPlease type a detailed description of your issue.\n\n_Tip: Include dates, location, and specific details for faster resolution._',
     grievanceLocation: '📍 *Location Details*\n\nPlease provide the location associated with this issue.\n\n👇 *Select an option:*',
     grievancePhoto: '📷 *Supporting Evidence*\n\nUpload a photo or document to support your claim (Optional).\n\n👇 *Select an option:*',
-    grievancePriority: '⚡ *Urgency Level*\n\nSelect the priority level for this issue:',
     grievanceConfirm: '📋 *Confirm Submission*\n\nPlease verify your details:\n\n👤 *Name:* {name}\n🏢 *Dept:* {category}\n📝 *Issue:* {description}\n\n👇 *Is this correct?*',
-    grievanceSuccess: '✅ *Grievance Registered Successfully*\n\nYour complaint has been logged in our system.\n\n🎫 *Ref No:* `{id}`\n🏢 *Dept:* {department}\n📅 *Date:* {date}\n\nYou will receive updates via SMS/WhatsApp.',
+    grievanceSuccess: '✅ *Grievance Registered Successfully*\n\nYour complaint has been logged in our system.\n\n🎫 *Ref No:* `{id}`\n🏢 *Dept:* {department}\n📅 *Date:* {date}\n\nYou will receive updates via WhatsApp.',
     grievanceResolvedNotify: '✅ *Resolution Update*\n\nYour grievance (Ref: `{id}`) has been addressed.\n\n📝 *Officer Remarks:* {remarks}\n\nThank you for helping us improve our services.',
     label_no_remarks: 'Case closed as per protocol.',
     grievanceError: '❌ *System Error*\n\nWe could not process your request at this moment. Please try again later.',
@@ -64,7 +69,6 @@ const translations = {
     label_department: '🏢 Dept',
     label_category: '📂 Category',
     label_status: '📊 Status',
-    label_priority: '⚡ Priority',
     label_description: '📝 Details',
     label_purpose: '🎯 Purpose',
     label_citizen: '👤 Name',
@@ -85,10 +89,8 @@ const translations = {
     btn_cancel: '❌ Cancel',
     btn_confirm_book: '✅ Confirm Booking',
     label_placeholder_dept: 'General Administration',
-    label_priority_low: '🟢 Low',
-    label_priority_medium: '🟡 Medium',
-    label_priority_high: '🔴 High',
-    label_apt_header: '📅 *New Appointment*\n\nDepartment: *{dept}*\n\nPlease enter your Full Name:',
+    
+    label_apt_header: '📅 *New Appointment Request*\n\nPlease enter your Full Name (as per official records):',
     label_select_date: '🗓️ *Select Date*\n\nChoose a convenient date:',
     label_select_time: '⏰ *Select Time Slot*\n\nChoose a time for your visit:',
      // Department names (for dynamic translation)
@@ -145,10 +147,8 @@ const translations = {
     header_apt_status: '🗓️ Appointment Status',
     status_PENDING: 'Pending Review',
     status_ASSIGNED: 'Assigned to Officer',
-    status_IN_PROGRESS: 'Investigation In Progress',
     status_RESOLVED: 'Resolved',
-    status_CLOSED: 'Closed',
-    status_CONFIRMED: 'Confirmed',
+    status_SCHEDULED: 'Scheduled',
     status_CANCELLED: 'Cancelled',
     status_COMPLETED: 'Completed',
     footer_grv_guidance: 'For case escalation, please contact the department head.',
@@ -156,7 +156,7 @@ const translations = {
     err_no_record_guidance: 'Please double-check the number or contact support.'
   },
   hi: {
-    welcome: '🇮🇳 *जिला परिषद अमरावती - आधिकारिक डिजिटल पोर्टल*\n\nनमस्कार! जिला परिषद अमरावती की आधिकारिक व्हाट्सएप सेवा में आपका स्वागत है।\n\nहम सभी नागरिकों को पारदर्शी और कुशल सेवाएं प्रदान करने के लिए प्रतिबद्ध हैं।\n\n👇 *कृपया अपनी पसंदीदा भाषा चुनें:*',
+    welcome: '🇮🇳 *जिला परिषद अमरावती - आधिकारिक डिजिटल पोर्टल*\n\nनमस्कार! जिला परिषद अमरावती की आधिकारिक व्हाट्सएप सेवा में आपका स्वागत है।\n\nहम सभी नागरिकों को पारदर्शी और कुशल सेवाएं प्रदान करने के लिए प्रतिबद्ध हैं।\n\n👇 *कृपया अपनी पसंदीदा भाषा चुनें:*\n\n💡 *सुझाव:* किसी भी मामले में यदि आप पिछले मेनू पर जाना चाहते हैं, तो *back* टाइप करें',
     serviceUnavailable: '⚠️ *सेवा सूचना*\n\nअनुरोधित सेवा वर्तमान में रखरखाव के अधीन है। असुविधा के लिए हमें खेद है।\n\nकृपया बाद में प्रयास करें या हमारी आधिकारिक वेबसाइट पर जाएं।',
     mainMenu: '🏛️ *नागरिक सेवा मेनू*\n\nजिला परिषद डिजिटल हेल्पडेस्क में आपका स्वागत है।\n\n👇 *कृपया नीचे दिए गए विकल्पों में से एक सेवा चुनें:*',
     grievanceRaise: '📝 *शिकायत दर्ज करें*\n\nआप किसी भी विभाग के संबंध में औपचारिक शिकायत दर्ज कर सकते हैं।\n\nशुरू करने के लिए, कृपया मांगी गई जानकारी प्रदान करें।',
@@ -168,7 +168,6 @@ const translations = {
     grievanceDescription: '✍️ *शिकायत विवरण*\n\nकृपया अपनी समस्या का विस्तृत विवरण लिखें।\n\n_सुझाव: त्वरित समाधान के लिए दिनांक, स्थान और विशिष्ट विवरण शामिल करें।_',
     grievanceLocation: '📍 *स्थान विवरण*\n\nकृपया इस समस्या से संबंधित स्थान प्रदान करें।\n\n👇 *एक विकल्प चुनें:*',
     grievancePhoto: '📷 *सहायक साक्ष्य*\n\nअपने दावे के समर्थन में फोटो या दस्तावेज़ अपलोड करें (वैकल्पिक)।\n\n👇 *एक विकल्प चुनें:*',
-    grievancePriority: '⚡ *तात्कालिकता स्तर*\n\nइस समस्या के लिए प्राथमिकता स्तर चुनें:',
     grievanceConfirm: '📋 *जमा करने की पुष्टि करें*\n\nकृपया अपने विवरण की जाँच करें:\n\n👤 *नाम:* {name}\n🏢 *विभाग:* {category}\n📝 *मुद्दा:* {description}\n\n👇 *क्या यह सही है?*',
     grievanceSuccess: '✅ *शिकायत सफलतापूर्वक दर्ज की गई*\n\nआपकी शिकायत हमारे सिस्टम में दर्ज कर ली गई है।\n\n🎫 *संदर्भ सं:* `{id}`\n🏢 *विभाग:* {department}\n📅 *दिनांक:* {date}\n\nआपको एसएमएस/व्हाट्सएप के माध्यम से अपडेट प्राप्त होंगे।',
     grievanceResolvedNotify: '✅ *समाधान अपडेट*\n\nआपकी शिकायत (संदर्भ: `{id}`) का समाधान कर दिया गया है।\n\n📝 *अधिकारी की टिप्पणी:* {remarks}\n\nहमारी सेवाओं को बेहतर बनाने में मदद करने के लिए धन्यवाद।',
@@ -188,7 +187,6 @@ const translations = {
     label_department: '🏢 विभाग',
     label_category: '📂 श्रेणी',
     label_status: '📊 स्थिति',
-    label_priority: '⚡ प्राथमिकता',
     label_description: '📝 विवरण',
     label_purpose: '🎯 उद्देश्य',
     label_citizen: '👤 नाम',
@@ -209,9 +207,7 @@ const translations = {
     btn_cancel: '❌ रद्द करें',
     btn_confirm_book: '✅ बुकिंग की पुष्टि करें',
     label_placeholder_dept: 'सामान्य प्रशासन',
-    label_priority_low: '🟢 निम्न',
-    label_priority_medium: '🟡 मध्यम',
-    label_priority_high: '🔴 उच्च',
+   
     label_apt_header: '📅 *नई नियुक्ति*\n\nविभाग: *{dept}*\n\nकृपया अपना पूरा नाम दर्ज करें:',
     label_select_date: '🗓️ *दिनांक चुनें*\n\nएक सुविधाजनक तारीख चुनें:',
     label_select_time: '⏰ *समय स्लॉट चुनें*\n\nअपनी यात्रा के लिए एक समय चुनें:',
@@ -270,10 +266,8 @@ const translations = {
     header_apt_status: '🗓️ नियुक्ति स्थिति',
     status_PENDING: 'समीक्षा लंबित',
     status_ASSIGNED: 'अधिकारी को सौंपा गया',
-    status_IN_PROGRESS: 'जांच जारी है',
     status_RESOLVED: 'हल किया गया',
-    status_CLOSED: 'बंद',
-    status_CONFIRMED: 'पुष्टि की गई',
+    status_SCHEDULED: 'निर्धारित',
     status_CANCELLED: 'रद्द',
     status_COMPLETED: 'पूर्ण',
     footer_grv_guidance: 'मामले को आगे बढ़ाने के लिए, कृपया विभागाध्यक्ष से संपर्क करें।',
@@ -284,7 +278,7 @@ const translations = {
     sessionExpired: '⏳ *सत्र समाप्त*\n\nआपका सत्र समाप्त हो गया है। कृपया फिर से शुरू करने के लिए "Hi" टाइप करें।'
   },
   mr: {
-    welcome: '🇮🇳 *जिल्हा परिषद अमरावती - अधिकृत डिजिटल पोर्टल*\n\nनमस्कार! जिल्हा परिषद अमरावतीच्या अधिकृत व्हॉट्सॲप सेवेमध्ये आपले स्वागत आहे.\n\nआम्ही सर्व नागरिकांना पारदर्शक आणि कार्यक्षम सेवा देण्यासाठी कटिबद्ध आहोत.\n\n👇 *कृपया आपली पसंतीची भाषा निवडा:*',
+    welcome: '🇮🇳 *जिल्हा परिषद अमरावती - अधिकृत डिजिटल पोर्टल*\n\nनमस्कार! जिल्हा परिषद अमरावतीच्या अधिकृत व्हॉट्सॲप सेवेमध्ये आपले स्वागत आहे.\n\nआम्ही सर्व नागरिकांना पारदर्शक आणि कार्यक्षम सेवा देण्यासाठी कटिबद्ध आहोत.\n\n👇 *कृपया आपली पसंतीची भाषा निवडा:*\n\n💡 *टीप:* कोणत्याही बाबतीत जर तुम्हाला मागील मेनूवर जायचे असेल, तर *back* टाइप करा',
     serviceUnavailable: '⚠️ *सेवा सूचना*\n\nविनंती केलेली सेवा सध्या देखभालीखाली आहे. गैरसोयीबद्दल क्षमस्व.\n\nकृपया नंतर प्रयत्न करा किंवा आमच्या अधिकृत वेबसाइटला भेट द्या.',
     mainMenu: '🏛️ *नागरिक सेवा मेनू*\n\nजिल्हा परिषद डिजिटल हेल्पडेस्कमध्ये आपले स्वागत आहे.\n\n👇 *कृपया खालील पर्यायांमधून सेवा निवडा:*',
     grievanceRaise: '📝 *तक्रार नोंदवा*\n\nआपण कोणत्याही विभागाशी संबंधित अधिकृत तक्रार नोंदवू शकता.\n\nसुरू करण्यासाठी, कृपया विचारलेली माहिती द्या.',
@@ -296,9 +290,8 @@ const translations = {
     grievanceDescription: '✍️ *तक्रार तपशील*\n\nकृपया तुमच्या समस्येचे सविस्तर वर्णन करा.\n\n_टीप: जलद निराकरणासाठी दिनांक, ठिकाण आणि विशिष्ट तपशील समाविष्ट करा._',
     grievanceLocation: '📍 *स्थान तपशील*\n\nकृपया या समस्येशी संबंधित स्थान द्या.\n\n👇 *एक पर्याय निवडा:*',
     grievancePhoto: '📷 *पुरावा दस्तऐवज*\n\nतुमच्या दाव्याच्या समर्थनार्थ फोटो किंवा दस्तऐवज अपलोड करा (वैकल्पिक).\n\n👇 *एक पर्याय निवडा:*',
-    grievancePriority: '⚡ *निकडीची पातळी*\n\nया समस्येसाठी प्राधान्य स्तर निवडा:',
     grievanceConfirm: '📋 *सबमिशनची पुष्टी करा*\n\nकृपया तुमचे तपशील तपासा:\n\n👤 *नाव:* {name}\n🏢 *विभाग:* {category}\n📝 *समस्या:* {description}\n\n👇 *हे बरोबर आहे का?*',
-    grievanceSuccess: '✅ *तक्रार यशस्वीरित्या नोंदवली गेली*\n\nतुमची तक्रार आमच्या सिस्टममध्ये लॉग केली गेली आहे.\n\n🎫 *संदर्भ क्र:* `{id}`\n🏢 *विभाग:* {department}\n📅 *दिनांक:* {date}\n\nतुम्हाला एसएमएस/व्हॉट्सॲपद्वारे अपडेट्स मिळतील.',
+    grievanceSuccess: '✅ *तक्रार यशस्वीरित्या नोंदवली गेली*\n\nतुमची तक्रार आमच्या सिस्टममध्ये लॉग केली गेली आहे.\n\n🎫 *संदर्भ क्र:* `{id}`\n🏢 *विभाग:* {department}\n📅 *दिनांक:* {date}\n\nतुम्हाला व्हॉट्सॲपद्वारे अपडेट्स मिळतील.',
     grievanceResolvedNotify: '✅ *निराकरण अपडेट*\n\nतुमच्या तक्रारीचे (संदर्भ: `{id}`) निराकरण झाले आहे.\n\n📝 *अधिकारी शेरा:* {remarks}\n\nआमच्या सेवा सुधारण्यास मदत केल्याबद्दल धन्यवाद.',
     label_no_remarks: 'प्रोटोकॉलनुसार प्रकरण बंद.',
     grievanceError: '❌ *सिस्टम त्रुटी*\n\nआम्ही यावेळी तुमच्या विनंतीवर प्रक्रिया करू शकलो नाही. कृपया नंतर पुन्हा प्रयत्न करा.',
@@ -316,7 +309,6 @@ const translations = {
     label_department: '🏢 विभाग',
     label_category: '📂 श्रेणी',
     label_status: '📊 स्थिती',
-    label_priority: '⚡ प्राधान्य',
     label_description: '📝 तपशील',
     label_purpose: '🎯 उद्देश',
     label_citizen: '👤 नाव',
@@ -337,9 +329,7 @@ const translations = {
     btn_cancel: '❌ रद्द करा',
     btn_confirm_book: '✅ बुकिंगची पुष्टी करा',
     label_placeholder_dept: 'सामान्य प्रशासन',
-    label_priority_low: '🟢 कमी',
-    label_priority_medium: '🟡 मध्यम',
-    label_priority_high: '🔴 उच्च',
+   
     label_apt_header: '📅 *नवीन अपॉइंटमेंट*\n\nविभाग: *{dept}*\n\nकृपया तुमचे पूर्ण नाव प्रविष्ट करा:',
     label_select_date: '🗓️ *दिनांक निवडा*\n\nसोयीस्कर तारीख निवडा:',
     label_select_time: '⏰ *वेळ स्लॉट निवडा*\n\nतुमच्या भेटीसाठी वेळ निवडा:',
@@ -397,10 +387,8 @@ const translations = {
     header_apt_status: '🗓️ अपॉइंटमेंट स्थिती',
     status_PENDING: 'पुनरावलोकन प्रलंबित',
     status_ASSIGNED: 'अधिकाऱ्याकडे सोपवले',
-    status_IN_PROGRESS: 'तपास सुरू आहे',
     status_RESOLVED: 'निराकरण झाले',
-    status_CLOSED: 'बंद',
-    status_CONFIRMED: 'पुष्टी केली',
+    status_SCHEDULED: 'शेड्युल केले',
     status_CANCELLED: 'रद्द',
     status_COMPLETED: 'पूर्ण',
     footer_grv_guidance: 'प्रकरण पुढे नेण्यासाठी, कृपया विभाग प्रमुखांशी संपर्क साधा.',
@@ -432,15 +420,14 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     return;
   }
 
-  // Use the phone number ID that received the message, but only if:
-  // 1. Company doesn't have a phone number ID configured, OR
-  // 2. The metadata phone number ID matches the company's configured one
-  // This prevents using a phone number ID that the access token doesn't have permission for
+  // CRITICAL FIX: Always use the metadata phone number ID when available
+  // The access token is tied to the phone number ID that received the message
+  // Using a different phone number ID will cause API failures
   if (metadata?.phone_number_id) {
     const metadataPhoneId = metadata.phone_number_id as string;
     const configuredPhoneId = company.whatsappConfig?.phoneNumberId;
     
-    // Create whatsappConfig if it doesn't exist (cast to any to allow loose typing)
+    // Create whatsappConfig if it doesn't exist
     if (!company.whatsappConfig) {
       company.whatsappConfig = {
         accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
@@ -448,18 +435,22 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
         phoneNumberId: metadataPhoneId
       } as any;
       console.log(`🔌 Setting Phone Number ID from metadata (no config): ${metadataPhoneId}`);
-    } else if (!configuredPhoneId) {
-      // Company has config but no phone number ID - use metadata
-      company.whatsappConfig.phoneNumberId = metadataPhoneId;
-      console.log(`🔌 Setting Phone Number ID from metadata (missing in config): ${metadataPhoneId}`);
-    } else if (configuredPhoneId === metadataPhoneId) {
-      // They match - use the configured one (already set)
-      console.log(`✅ Phone Number ID matches metadata: ${metadataPhoneId}`);
     } else {
-      // They don't match - use configured one and log warning
-      console.warn(`⚠️ Phone Number ID mismatch! Metadata: ${metadataPhoneId}, Configured: ${configuredPhoneId}`);
-      console.warn(`⚠️ Using configured Phone Number ID: ${configuredPhoneId}`);
-      console.warn(`⚠️ If messages fail, ensure access token has permission for: ${configuredPhoneId}`);
+      // ALWAYS use metadata phone number ID - it's the one that received the message
+      // The access token has permission for this phone number ID
+      if (configuredPhoneId !== metadataPhoneId) {
+        console.warn(`⚠️ Phone Number ID mismatch! Metadata: ${metadataPhoneId}, Configured: ${configuredPhoneId}`);
+        console.warn(`🔧 Using metadata Phone Number ID: ${metadataPhoneId} (access token has permission for this)`);
+        company.whatsappConfig.phoneNumberId = metadataPhoneId;
+      } else {
+        console.log(`✅ Phone Number ID matches metadata: ${metadataPhoneId}`);
+      }
+      
+      // Ensure access token is set (use env if available and matches phone number ID)
+      if (!company.whatsappConfig.accessToken || 
+          (process.env.WHATSAPP_PHONE_NUMBER_ID === metadataPhoneId && process.env.WHATSAPP_ACCESS_TOKEN)) {
+        company.whatsappConfig.accessToken = process.env.WHATSAPP_ACCESS_TOKEN || company.whatsappConfig.accessToken || '';
+      }
     }
   }
 
@@ -949,9 +940,7 @@ async function continueGrievanceFlow(
       
 
       
-      // Priority set to medium by default
-      session.data.priority = 'MEDIUM';
-
+    
       // Go directly to description
       await sendWhatsAppMessage(
         company,
@@ -1019,13 +1008,10 @@ async function continueGrievanceFlow(
       
       // Show confirmation with buttons
       const translatedCategory = getTranslation(`dept_${session.data.category}`, session.language);
-      // Priority removed from confirmation
-      // const translatedPriority = getTranslation(`label_priority_${session.data.priority.toLowerCase()}`, session.language);
-
+   
       const confirmMessage = getTranslation('grievanceConfirm', session.language)
         .replace('{name}', session.data.citizenName)
         .replace('{category}', translatedCategory)
-        // .replace('{priority}', translatedPriority)  // Priority removed
         .replace('{description}', session.data.description.substring(0, 100) + '...');
       
       await sendWhatsAppButtons(
@@ -1057,13 +1043,10 @@ async function continueGrievanceFlow(
       }
       
       const translatedCat = getTranslation(`dept_${session.data.category}`, session.language);
-      // Priority removed from confirmation
-      // const translatedPrio = getTranslation(`label_priority_${session.data.priority.toLowerCase()}`, session.language);
-
+     
       const confirmMsg = getTranslation('grievanceConfirm', session.language)
         .replace('{name}', session.data.citizenName)
         .replace('{category}', translatedCat)
-        // .replace('{priority}', translatedPrio)  // Priority removed
         .replace('{description}', session.data.description.substring(0, 100) + '...');
       
       await sendWhatsAppButtons(
@@ -1198,7 +1181,6 @@ async function createGrievanceWithDepartment(
       citizenWhatsApp: message.from,
       description: session.data.description,
       category: session.data.category,
-      priority: session.data.priority || 'MEDIUM',
       location: session.data.address ? {
         type: 'Point',
         coordinates: [0, 0], // Placeholder - can be enhanced with geocoding
@@ -1230,7 +1212,6 @@ async function createGrievanceWithDepartment(
         companyId: company._id,
         description: session.data.description,
         category: session.data.category,
-        priority: session.data.priority || 'MEDIUM',
         location: session.data.address,
         createdAt: grievance.createdAt,
         timeline: grievance.timeline
@@ -1268,85 +1249,19 @@ async function createGrievanceWithDepartment(
   }
 }
 
-// Start appointment flow
+// Start appointment flow - Only for CEO (no department selection)
 async function startAppointmentFlow(session: UserSession, message: ChatbotMessage, company: any) {
-  const departments = await Department.find({ companyId: company._id, isActive: true, isDeleted: false });
+  // Appointment is only for CEO/Head of Zilla Parishad - no department selection
+  // Directly ask for citizen name
+  await sendWhatsAppMessage(
+    company,
+    message.from,
+    getTranslation('appointmentBookCEO', session.language)
+  );
   
-  if (departments.length === 0) {
-    await sendWhatsAppMessage(
-      company,
-      message.from,
-      getTranslation('msg_no_dept', session.language)
-    );
-    await showMainMenu(session, message, company);
-    return;
-  }
-
-  if (departments.length <= 3) {
-    const buttons = departments.map(dept => {
-      const translatedName = getTranslation(`dept_${dept.name}`, session.language);
-      const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
-      return {
-        id: `dept_${dept._id}`,
-        title: displayName
-      };
-    });
-    
-    await sendWhatsAppButtons(
-      company,
-      message.from,
-      getTranslation('appointmentBook', session.language),
-      buttons
-    );
-  } else {
-    // Initialize department offset if not set
-    if (!session.data.deptOffset) {
-      session.data.deptOffset = 0;
-    }
-    
-    const offset = session.data.deptOffset || 0;
-    const showLoadMore = departments.length > offset + 9;
-    const deptRows = departments.slice(offset, offset + 9).map(dept => {
-      const translatedName = getTranslation(`dept_${dept.name}`, session.language);
-      const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
-      return {
-        id: `dept_${dept._id}`,
-        title: displayName.length > 24 ? displayName.substring(0, 21) + '...' : displayName,
-        description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || ''
-      };
-    });
-    
-    // Add "Load More" button if there are more departments
-    if (showLoadMore) {
-      deptRows.push({
-        id: 'apt_load_more',
-        title: getTranslation('btn_load_more', session.language),
-        description: `${departments.length - offset - 9} more departments available`
-      });
-    }
-    
-    const sections = [{
-      title: getTranslation('btn_select_dept', session.language),
-      rows: deptRows
-    }];
-    
-    console.log('📋 Sending department list:', sections, 'offset:', offset);
-    
-    await sendWhatsAppList(
-      company,
-      message.from,
-      getTranslation('appointmentBook', session.language),
-      getTranslation('btn_select_dept', session.language),
-      sections
-    );
-  }
-  
-  session.step = 'appointment_department';
+  session.step = 'appointment_name';
   if (!session.data) {
     session.data = {};
-  }
-  if (!session.data.deptOffset) {
-    session.data.deptOffset = 0;
   }
   await updateSession(session);
 }
@@ -1429,6 +1344,149 @@ async function continueRTSFlow(
   }
 }
 
+// Helper function to get availability settings for a company/department
+async function getAvailabilitySettings(companyId: string, departmentId?: string): Promise<IAppointmentAvailability | null> {
+  try {
+    const query: any = { companyId, isActive: true };
+    
+    // First try to get department-specific settings
+    if (departmentId) {
+      query.departmentId = departmentId;
+      const deptSettings = await AppointmentAvailability.findOne(query);
+      if (deptSettings) return deptSettings;
+    }
+    
+    // Fall back to company-level settings
+    const companyQuery: any = { companyId, isActive: true, departmentId: { $exists: false } };
+    return await AppointmentAvailability.findOne(companyQuery);
+  } catch (error) {
+    console.error('Error fetching availability settings:', error);
+    return null;
+  }
+}
+
+// Helper function to check if a specific date is available for booking
+async function isDateAvailableForBooking(date: Date, availability: IAppointmentAvailability | null): Promise<boolean> {
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+  const dayOfWeek = date.getDay();
+  const dayName = dayNames[dayOfWeek];
+  
+  // Check for special dates (holidays)
+  if (availability?.specialDates) {
+    const specialDate = availability.specialDates.find(sd => {
+      const sdDate = new Date(sd.date);
+      return sdDate.getFullYear() === date.getFullYear() &&
+             sdDate.getMonth() === date.getMonth() &&
+             sdDate.getDate() === date.getDate();
+    });
+    
+    if (specialDate) {
+      return specialDate.isAvailable;
+    }
+  }
+  
+  // Check weekly schedule
+  if (availability?.weeklySchedule) {
+    const daySchedule = availability.weeklySchedule[dayName];
+    return daySchedule?.isAvailable || false;
+  }
+  
+  // Default: weekdays only (Monday-Friday)
+  return dayOfWeek !== 0 && dayOfWeek !== 6;
+}
+
+// Helper function to get available time slots for a specific date
+async function getAvailableTimeSlots(
+  date: Date, 
+  availability: IAppointmentAvailability | null
+): Promise<Array<{ id: string; title: string }>> {
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+  const dayOfWeek = date.getDay();
+  const dayName = dayNames[dayOfWeek];
+  
+  const timeSlots: Array<{ id: string; title: string }> = [];
+  
+  // Helper to format time for display
+  const formatTimeDisplay = (time: string): string => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${String(minutes || 0).padStart(2, '0')} ${period}`;
+  };
+  
+  // Check for special date with custom times
+  if (availability?.specialDates) {
+    const specialDate = availability.specialDates.find(sd => {
+      const sdDate = new Date(sd.date);
+      return sdDate.getFullYear() === date.getFullYear() &&
+             sdDate.getMonth() === date.getMonth() &&
+             sdDate.getDate() === date.getDate();
+    });
+    
+    if (specialDate && specialDate.isAvailable) {
+      // Use special date times
+      if (specialDate.morning?.enabled) {
+        timeSlots.push({
+          id: `time_${specialDate.morning.startTime}`,
+          title: `🌅 ${formatTimeDisplay(specialDate.morning.startTime)}`
+        });
+      }
+      if (specialDate.afternoon?.enabled) {
+        timeSlots.push({
+          id: `time_${specialDate.afternoon.startTime}`,
+          title: `☀️ ${formatTimeDisplay(specialDate.afternoon.startTime)}`
+        });
+      }
+      if (specialDate.evening?.enabled) {
+        timeSlots.push({
+          id: `time_${specialDate.evening.startTime}`,
+          title: `🌙 ${formatTimeDisplay(specialDate.evening.startTime)}`
+        });
+      }
+      
+      if (timeSlots.length > 0) return timeSlots;
+    }
+  }
+  
+  // Use weekly schedule
+  if (availability?.weeklySchedule) {
+    const daySchedule = availability.weeklySchedule[dayName];
+    
+    if (daySchedule?.isAvailable) {
+      if (daySchedule.morning?.enabled) {
+        timeSlots.push({
+          id: `time_${daySchedule.morning.startTime}`,
+          title: `🌅 ${formatTimeDisplay(daySchedule.morning.startTime)}`
+        });
+      }
+      if (daySchedule.afternoon?.enabled) {
+        timeSlots.push({
+          id: `time_${daySchedule.afternoon.startTime}`,
+          title: `☀️ ${formatTimeDisplay(daySchedule.afternoon.startTime)}`
+        });
+      }
+      if (daySchedule.evening?.enabled) {
+        timeSlots.push({
+          id: `time_${daySchedule.evening.startTime}`,
+          title: `🌙 ${formatTimeDisplay(daySchedule.evening.startTime)}`
+        });
+      }
+    }
+  }
+  
+  // Default time slots if nothing configured
+  if (timeSlots.length === 0) {
+    return [
+      { id: 'time_10:00', title: '🕙 10:00 AM' },
+      { id: 'time_14:00', title: '🕑 2:00 PM' },
+      { id: 'time_16:00', title: '🕓 4:00 PM' }
+    ];
+  }
+  
+  // WhatsApp buttons limit to 3
+  return timeSlots.slice(0, 3);
+}
+
 // Continue appointment flow
 async function continueAppointmentFlow(
   session: UserSession,
@@ -1439,90 +1497,6 @@ async function continueAppointmentFlow(
   const { buttonId } = message;
   
   switch (session.step) {
-    case 'appointment_department':
-      // Handle "Load More" button
-      if (buttonId === 'apt_load_more' || userInput === 'load_more' || userInput.includes('load more')) {
-        // Increment offset and show next batch
-        session.data.deptOffset = (session.data.deptOffset || 0) + 9;
-        
-        // Get all departments again
-        const departments = await Department.find({ companyId: company._id, isActive: true, isDeleted: false });
-        
-        if (departments.length > 0) {
-          const offset = session.data.deptOffset || 0;
-          const showLoadMore = departments.length > offset + 9;
-          const deptRows = departments.slice(offset, offset + 9).map(dept => {
-            const translatedName = getTranslation(`dept_${dept.name}`, session.language);
-            const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
-            return {
-              id: `dept_${dept._id}`,
-              title: displayName.length > 24 ? displayName.substring(0, 21) + '...' : displayName,
-              description: getTranslation(`desc_${dept.name}`, session.language) || dept.description?.substring(0, 72) || ''
-            };
-          });
-          
-          if (showLoadMore) {
-            deptRows.push({
-              id: 'apt_load_more',
-              title: getTranslation('btn_load_more', session.language),
-              description: `${departments.length - offset - 9} more departments available`
-            });
-          }
-          
-          const sections = [{
-            title: getTranslation('btn_select_dept', session.language),
-            rows: deptRows
-          }];
-          
-          await sendWhatsAppList(
-            company,
-            message.from,
-            getTranslation('appointmentBook', session.language),
-            getTranslation('btn_select_dept', session.language),
-            sections
-          );
-        }
-        await updateSession(session);
-        return;
-      }
-      
-      // Extract department ID from button or input
-      let deptId = userInput.replace('dept_', '');
-      if (buttonId && buttonId.startsWith('dept_')) {
-        deptId = buttonId.replace('dept_', '');
-      }
-      
-      console.log('🏬 Department selected:', deptId);
-      
-      // Validate department
-      const department = await Department.findById(deptId);
-      if (!department) {
-        await sendWhatsAppMessage(
-          company,
-          message.from,
-          getTranslation('invalidOption', session.language)
-        );
-        await showMainMenu(session, message, company);
-        return;
-      }
-      
-      const translatedDeptName = getTranslation(`dept_${department.name}`, session.language);
-      const displayName = translatedDeptName !== `dept_${department.name}` ? translatedDeptName : department.name;
-
-      session.data.departmentId = deptId;
-      session.data.departmentName = department.name;
-      session.data.translatedDeptName = displayName;
-      
-      // Ask for citizen name
-      await sendWhatsAppMessage(
-        company,
-        message.from,
-        getTranslation('label_apt_header', session.language).replace('{dept}', displayName)
-      );
-      
-      session.step = 'appointment_name';
-      await updateSession(session);
-      break;
 
     case 'appointment_name':
       if (!userInput || userInput.length < 2) {
@@ -1540,7 +1514,7 @@ async function continueAppointmentFlow(
       await sendWhatsAppMessage(
         company,
         message.from,
-        getTranslation('label_purpose', session.language)
+        'Please briefly describe the purpose of your meeting with the CEO:'
       );
       
       session.step = 'appointment_purpose';
@@ -1559,20 +1533,55 @@ async function continueAppointmentFlow(
       
       session.data.purpose = userInput;
       
-      // Show date selection (next 7 days)
+      // Get availability settings for CEO (company-level, no department)
+      const availabilitySettings = await getAvailabilitySettings(company._id, undefined);
+      
+      // Show date selection based on availability
       const today = new Date();
       const dateButtons = [];
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+      const maxDays = availabilitySettings?.maxAdvanceBookingDays || 30;
+      const minHours = availabilitySettings?.minAdvanceBookingHours || 24;
       
-      for (let i = 1; i <= 3; i++) {
+      // Start from tomorrow or after minimum booking hours
+      const minDate = new Date(today.getTime() + minHours * 60 * 60 * 1000);
+      minDate.setHours(0, 0, 0, 0);
+      
+      let datesFound = 0;
+      for (let i = 0; i <= maxDays && datesFound < 3; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
-        const locale = session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN';
-        const dateStr = date.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
-        dateButtons.push({
-          id: `date_${date.toISOString().split('T')[0]}`,
-          title: dateStr
-        });
+        date.setHours(0, 0, 0, 0);
+        
+        // Skip dates before minimum advance booking
+        if (date < minDate) continue;
+        
+        // Check if date is available
+        const isAvailable = await isDateAvailableForBooking(date, availabilitySettings);
+        
+        if (isAvailable) {
+          const locale = session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN';
+          const dateStr = date.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+          dateButtons.push({
+            id: `date_${date.toISOString().split('T')[0]}`,
+            title: dateStr
+          });
+          datesFound++;
+        }
       }
+      
+      if (dateButtons.length === 0) {
+        await sendWhatsAppMessage(
+          company,
+          message.from,
+          getTranslation('msg_no_dates', session.language) || 'No available dates for appointment booking. Please try again later.'
+        );
+        await showMainMenu(session, message, company);
+        return;
+      }
+      
+      // Store availability settings for time slot selection
+      session.data.availabilitySettings = availabilitySettings;
       
       await sendWhatsAppButtons(
         company,
@@ -1593,17 +1602,19 @@ async function continueAppointmentFlow(
       
       session.data.appointmentDate = selectedDate;
       
+      // Get time slots based on availability settings
+      const timeButtons = await getAvailableTimeSlots(
+        new Date(selectedDate), 
+        session.data.availabilitySettings
+      );
+      
       // Show time slots as clickable buttons
       // Note: WhatsApp button titles have 20-character limit
       await sendWhatsAppButtons(
         company,
         message.from,
         getTranslation('label_select_time', session.language),
-        [
-          { id: 'time_10:00', title: '🕙 10:00-11:00 AM' },
-          { id: 'time_14:00', title: '🕑 2:00-3:00 PM' },
-          { id: 'time_16:00', title: '🕓 4:00-5:00 PM' }
-        ]
+        timeButtons
       );
       
       session.step = 'appointment_time';
@@ -1654,12 +1665,18 @@ async function continueAppointmentFlow(
         day: 'numeric' 
       });
       
-      // Format time for display
-      const timeDisplay = selectedTime.includes(':') ? selectedTime : `${selectedTime}:00`;
+      // Format time for display in 12-hour format
+      const formatTimeForDisplay = (time: string) => {
+        const [hours, minutes] = time.split(':').map(Number);
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        return `${displayHours}:${String(minutes || 0).padStart(2, '0')} ${period}`;
+      };
+      const timeDisplay = formatTimeForDisplay(selectedTime);
       
       const confirmMessage = `${getTranslation('appointmentConfirm', session.language)}\n\n` +
         `*${getTranslation('label_citizen', session.language)}:* ${session.data.citizenName}\n` +
-        `*${getTranslation('label_department', session.language)}:* ${session.data.translatedDeptName || session.data.departmentName}\n` +
+        `*${getTranslation('label_department', session.language)}:* CEO - Zilla Parishad Amravati\n` +
         `*${getTranslation('label_purpose', session.language)}:* ${session.data.purpose}\n` +
         `*${getTranslation('label_date', session.language)}:* ${dateDisplay}\n` +
         `*${getTranslation('label_time', session.language)}:* ${timeDisplay}\n\n` +
@@ -1733,11 +1750,18 @@ async function continueAppointmentFlow(
           day: 'numeric' 
         });
         
-        const timeDisplay = session.data.appointmentTime.includes(':') ? session.data.appointmentTime : `${session.data.appointmentTime}:00`;
+        // Format time for display in 12-hour format
+        const formatTime12Hr = (time: string) => {
+          const [hours, minutes] = time.split(':').map(Number);
+          const period = hours >= 12 ? 'PM' : 'AM';
+          const displayHours = hours % 12 || 12;
+          return `${displayHours}:${String(minutes || 0).padStart(2, '0')} ${period}`;
+        };
+        const timeDisplay = formatTime12Hr(session.data.appointmentTime);
         
         const confirmMessage = `${getTranslation('appointmentConfirm', session.language)}\n\n` +
           `*${getTranslation('label_citizen', session.language)}:* ${session.data.citizenName}\n` +
-          `*${getTranslation('label_department', session.language)}:* ${session.data.translatedDeptName || session.data.departmentName}\n` +
+          `*${getTranslation('label_department', session.language)}:* CEO - Zilla Parishad Amravati\n` +
           `*${getTranslation('label_purpose', session.language)}:* ${session.data.purpose}\n` +
           `*${getTranslation('label_date', session.language)}:* ${dateDisplay}\n` +
           `*${getTranslation('label_time', session.language)}:* ${timeDisplay}\n\n` +
@@ -1772,8 +1796,7 @@ async function createAppointment(
   company: any
 ) {
   try {
-    console.log('💾 Creating appointment:', { 
-      department: session.data.departmentName, 
+    console.log('💾 Creating appointment request:', { 
       citizenName: session.data.citizenName,
       date: session.data.appointmentDate,
       time: session.data.appointmentTime
@@ -1788,17 +1811,18 @@ async function createAppointment(
     const appointmentId = await getNextAppointmentId();
     console.log('🆔 Generated appointmentId (atomic):', appointmentId);
     
+    // Appointment is for CEO only - no department
     const appointmentData = {
       appointmentId: appointmentId,  // Add the generated ID
       companyId: company._id,
-      departmentId: session.data.departmentId,
+      departmentId: null, // No department for CEO appointments - explicitly set to null
       citizenName: session.data.citizenName,
       citizenPhone: message.from,
       citizenWhatsApp: message.from,
       purpose: session.data.purpose,
       appointmentDate: appointmentDate,
       appointmentTime: appointmentTime,
-      status: AppointmentStatus.PENDING
+      status: AppointmentStatus.REQUESTED // Changed to REQUESTED - waiting for admin approval
     };
 
     console.log('📝 Appointment data:', JSON.stringify(appointmentData, null, 2));
@@ -1807,27 +1831,25 @@ async function createAppointment(
     const appointment = new Appointment(appointmentData);
     await appointment.save();
     
-    console.log('✅ Appointment created:', { appointmentId: appointment.appointmentId, _id: appointment._id });
+    console.log('✅ Appointment request created:', { appointmentId: appointment.appointmentId, _id: appointment._id });
     
-    // Notify department admin about new appointment
-    if (session.data.departmentId) {
-      await notifyDepartmentAdminOnCreation({
-        type: 'appointment',
-        action: 'created',
-        appointmentId: appointment.appointmentId,
-        citizenName: session.data.citizenName,
-        citizenPhone: message.from,
-        citizenWhatsApp: message.from,
-        departmentId: session.data.departmentId,
-        companyId: company._id,
-        purpose: session.data.purpose,
-        location: `${new Date(appointmentDate).toLocaleDateString('en-IN')} at ${appointmentTime}`,
-        appointmentDate: appointment.appointmentDate,
-        appointmentTime: appointment.appointmentTime,
-        createdAt: appointment.createdAt,
-        timeline: appointment.timeline
-      });
-    }
+    // Notify company admin about new appointment request (for CEO)
+    await notifyDepartmentAdminOnCreation({
+      type: 'appointment',
+      action: 'created',
+      appointmentId: appointment.appointmentId,
+      citizenName: session.data.citizenName,
+      citizenPhone: message.from,
+      citizenWhatsApp: message.from,
+      departmentId: undefined, // No department for CEO
+      companyId: company._id,
+      purpose: session.data.purpose,
+      location: `${new Date(appointmentDate).toLocaleDateString('en-IN')} at ${appointmentTime}`,
+      appointmentDate: appointment.appointmentDate,
+      appointmentTime: appointment.appointmentTime,
+      createdAt: appointment.createdAt,
+      timeline: appointment.timeline
+    });
     
     const dateDisplay = appointmentDate.toLocaleDateString(session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN', { 
       weekday: 'long', 
@@ -1836,15 +1858,24 @@ async function createAppointment(
       day: 'numeric' 
     });
     
-    const timeDisplay = appointmentTime; // Using the selected time slot directly for consistency
+    // Format time for display in 12-hour format
+    const formatTime12HrDisplay = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${String(minutes || 0).padStart(2, '0')} ${period}`;
+    };
+    const timeDisplay = formatTime12HrDisplay(appointmentTime);
 
-    const successMessage = getTranslation('aptSuccess', session.language)
+    // Send "REQUESTED" message instead of "CONFIRMED"
+    const requestedMessage = getTranslation('aptRequested', session.language)
       .replace('{id}', appointment.appointmentId)
-      .replace('{dept}', getTranslation(`dept_${session.data.departmentName}`, session.language) !== `dept_${session.data.departmentName}` ? getTranslation(`dept_${session.data.departmentName}`, session.language) : session.data.departmentName)
+      .replace('{name}', session.data.citizenName)
       .replace('{date}', dateDisplay)
-      .replace('{time}', timeDisplay);
+      .replace('{time}', timeDisplay)
+      .replace('{purpose}', session.data.purpose);
 
-    await sendWhatsAppMessage(company, message.from, successMessage);
+    await sendWhatsAppMessage(company, message.from, requestedMessage);
 
     // End chat after successful submission
     await sendWhatsAppMessage(company, message.from, getTranslation('goodbye', session.language));
@@ -1948,9 +1979,7 @@ async function handleStatusTracking(
     const statusEmoji: Record<string, string> = {
       'PENDING': '⏳',
       'ASSIGNED': '📋',
-      'IN_PROGRESS': '🔄',
-      'RESOLVED': '✅',
-      'CLOSED': '✔️'
+      'RESOLVED': '✅'
     };
     
     const dept = grievance.departmentId ? await Department.findById(grievance.departmentId) : null;
@@ -1967,8 +1996,7 @@ async function handleStatusTracking(
       `*${getTranslation('label_ref_no', session.language)}:* \`${grievance.grievanceId}\`\n\n` +
       `*${getTranslation('label_department', session.language)}:* ${deptName}\n` +
       `*${getTranslation('label_category', session.language)}:* ${translatedCategory}\n` +
-      `*${getTranslation('label_status', session.language)}:* ${statusEmoji[grievance.status] || '📌'} *${getTranslation(`status_${grievance.status}`, session.language)}*\n` +
-      `*${getTranslation('label_priority', session.language)}:* ${grievance.priority || 'MEDIUM'}\n\n` +
+      `*${getTranslation('label_status', session.language)}:* ${statusEmoji[grievance.status] || '📌'} *${getTranslation(`status_${grievance.status}`, session.language)}*\n\n` +
       `*${getTranslation('label_description', session.language)}:* ${grievance.description.substring(0, 100)}${grievance.description.length > 100 ? '...' : ''}\n\n` +
       `_${getTranslation('footer_grv_guidance', session.language)}_`
     );
@@ -1978,15 +2006,14 @@ async function handleStatusTracking(
   else if (appointment) {
     foundRecord = true;
     const statusEmoji: Record<string, string> = {
-      'PENDING': '⏳',
-      'CONFIRMED': '✅',
-      'CANCELLED': '❌',
-      'COMPLETED': '✔️'
+      'REQUESTED': '⏳',
+      'SCHEDULED': '📅',
+      'COMPLETED': '✅',
+      'CANCELLED': '❌'
     };
 
-    const dept = appointment.departmentId ? await Department.findById(appointment.departmentId) : null;
-    const translatedDept = dept ? getTranslation(`dept_${dept.name}`, session.language) : null;
-    const deptName = translatedDept && translatedDept !== `dept_${dept?.name}` ? translatedDept : (dept?.name || 'N/A');
+    // Appointment is for CEO - no department
+    const deptName = 'CEO - Zilla Parishad Amravati';
 
     await sendWhatsAppMessage(
       company,

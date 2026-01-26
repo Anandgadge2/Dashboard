@@ -32,22 +32,24 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
     } else if (currentUser.role === UserRole.COMPANY_ADMIN) {
       baseQuery.companyId = currentUser.companyId;
       if (departmentId) baseQuery.departmentId = departmentId;
-    } else if (currentUser.role === UserRole.DEPARTMENT_ADMIN || currentUser.role === UserRole.OPERATOR) {
-      // Both Department Admins and Operators see department-wide analytics
+    } else if (currentUser.role === UserRole.DEPARTMENT_ADMIN || currentUser.role === UserRole.OPERATOR || currentUser.role === UserRole.ANALYTICS_VIEWER) {
+      // Department Admins, Operators, and Analytics Viewers see department-wide analytics
       baseQuery.departmentId = currentUser.departmentId;
     }
 
-    // Get grievance statistics
-    const totalGrievances = await Grievance.countDocuments(baseQuery);
-    const pendingGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.PENDING });
-    const resolvedGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.RESOLVED });
-    const inProgressGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.IN_PROGRESS });
+    // Get grievance statistics (exclude deleted)
+    const totalGrievances = await Grievance.countDocuments({ ...baseQuery, isDeleted: { $ne: true } });
+    const pendingGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.PENDING, isDeleted: { $ne: true } });
+    const resolvedGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.RESOLVED, isDeleted: { $ne: true } });
+    const assignedGrievancesCount = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.ASSIGNED, isDeleted: { $ne: true } });
 
-    // Get appointment statistics
-    const totalAppointments = await Appointment.countDocuments(baseQuery);
-    const pendingAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.PENDING });
-    const confirmedAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.CONFIRMED });
-    const completedAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.COMPLETED });
+    // Get appointment statistics (exclude deleted)
+    const totalAppointments = await Appointment.countDocuments({ ...baseQuery, isDeleted: { $ne: true } });
+    const requestedAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.REQUESTED, isDeleted: { $ne: true } });
+    const scheduledAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.SCHEDULED, isDeleted: { $ne: true } });
+    const confirmedAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.CONFIRMED, isDeleted: { $ne: true } });
+    const completedAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.COMPLETED, isDeleted: { $ne: true } });
+    const cancelledAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.CANCELLED, isDeleted: { $ne: true } });
 
     // Get department count (if applicable)
     let departmentCount = 0;
@@ -99,7 +101,7 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
 
     // Get daily statistics for last 7 days
     const dailyGrievances = await Grievance.aggregate([
-      { $match: { ...baseQuery, createdAt: { $gte: sevenDaysAgo } } },
+      { $match: { ...baseQuery, createdAt: { $gte: sevenDaysAgo }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
@@ -110,7 +112,7 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
     ]);
 
     const dailyAppointments = await Appointment.aggregate([
-      { $match: { ...baseQuery, createdAt: { $gte: sevenDaysAgo } } },
+      { $match: { ...baseQuery, createdAt: { $gte: sevenDaysAgo }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
@@ -130,21 +132,18 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
       ? ((completedAppointments / totalAppointments) * 100).toFixed(1)
       : '0';
 
-    // Additional metrics
-    const assignedGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.ASSIGNED });
-    const closedGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.CLOSED });
-    const cancelledAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.CANCELLED });
-    const noShowAppointments = await Appointment.countDocuments({ ...baseQuery, status: AppointmentStatus.NO_SHOW });
+    // Additional metrics (exclude deleted)
+    const assignedGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.ASSIGNED, isDeleted: { $ne: true } });
     
-    // SLA breach statistics
-    const slaBreachedGrievances = await Grievance.countDocuments({ ...baseQuery, slaBreached: true });
+    // SLA breach statistics (exclude deleted)
+    const slaBreachedGrievances = await Grievance.countDocuments({ ...baseQuery, slaBreached: true, isDeleted: { $ne: true } });
     const slaComplianceRate = totalGrievances > 0
       ? (((totalGrievances - slaBreachedGrievances) / totalGrievances) * 100).toFixed(1)
       : '100';
 
     // Average resolution time (for resolved grievances)
     const avgResolutionTime = await Grievance.aggregate([
-      { $match: { ...baseQuery, status: { $in: [GrievanceStatus.RESOLVED, GrievanceStatus.CLOSED] }, resolvedAt: { $exists: true } } },
+      { $match: { ...baseQuery, status: GrievanceStatus.RESOLVED, resolvedAt: { $exists: true } } },
       {
         $project: {
           resolutionTime: {
@@ -163,9 +162,9 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
       }
     ]);
 
-    // Grievances by priority
+    // Grievances by priority (exclude deleted)
     const grievancesByPriority = await Grievance.aggregate([
-      { $match: baseQuery },
+      { $match: { ...baseQuery, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: '$priority',
@@ -175,9 +174,9 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
       { $sort: { count: -1 } }
     ]);
 
-    // Appointments by department
+    // Appointments by department (exclude deleted)
     const appointmentsByDepartment = await Appointment.aggregate([
-      { $match: baseQuery },
+      { $match: { ...baseQuery, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: '$departmentId',
@@ -212,7 +211,7 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     
     const monthlyGrievances = await Grievance.aggregate([
-      { $match: { ...baseQuery, createdAt: { $gte: sixMonthsAgo } } },
+      { $match: { ...baseQuery, createdAt: { $gte: sixMonthsAgo }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
@@ -226,7 +225,7 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
     ]);
 
     const monthlyAppointments = await Appointment.aggregate([
-      { $match: { ...baseQuery, createdAt: { $gte: sixMonthsAgo } } },
+      { $match: { ...baseQuery, createdAt: { $gte: sixMonthsAgo }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
@@ -246,9 +245,8 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
           total: totalGrievances,
           pending: pendingGrievances,
           assigned: assignedGrievances,
-          inProgress: inProgressGrievances,
+          inProgress: assignedGrievancesCount, // For backward compatibility
           resolved: resolvedGrievances,
-          closed: closedGrievances,
           last7Days: grievancesLast7Days,
           last30Days: grievancesLast30Days,
           resolutionRate: parseFloat(resolutionRate),
@@ -261,11 +259,12 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
         },
         appointments: {
           total: totalAppointments,
-          pending: pendingAppointments,
+          pending: requestedAppointments + scheduledAppointments, // REQUESTED + SCHEDULED
+          requested: requestedAppointments,
+          scheduled: scheduledAppointments,
           confirmed: confirmedAppointments,
           completed: completedAppointments,
           cancelled: cancelledAppointments,
-          noShow: noShowAppointments,
           last7Days: appointmentsLast7Days,
           last30Days: appointmentsLast30Days,
           completionRate: parseFloat(completionRate),
@@ -483,8 +482,8 @@ router.get('/appointments/by-date', requirePermission(Permission.VIEW_ANALYTICS)
             $dateToString: { format: '%Y-%m-%d', date: '$appointmentDate' }
           },
           count: { $sum: 1 },
-          confirmed: {
-            $sum: { $cond: [{ $eq: ['$status', AppointmentStatus.CONFIRMED] }, 1, 0] }
+          scheduled: {
+            $sum: { $cond: [{ $eq: ['$status', AppointmentStatus.SCHEDULED] }, 1, 0] }
           },
           completed: {
             $sum: { $cond: [{ $eq: ['$status', AppointmentStatus.COMPLETED] }, 1, 0] }

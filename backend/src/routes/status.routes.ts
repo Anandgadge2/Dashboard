@@ -21,13 +21,11 @@ router.use(authenticate);
 const getStatusMessage = (type: 'grievance' | 'appointment', id: string, status: string, remarks?: string) => {
   const emoji = {
     PENDING: '⏳',
-    IN_PROGRESS: '🔄',
+    ASSIGNED: '👤',
     RESOLVED: '✅',
-    CLOSED: '🔒',
-    CANCELLED: '❌',
-    CONFIRMED: '✅',
+    SCHEDULED: '📅',
     COMPLETED: '🎉',
-    NO_SHOW: '❌'
+    CANCELLED: '❌'
   }[status] || '📋';
 
   const typeName = type === 'grievance' ? 'Grievance' : 'Appointment';
@@ -94,6 +92,15 @@ router.put('/grievance/:id', requirePermission(Permission.STATUS_CHANGE_GRIEVANC
       });
     }
 
+    // Prevent updates to resolved/closed grievances (frozen) - except for super admin
+    const oldStatus = grievance.status;
+    if (oldStatus === 'RESOLVED' && currentUser.role !== UserRole.SUPER_ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot update a resolved or closed grievance. Grievance is frozen.'
+      });
+    }
+
     // Permission checks
     if (currentUser.role === UserRole.DEPARTMENT_ADMIN || currentUser.role === UserRole.OPERATOR) {
       if (grievance.departmentId?._id.toString() !== currentUser.departmentId?.toString()) {
@@ -111,7 +118,7 @@ router.put('/grievance/:id', requirePermission(Permission.STATUS_CHANGE_GRIEVANC
       }
     }
 
-    const oldStatus = grievance.status;
+    // oldStatus is already declared above for freeze check
     grievance.status = status;
 
     // Add to status history
@@ -128,8 +135,6 @@ router.put('/grievance/:id', requirePermission(Permission.STATUS_CHANGE_GRIEVANC
     // Update timestamps based on status
     if (status === GrievanceStatus.RESOLVED && !grievance.resolvedAt) {
       grievance.resolvedAt = new Date();
-    } else if (status === GrievanceStatus.CLOSED && !grievance.closedAt) {
-      grievance.closedAt = new Date();
     }
 
     // Add to timeline
@@ -306,49 +311,23 @@ router.put('/appointment/:id', requirePermission(Permission.STATUS_CHANGE_APPOIN
 
     await appointment.save();
 
-    // Notify citizen if status changed to COMPLETED (similar to RESOLVED for grievances)
-    if (oldStatus !== AppointmentStatus.COMPLETED && status === AppointmentStatus.COMPLETED) {
-      const { notifyCitizenOnResolution, notifyHierarchyOnStatusChange } = await import('../services/notificationService');
-      
-      await notifyCitizenOnResolution({
-        type: 'appointment',
-        action: 'resolved',
+    // Notify citizen based on status change
+    const { notifyCitizenOnAppointmentStatusChange } = await import('../services/notificationService');
+    
+    if (oldStatus !== status) {
+      await notifyCitizenOnAppointmentStatusChange({
         appointmentId: appointment.appointmentId,
         citizenName: appointment.citizenName,
         citizenPhone: appointment.citizenPhone,
         citizenWhatsApp: appointment.citizenWhatsApp,
-        departmentId: appointment.departmentId,
         companyId: appointment.companyId,
-        remarks: remarks,
-        citizenEmail: appointment.citizenEmail,
-        resolvedBy: currentUser._id,
-        resolvedAt: appointment.completedAt,
-        createdAt: appointment.createdAt,
-        assignedAt: appointment.assignedAt,
-        timeline: appointment.timeline,
+        oldStatus,
+        newStatus: status,
+        remarks: remarks || '',
         appointmentDate: appointment.appointmentDate,
-        appointmentTime: appointment.appointmentTime
-      } as any);
-
-      // Notify hierarchy about status change
-      await notifyHierarchyOnStatusChange({
-        type: 'appointment',
-        action: 'resolved',
-        appointmentId: appointment.appointmentId,
-        citizenName: appointment.citizenName,
-        citizenPhone: appointment.citizenPhone,
-        departmentId: appointment.departmentId,
-        companyId: appointment.companyId,
-        assignedTo: appointment.assignedTo,
-        remarks: remarks,
-        resolvedBy: currentUser._id,
-        resolvedAt: appointment.completedAt,
-        createdAt: appointment.createdAt,
-        assignedAt: appointment.assignedAt,
-        timeline: appointment.timeline,
-        appointmentDate: appointment.appointmentDate,
-        appointmentTime: appointment.appointmentTime
-      } as any, oldStatus, status);
+        appointmentTime: appointment.appointmentTime,
+        purpose: appointment.purpose
+      });
     }
 
     await logUserAction(

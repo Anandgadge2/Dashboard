@@ -80,6 +80,7 @@ export const grievanceAPI = {
     page?: number;
     limit?: number;
     status?: string;
+    companyId?: string;
     departmentId?: string;
     assignedTo?: string;
     priority?: string;
@@ -88,6 +89,7 @@ export const grievanceAPI = {
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.status) queryParams.append('status', params.status);
+    if (params?.companyId) queryParams.append('companyId', params.companyId);
     if (params?.departmentId) queryParams.append('departmentId', params.departmentId);
     if (params?.assignedTo) queryParams.append('assignedTo', params.assignedTo);
     if (params?.priority) queryParams.append('priority', params.priority);
@@ -117,5 +119,9 @@ export const grievanceAPI = {
 
   delete: async (id: string): Promise<{ success: boolean; message: string }> => {
     return apiClient.delete(`/grievances/${id}`);
+  },
+
+  deleteBulk: async (ids: string[]): Promise<{ success: boolean; message: string; data: { deletedCount: number } }> => {
+    return apiClient.delete('/grievances/bulk', { ids });
   }
 };

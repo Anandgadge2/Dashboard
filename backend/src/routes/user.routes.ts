@@ -49,6 +49,21 @@ router.get('/', requirePermission(Permission.READ_USER), async (req: Request, re
         });
         return;
       }
+    } else if (currentUser.role === UserRole.ANALYTICS_VIEWER) {
+      // Analytics Viewer can only see users in their department
+      if (currentUser.departmentId) {
+        query.departmentId = currentUser.departmentId;
+      } else {
+        // If analytics viewer has no department, return empty
+        res.json({
+          success: true,
+          data: {
+            users: [],
+            pagination: { page: 1, limit: 20, total: 0, pages: 0 }
+          }
+        });
+        return;
+      }
     } else {
       // Other roles cannot list users
       res.status(403).json({
@@ -112,6 +127,14 @@ router.post('/', requirePermission(Permission.CREATE_USER), async (req: Request,
     
     const currentUser = req.user!;
     console.log('Current user:', { id: currentUser._id, role: currentUser.role, companyId: currentUser.companyId });
+    
+    // Operators cannot create users
+    if (currentUser.role === UserRole.OPERATOR) {
+      return res.status(403).json({
+        success: false,
+        message: 'Operators are not authorized to create users. Only Super Admin, Company Admin, and Department Admin can create users.'
+      });
+    }
     
     const { firstName, lastName, email, password, phone, role, departmentId } = req.body;
     let companyId = req.body.companyId;
@@ -255,7 +278,8 @@ router.post('/', requirePermission(Permission.CREATE_USER), async (req: Request,
         companyId: finalCompanyId || undefined,
         departmentId: departmentId || undefined,
         isActive: true,
-        isDeleted: false
+        isDeleted: false,
+        createdBy: currentUser._id // Track who created this user for hierarchical rights
       });
       console.log('✅ User created successfully in database:', user.userId);
       console.log('✅ User ID:', user._id);
@@ -403,6 +427,15 @@ router.put('/:id', requirePermission(Permission.UPDATE_USER), async (req: Reques
       return;
     }
 
+    // Operators cannot update users
+    if (currentUser.role === UserRole.OPERATOR) {
+      res.status(403).json({
+        success: false,
+        message: 'Operators cannot update users'
+      });
+      return;
+    }
+
     // Prevent self-deactivation
     if (existingUser._id.toString() === currentUser._id.toString() && req.body.isActive === false) {
       res.status(403).json({
@@ -412,7 +445,25 @@ router.put('/:id', requirePermission(Permission.UPDATE_USER), async (req: Reques
       return;
     }
 
-    // Check access
+    // Prevent users from editing their own role and department
+    if (existingUser._id.toString() === currentUser._id.toString()) {
+      if (req.body.role && req.body.role !== existingUser.role) {
+        res.status(403).json({
+          success: false,
+          message: 'You cannot change your own role'
+        });
+        return;
+      }
+      if (req.body.departmentId && req.body.departmentId !== existingUser.departmentId?.toString()) {
+        res.status(403).json({
+          success: false,
+          message: 'You cannot change your own department'
+        });
+        return;
+      }
+    }
+
+    // Check access based on company/department
     if (currentUser.role !== UserRole.SUPER_ADMIN) {
       if (currentUser.role === UserRole.COMPANY_ADMIN && existingUser.companyId?.toString() !== currentUser.companyId?.toString()) {
         res.status(403).json({
@@ -427,6 +478,101 @@ router.put('/:id', requirePermission(Permission.UPDATE_USER), async (req: Reques
           message: 'Access denied'
         });
         return;
+      }
+    }
+
+    // Hierarchical rights for Company Admins
+    if (currentUser.role === UserRole.COMPANY_ADMIN) {
+      if (existingUser.role === UserRole.COMPANY_ADMIN && existingUser._id.toString() !== currentUser._id.toString()) {
+        // Check if target is a primary Company Admin
+        const targetCreator = existingUser.createdBy ? await User.findById(existingUser.createdBy) : null;
+        const isPrimaryTarget = !existingUser.createdBy || targetCreator?.role === UserRole.SUPER_ADMIN;
+        
+        if (isPrimaryTarget) {
+          res.status(403).json({
+            success: false,
+            message: 'You cannot edit the primary Company Admin. Only Super Admin can do this.'
+          });
+          return;
+        }
+        
+        // Check if current user is primary
+        const currentCreator = currentUser.createdBy ? await User.findById(currentUser.createdBy) : null;
+        const isCurrentPrimary = !currentUser.createdBy || currentCreator?.role === UserRole.SUPER_ADMIN;
+        
+        if (!isCurrentPrimary && existingUser.createdBy?.toString() !== currentUser._id.toString()) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only edit Company Admins that you created.'
+          });
+          return;
+        }
+      }
+    }
+
+    // Hierarchical rights for Department Admins
+    if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
+      // Department Admin cannot edit Company Admins
+      if (existingUser.role === UserRole.COMPANY_ADMIN) {
+        res.status(403).json({
+          success: false,
+          message: 'Department Admins cannot edit Company Admins.'
+        });
+        return;
+      }
+      
+      // Check if target is a Department Admin
+      if (existingUser.role === UserRole.DEPARTMENT_ADMIN && existingUser._id.toString() !== currentUser._id.toString()) {
+        // Check if target is a primary Department Admin
+        const targetCreator = existingUser.createdBy ? await User.findById(existingUser.createdBy) : null;
+        const isPrimaryDeptAdmin = !existingUser.createdBy || 
+          targetCreator?.role === UserRole.SUPER_ADMIN || 
+          targetCreator?.role === UserRole.COMPANY_ADMIN;
+        
+        if (isPrimaryDeptAdmin) {
+          res.status(403).json({
+            success: false,
+            message: 'You cannot edit primary Department Admins. Only Company Admin or Super Admin can do this.'
+          });
+          return;
+        }
+        
+        if (existingUser.createdBy?.toString() !== currentUser._id.toString()) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only edit Department Admins that you created.'
+          });
+          return;
+        }
+      }
+    }
+
+    // Role-based restrictions for role changes
+    if (req.body.role) {
+      const newRole = req.body.role;
+      
+      // Company Admin can only assign: COMPANY_ADMIN, DEPARTMENT_ADMIN, OPERATOR, ANALYTICS_VIEWER
+      if (currentUser.role === UserRole.COMPANY_ADMIN) {
+        const allowedRoles = [UserRole.COMPANY_ADMIN, UserRole.DEPARTMENT_ADMIN, UserRole.OPERATOR, UserRole.ANALYTICS_VIEWER];
+        if (!allowedRoles.includes(newRole)) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only assign Company Admin, Department Admin, Operator, or Analytics Viewer roles'
+          });
+          return;
+        }
+      }
+      
+      // Department Admin can only assign: DEPARTMENT_ADMIN, OPERATOR
+      if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
+        const allowedRoles = [UserRole.DEPARTMENT_ADMIN, UserRole.OPERATOR, UserRole.ANALYTICS_VIEWER];
+        if (!allowedRoles.includes(newRole)) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only assign Department Admin, Operator, or Analytics Viewer roles'
+          });
+          return;
+        }
       }
     }
 
@@ -486,7 +632,7 @@ router.delete('/:id', requirePermission(Permission.DELETE_USER), async (req: Req
       return;
     }
 
-    // Check access
+    // Check access based on company/department
     if (currentUser.role !== UserRole.SUPER_ADMIN) {
       if (currentUser.role === UserRole.COMPANY_ADMIN && existingUser.companyId?.toString() !== currentUser.companyId?.toString()) {
         res.status(403).json({
@@ -501,6 +647,82 @@ router.delete('/:id', requirePermission(Permission.DELETE_USER), async (req: Req
           message: 'Access denied'
         });
         return;
+      }
+    }
+
+    // Operators cannot delete users
+    if (currentUser.role === UserRole.OPERATOR) {
+      res.status(403).json({
+        success: false,
+        message: 'Operators cannot delete users'
+      });
+      return;
+    }
+
+    // Hierarchical rights for Company Admins
+    if (currentUser.role === UserRole.COMPANY_ADMIN) {
+      if (existingUser.role === UserRole.COMPANY_ADMIN) {
+        // Check if target is a primary Company Admin
+        const targetCreator = existingUser.createdBy ? await User.findById(existingUser.createdBy) : null;
+        const isPrimaryTarget = !existingUser.createdBy || targetCreator?.role === UserRole.SUPER_ADMIN;
+        
+        if (isPrimaryTarget) {
+          res.status(403).json({
+            success: false,
+            message: 'You cannot delete the primary Company Admin. Only Super Admin can do this.'
+          });
+          return;
+        }
+        
+        // Check if current user is primary (can delete other Company Admins they created)
+        const currentCreator = currentUser.createdBy ? await User.findById(currentUser.createdBy) : null;
+        const isCurrentPrimary = !currentUser.createdBy || currentCreator?.role === UserRole.SUPER_ADMIN;
+        
+        if (!isCurrentPrimary && existingUser.createdBy?.toString() !== currentUser._id.toString()) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only delete Company Admins that you created.'
+          });
+          return;
+        }
+      }
+    }
+
+    // Hierarchical rights for Department Admins
+    if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
+      // Department Admin cannot delete Company Admins
+      if (existingUser.role === UserRole.COMPANY_ADMIN) {
+        res.status(403).json({
+          success: false,
+          message: 'Department Admins cannot delete Company Admins.'
+        });
+        return;
+      }
+      
+      // Check if target is a Department Admin
+      if (existingUser.role === UserRole.DEPARTMENT_ADMIN) {
+        // Check if target is a primary Department Admin (created by Company Admin or SuperAdmin)
+        const targetCreator = existingUser.createdBy ? await User.findById(existingUser.createdBy) : null;
+        const isPrimaryDeptAdmin = !existingUser.createdBy || 
+          targetCreator?.role === UserRole.SUPER_ADMIN || 
+          targetCreator?.role === UserRole.COMPANY_ADMIN;
+        
+        if (isPrimaryDeptAdmin) {
+          res.status(403).json({
+            success: false,
+            message: 'You cannot delete primary Department Admins. Only Company Admin or Super Admin can do this.'
+          });
+          return;
+        }
+        
+        // Can only delete Department Admins that this user created
+        if (existingUser.createdBy?.toString() !== currentUser._id.toString()) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only delete Department Admins that you created.'
+          });
+          return;
+        }
       }
     }
 
@@ -541,14 +763,10 @@ router.delete('/:id', requirePermission(Permission.DELETE_USER), async (req: Req
 router.put('/:id/activate', requirePermission(Permission.UPDATE_USER), async (req: Request, res: Response) => {
   try {
     const { isActive } = req.body;
+    const currentUser = req.user!;
+    const existingUser = await User.findById(req.params.id);
 
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isActive },
-      { new: true }
-    ).select('-password');
-
-    if (!user) {
+    if (!existingUser) {
       res.status(404).json({
         success: false,
         message: 'User not found'
@@ -556,11 +774,92 @@ router.put('/:id/activate', requirePermission(Permission.UPDATE_USER), async (re
       return;
     }
 
+    // Prevent self-deactivation
+    if (existingUser._id.toString() === currentUser._id.toString() && isActive === false) {
+      res.status(403).json({
+        success: false,
+        message: 'You cannot deactivate yourself'
+      });
+      return;
+    }
+
+    // Hierarchical rights: Check if the user can activate/deactivate the target user
+    // Primary admin detection: A user is "primary" if they have no createdBy or were created by a SuperAdmin
+    const isPrimaryAdmin = !existingUser.createdBy || 
+      (await User.findById(existingUser.createdBy))?.role === UserRole.SUPER_ADMIN;
+
+    // Company Admin hierarchical restrictions
+    if (currentUser.role === UserRole.COMPANY_ADMIN) {
+      // Check if target is also a Company Admin
+      if (existingUser.role === UserRole.COMPANY_ADMIN) {
+        // If target is a primary Company Admin and current user is not the same person
+        if (isPrimaryAdmin && existingUser._id.toString() !== currentUser._id.toString()) {
+          res.status(403).json({
+            success: false,
+            message: 'You cannot activate/deactivate the primary Company Admin. Only Super Admin can do this.'
+          });
+          return;
+        }
+        // If current user was created by someone else (not primary), they cannot manage other Company Admins
+        const isCurrentUserPrimary = !currentUser.createdBy || 
+          (await User.findById(currentUser.createdBy))?.role === UserRole.SUPER_ADMIN;
+        if (!isCurrentUserPrimary && existingUser.createdBy?.toString() !== currentUser._id.toString()) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only activate/deactivate Company Admins that you created.'
+          });
+          return;
+        }
+      }
+    }
+
+    // Department Admin hierarchical restrictions
+    if (currentUser.role === UserRole.DEPARTMENT_ADMIN) {
+      // Check if target is also a Department Admin
+      if (existingUser.role === UserRole.DEPARTMENT_ADMIN) {
+        // If target is a primary Department Admin (created by Company Admin or SuperAdmin)
+        const targetCreator = existingUser.createdBy ? await User.findById(existingUser.createdBy) : null;
+        const isPrimaryDeptAdmin = !existingUser.createdBy || 
+          targetCreator?.role === UserRole.SUPER_ADMIN || 
+          targetCreator?.role === UserRole.COMPANY_ADMIN;
+        
+        if (isPrimaryDeptAdmin) {
+          res.status(403).json({
+            success: false,
+            message: 'You cannot activate/deactivate primary Department Admins. Only Company Admin or Super Admin can do this.'
+          });
+          return;
+        }
+        // Can only manage Department Admins that this user created
+        if (existingUser.createdBy?.toString() !== currentUser._id.toString()) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only activate/deactivate Department Admins that you created.'
+          });
+          return;
+        }
+      }
+      // Department Admin cannot manage Company Admins
+      if (existingUser.role === UserRole.COMPANY_ADMIN) {
+        res.status(403).json({
+          success: false,
+          message: 'You cannot manage Company Admins.'
+        });
+        return;
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true }
+    ).select('-password');
+
     await logUserAction(
       req,
       AuditAction.UPDATE,
       'User',
-      user._id.toString(),
+      user!._id.toString(),
       { action: isActive ? 'activated' : 'deactivated' }
     );
 

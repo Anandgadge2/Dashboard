@@ -23,6 +23,15 @@ export interface CreateDepartmentData {
   companyId: string;
 }
 
+export interface UpdateDepartmentData {
+  name?: string;
+  description?: string;
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  isActive?: boolean;
+}
+
 export interface DepartmentsResponse {
   success: boolean;
   data: {
@@ -60,7 +69,7 @@ export const departmentAPI = {
     return apiClient.post('/departments', data);
   },
 
-  update: async (id: string, data: Partial<CreateDepartmentData>): Promise<{ success: boolean; data: { department: Department } }> => {
+  update: async (id: string, data: UpdateDepartmentData): Promise<{ success: boolean; data: { department: Department } }> => {
     return apiClient.put(`/departments/${id}`, data);
   },
 

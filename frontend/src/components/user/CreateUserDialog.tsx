@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/lib/permissions';
 import toast from 'react-hot-toast';
 import { validatePhoneNumber, validatePassword, normalizePhoneNumber } from '@/lib/utils/phoneUtils';
+import { Building } from 'lucide-react';
 
 interface CreateUserDialogProps {
   isOpen: boolean;
@@ -66,9 +67,20 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
           UserRole.OPERATOR,
           UserRole.ANALYTICS_VIEWER
         ];
+      case UserRole.OPERATOR:
+        // Operators cannot create any users
+        return [];
       default:
         return [];
     }
+  };
+  
+  // Check if current user can create users
+  const canCreateUsers = (): boolean => {
+    if (!user) return false;
+    const currentRole = user.role as UserRole;
+    // Only SUPER_ADMIN, COMPANY_ADMIN, and DEPARTMENT_ADMIN can create users
+    return [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.DEPARTMENT_ADMIN].includes(currentRole);
   };
 
   // Define fetchCompanies and fetchDepartments BEFORE useEffect that uses them
@@ -295,13 +307,40 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
   };
 
   if (!isOpen) return null;
+  
+  // Show error if operator tries to create users
+  if (!canCreateUsers()) {
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <Card className="w-full max-w-md bg-white/95 backdrop-blur-lg rounded-2xl border border-red-200/50 shadow-2xl">
+          <CardHeader className="bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-t-2xl">
+            <CardTitle className="text-xl">Access Denied</CardTitle>
+            <CardDescription className="text-red-100">Unable to create users</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Operators are not authorized to create users. Only Super Admin, Company Admin, and Department Admin can create new users.
+            </p>
+            <Button onClick={onClose} className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white">
+              Close
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <CardHeader>
-          <CardTitle>Create New User</CardTitle>
-          <CardDescription>Add a new user to the platform</CardDescription>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-lg rounded-2xl border border-slate-200/50 shadow-2xl">
+        <CardHeader className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white rounded-t-2xl">
+          <CardTitle className="text-xl">Create New User</CardTitle>
+          <CardDescription className="text-indigo-100">Add a new user to the platform</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -406,41 +445,44 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
               </div>
             </div>
 
-            {/* Company field - only for SUPER_ADMIN or COMPANY_ADMIN creating COMPANY_ADMIN */}
+            {/* Company field - only visible for SUPER_ADMIN */}
+            {/* Company Admin and Department Admin will have company auto-selected and hidden */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {formData.role !== UserRole.SUPER_ADMIN && (
+              {/* Show company selection ONLY for Super Admin */}
+              {user?.role === UserRole.SUPER_ADMIN && formData.role !== UserRole.SUPER_ADMIN && (
                 <div>
                   <Label htmlFor="companyId">
-                    Company {formData.role === UserRole.COMPANY_ADMIN || formData.role === UserRole.DEPARTMENT_ADMIN || formData.role === UserRole.OPERATOR || formData.role === UserRole.ANALYTICS_VIEWER ? '*' : ''}
+                    Company {formData.role !== UserRole.SUPER_ADMIN ? '*' : ''}
                   </Label>
                   <select
                     id="companyId"
                     name="companyId"
                     value={formData.companyId}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
-                    required={formData.role === UserRole.COMPANY_ADMIN || formData.role === UserRole.DEPARTMENT_ADMIN || formData.role === UserRole.OPERATOR || formData.role === UserRole.ANALYTICS_VIEWER}
-                    disabled={user?.role === UserRole.COMPANY_ADMIN || user?.role === UserRole.DEPARTMENT_ADMIN}
+                    className="w-full p-2 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    required={formData.role !== UserRole.SUPER_ADMIN}
                   >
                     <option value="">Select a company</option>
-                    {companies
-                      .filter(company => {
-                        // Filter companies based on user's scope
-                        if (user?.role === UserRole.COMPANY_ADMIN) {
-                          const userCompanyId = user?.companyId 
-                            ? (typeof user.companyId === 'object' ? user.companyId._id : user.companyId)
-                            : '';
-                          return company._id === userCompanyId;
-                        }
-                        // SUPER_ADMIN can see all companies
-                        return true;
-                      })
-                      .map((company) => (
-                        <option key={company._id} value={company._id}>
-                          {company.name}
-                        </option>
-                      ))}
+                    {companies.map((company) => (
+                      <option key={company._id} value={company._id}>
+                        {company.name}
+                      </option>
+                    ))}
                   </select>
+                </div>
+              )}
+              
+              {/* Show auto-selected company info for Company Admin and Department Admin (read-only display) */}
+              {(user?.role === UserRole.COMPANY_ADMIN || user?.role === UserRole.DEPARTMENT_ADMIN) && formData.role !== UserRole.SUPER_ADMIN && (
+                <div>
+                  <Label htmlFor="companyDisplay">Company</Label>
+                  <div className="w-full p-2 border rounded-md bg-gradient-to-r from-slate-50 to-indigo-50 text-slate-700 font-medium flex items-center gap-2">
+                    <Building className="w-4 h-4 text-indigo-500" />
+                    {companies.find(c => c._id === formData.companyId)?.name || 'Your Company'}
+                    <span className="ml-auto text-xs text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">Auto-selected</span>
+                  </div>
+                  {/* Hidden input to keep the value */}
+                  <input type="hidden" name="companyId" value={formData.companyId} />
                 </div>
               )}
               
@@ -448,45 +490,70 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({ isOpen, onClose, on
               {(formData.role === UserRole.DEPARTMENT_ADMIN || formData.role === UserRole.OPERATOR || formData.role === UserRole.ANALYTICS_VIEWER) && (
                 <div>
                   <Label htmlFor="departmentId">Department *</Label>
-                  <select
-                    id="departmentId"
-                    name="departmentId"
-                    value={formData.departmentId}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
-                    required
-                    disabled={!formData.companyId || user?.role === UserRole.DEPARTMENT_ADMIN}
-                  >
-                    <option value="">
-                      {user?.role === UserRole.DEPARTMENT_ADMIN 
-                        ? 'Your department (auto-selected)' 
-                        : formData.companyId 
-                          ? 'Select a department' 
-                          : 'Select a company first'}
-                    </option>
-                    {departments
-                      .filter(dept => {
-                        if (!formData.companyId) return false;
-                        // Handle both string and object companyId
-                        const deptCompanyId = typeof dept.companyId === 'object' ? dept.companyId._id : dept.companyId;
-                        return deptCompanyId === formData.companyId;
-                      })
-                      .map((department) => (
-                        <option key={department._id} value={department._id}>
-                          {department.name}
-                        </option>
-                      ))}
-                  </select>
+                  {/* For Department Admin - show auto-selected department */}
+                  {user?.role === UserRole.DEPARTMENT_ADMIN ? (
+                    <div className="w-full p-2 border rounded-md bg-gradient-to-r from-slate-50 to-purple-50 text-slate-700 font-medium flex items-center gap-2">
+                      <Building className="w-4 h-4 text-purple-500" />
+                      {departments.find(d => d._id === formData.departmentId)?.name || 'Your Department'}
+                      <span className="ml-auto text-xs text-purple-500 bg-purple-100 px-2 py-0.5 rounded-full">Auto-selected</span>
+                    </div>
+                  ) : (
+                    <select
+                      id="departmentId"
+                      name="departmentId"
+                      value={formData.departmentId}
+                      onChange={handleChange}
+                      className="w-full p-2 border rounded-md bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      required
+                      disabled={!formData.companyId}
+                    >
+                      <option value="">
+                        {formData.companyId ? 'Select a department' : 'Select a company first'}
+                      </option>
+                      {departments
+                        .filter(dept => {
+                          if (!formData.companyId) return false;
+                          const deptCompanyId = typeof dept.companyId === 'object' ? dept.companyId._id : dept.companyId;
+                          return deptCompanyId === formData.companyId;
+                        })
+                        .map((department) => (
+                          <option key={department._id} value={department._id}>
+                            {department.name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                  {/* Hidden input for department admin */}
+                  {user?.role === UserRole.DEPARTMENT_ADMIN && (
+                    <input type="hidden" name="departmentId" value={formData.departmentId} />
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={onClose}>
+            <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose}
+                className="px-6 border-slate-300 hover:bg-slate-100"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Creating...' : 'Create User'}
+              <Button 
+                type="submit" 
+                disabled={loading}
+                className="px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Creating...
+                  </span>
+                ) : 'Create User'}
               </Button>
             </div>
           </form>

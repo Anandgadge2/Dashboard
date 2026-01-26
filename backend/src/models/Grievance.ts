@@ -10,7 +10,6 @@ export interface IGrievance extends Document {
   citizenWhatsApp?: string;
   description: string;
   category?: string;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   status: GrievanceStatus;
   statusHistory: Array<{
     status: GrievanceStatus;
@@ -89,21 +88,15 @@ const GrievanceSchema: Schema = new Schema(
       type: String,
       trim: true
     },
-    priority: {
-      type: String,
-      enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'],
-      default: 'MEDIUM'
-    },
+   
     status: {
       type: String,
-      enum: Object.values(GrievanceStatus),
       default: GrievanceStatus.PENDING,
       index: true
     },
     statusHistory: [{
       status: {
         type: String,
-        enum: Object.values(GrievanceStatus),
         required: true
       },
       changedBy: {

@@ -378,12 +378,21 @@ interface NotificationData {
 /* ------------------------------------------------------------------ */
 
 function isWhatsAppEnabled(company: any): boolean {
-  return Boolean(
+  // Check company config first
+  const hasCompanyConfig = Boolean(
     company?.whatsappConfig &&
     company.whatsappConfig.phoneNumberId &&
-    company.whatsappConfig.accessToken &&
-    company.whatsappConfig.businessAccountId
+    company.whatsappConfig.accessToken
   );
+  
+  // Fallback to environment variables if company config is missing
+  const hasEnvConfig = Boolean(
+    process.env.WHATSAPP_PHONE_NUMBER_ID &&
+    process.env.WHATSAPP_ACCESS_TOKEN
+  );
+  
+  // businessAccountId is optional - only phoneNumberId and accessToken are required
+  return hasCompanyConfig || hasEnvConfig;
 }
 
 function normalizePhone(phone?: string): string | null {
@@ -403,28 +412,46 @@ async function safeSendWhatsApp(
   company: any,
   rawPhone: string | undefined,
   message: string
-): Promise<void> {
-  if (!rawPhone) return;
+): Promise<{ success: boolean; error?: string }> {
+  if (!rawPhone) {
+    logger.warn('⚠️ No phone number provided for WhatsApp notification');
+    return { success: false, error: 'No phone number provided' };
+  }
 
   if (!isWhatsAppEnabled(company)) {
-    logger.warn('WhatsApp config invalid or missing for company', company?.name);
-    return;
+    logger.warn('⚠️ WhatsApp config invalid or missing for company', {
+      company: company?.name,
+      hasConfig: !!company?.whatsappConfig,
+      hasPhoneId: !!company?.whatsappConfig?.phoneNumberId,
+      hasToken: !!company?.whatsappConfig?.accessToken
+    });
+    return { success: false, error: 'WhatsApp not configured' };
   }
 
   const phone = normalizePhone(rawPhone);
   if (!phone) {
-    logger.warn('Invalid WhatsApp phone number format:', rawPhone);
-    return;
+    logger.warn('⚠️ Invalid WhatsApp phone number format:', rawPhone);
+    return { success: false, error: 'Invalid phone number format' };
   }
 
   try {
-    await sendWhatsAppMessage(company, phone, message);
-    logger.info('✅ WhatsApp sent', { to: phone });
+    const result = await sendWhatsAppMessage(company, phone, message);
+    if (result.success) {
+      logger.info('✅ WhatsApp sent successfully', { to: phone, messageId: result.messageId });
+      return { success: true };
+    } else {
+      logger.error('❌ WhatsApp send failed', {
+        to: phone,
+        error: result.error
+      });
+      return { success: false, error: result.error };
+    }
   } catch (error: any) {
-    logger.error('❌ WhatsApp send failed', {
+    logger.error('❌ WhatsApp send exception', {
       to: phone,
-      error: error?.response?.data || error
+      error: error?.response?.data || error?.message || error
     });
+    return { success: false, error: error?.message || 'Unknown error' };
   }
 }
 
@@ -457,6 +484,86 @@ export async function notifyDepartmentAdminOnCreation(
     const company = await Company.findById(data.companyId);
     if (!company) return;
 
+    // For CEO appointments, departmentId is null - notify Company Admin instead
+    if (data.type === 'appointment' && !data.departmentId) {
+      // Find Company Admin for CEO appointments
+      const companyAdmins = await User.find({
+        companyId: data.companyId,
+        role: UserRole.COMPANY_ADMIN,
+        isActive: true,
+        isDeleted: false
+      });
+
+      if (companyAdmins.length === 0) {
+        logger.warn('⚠️ No Company Admin found to notify about CEO appointment');
+        return;
+      }
+
+      // Notify all Company Admins
+      for (const admin of companyAdmins) {
+        const createdAt = data.createdAt || new Date();
+        const formattedDate = new Date(createdAt).toLocaleString('en-IN', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+
+        const message =
+          `*${company.name}*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📋 *NEW APPOINTMENT REQUEST RECEIVED*\n\n` +
+          `Respected ${admin.getFullName()},\n\n` +
+          `A new appointment request has been received for the CEO.\n\n` +
+          `*Appointment Details:*\n` +
+          `🎫 *Reference ID:* ${data.appointmentId}\n` +
+          `👤 *Citizen Name:* ${data.citizenName}\n` +
+          `📞 *Contact Number:* ${data.citizenPhone}\n` +
+          `🏢 *Department:* CEO - Zilla Parishad Amravati\n` +
+          `📝 *Purpose:* ${data.purpose}\n` +
+          `📅 *Requested Date:* ${data.appointmentDate ? new Date(data.appointmentDate).toLocaleDateString('en-IN') : 'N/A'}\n` +
+          `⏰ *Requested Time:* ${data.appointmentTime || 'N/A'}\n` +
+          `📅 *Received On:* ${formattedDate}\n\n` +
+          `*Action Required:*\n` +
+          `Please review this appointment request and schedule it from the dashboard.\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `*${company.name}*\n` +
+          `Digital Appointment System\n` +
+          `This is an automated notification.`;
+
+        await safeSendWhatsApp(company, admin.phone, message);
+
+        if (admin.email) {
+          try {
+            const emailData = {
+              companyName: company.name,
+              recipientName: admin.getFullName(),
+              appointmentId: data.appointmentId,
+              citizenName: data.citizenName,
+              citizenPhone: data.citizenPhone,
+              departmentName: 'CEO - Zilla Parishad Amravati',
+              purpose: data.purpose,
+              location: data.location,
+              createdAt: data.createdAt,
+              appointmentDate: data.appointmentDate,
+              appointmentTime: data.appointmentTime
+            };
+            const email = generateNotificationEmail('appointment', 'created', emailData);
+            const result = await sendEmail(admin.email, email.subject, email.html, email.text);
+            if (result.success) {
+              logger.info(`✅ Email sent to Company Admin ${admin.getFullName()} (${admin.email})`);
+            }
+          } catch (error) {
+            logger.error(`❌ Error sending email to ${admin.email}:`, error);
+          }
+        }
+      }
+      return; // Exit early for CEO appointments
+    }
+
+    // For grievances or department appointments, use existing logic
     const department = await Department.findById(data.departmentId);
     if (!department) return;
 
@@ -510,9 +617,6 @@ export async function notifyDepartmentAdminOnCreation(
     }
 
     // WhatsApp - Professional and detailed message
-    const priorityText = data.priority 
-      ? `\n⚡ *Priority Level:* ${data.priority}\n` 
-      : '';
     const categoryText = data.category 
       ? `\n📂 *Category:* ${data.category}\n` 
       : '';
@@ -530,7 +634,7 @@ export async function notifyDepartmentAdminOnCreation(
       `🎫 *Reference ID:* ${data.grievanceId || data.appointmentId}\n` +
       `👤 *Citizen Name:* ${data.citizenName}\n` +
       `📞 *Contact Number:* ${data.citizenPhone}\n` +
-      `🏢 *Department:* ${department.name}${categoryText}${priorityText}${locationText}` +
+      `🏢 *Department:* ${department.name}${categoryText}${locationText}` +
       `📝 *Description:*\n${data.description || data.purpose}\n\n` +
       `📅 *Received On:* ${formattedDate}\n\n` +
       `*Action Required:*\n` +
@@ -611,10 +715,6 @@ export async function notifyUserOnAssignment(
     }
 
     // WhatsApp - Professional and detailed message
-    const priorityText = data.priority 
-      ? `\n⚡ *Priority Level:* ${data.priority}\n` 
-      : '';
-    
     const message =
       `*${company.name}*\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -625,7 +725,7 @@ export async function notifyUserOnAssignment(
       `🎫 *Reference ID:* ${data.grievanceId || data.appointmentId}\n` +
       `👤 *Citizen Name:* ${data.citizenName}\n` +
       `📞 *Contact Number:* ${data.citizenPhone}\n` +
-      `🏢 *Department:* ${departmentName}${priorityText}` +
+      `🏢 *Department:* ${departmentName}\n` +
       `📝 *Description:*\n${data.description || data.purpose}\n\n` +
       `👨‍💼 *Assigned By:* ${assignedByName}\n` +
       `📅 *Assigned On:* ${formattedDate}\n\n` +
@@ -904,5 +1004,148 @@ export async function notifyHierarchyOnStatusChange(
 
   } catch (error) {
     logger.error('❌ notifyHierarchyOnStatusChange failed:', error);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Appointment Status Change Notification                             */
+/* ------------------------------------------------------------------ */
+
+export async function notifyCitizenOnAppointmentStatusChange(data: {
+  appointmentId: string;
+  citizenName: string;
+  citizenPhone: string;
+  citizenWhatsApp?: string;
+  companyId: any;
+  oldStatus: string;
+  newStatus: string;
+  remarks?: string;
+  appointmentDate: Date;
+  appointmentTime: string;
+  purpose?: string;
+}): Promise<void> {
+  try {
+    const company = await Company.findById(data.companyId);
+    if (!company) {
+      logger.warn('Company not found for appointment status notification');
+      return;
+    }
+
+    const { AppointmentStatus } = await import('../config/constants');
+    const { getTranslation } = await import('./chatbotEngine');
+    
+    // Format date and time
+    const appointmentDate = new Date(data.appointmentDate);
+    const dateDisplay = appointmentDate.toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const formatTime12Hr = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${String(minutes || 0).padStart(2, '0')} ${period}`;
+    };
+    const timeDisplay = formatTime12Hr(data.appointmentTime);
+
+    let message = '';
+    const remarksText = data.remarks ? `\n\n📝 *Remarks:*\n${data.remarks}` : '';
+
+    // Different messages based on status
+    if (data.newStatus === AppointmentStatus.SCHEDULED) {
+      // Appointment has been scheduled by admin
+      message = 
+        `*${company.name}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `📅 *APPOINTMENT SCHEDULED*\n\n` +
+        `Respected ${data.citizenName},\n\n` +
+        `Your appointment request has been scheduled.\n\n` +
+        `*Appointment Details:*\n` +
+        `🎫 *Ref No:* \`${data.appointmentId}\`\n` +
+        `👤 *Name:* ${data.citizenName}\n` +
+        `📅 *Date:* ${dateDisplay}\n` +
+        `⏰ *Time:* ${timeDisplay}\n` +
+        `🎯 *Purpose:* ${data.purpose || 'Meeting with CEO'}\n` +
+        `📊 *Status:* SCHEDULED${remarksText}\n\n` +
+        `Please wait for confirmation.\n\n` +
+        `Thank you for using our services.\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `*${company.name}*\n` +
+        `Digital Appointment System`;
+
+    } else if (data.newStatus === AppointmentStatus.CONFIRMED) {
+      // Appointment has been confirmed by admin
+      message = 
+        `*${company.name}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `✅ *APPOINTMENT CONFIRMED*\n\n` +
+        `Respected ${data.citizenName},\n\n` +
+        `Your appointment has been confirmed and is ready.\n\n` +
+        `*Appointment Details:*\n` +
+        `🎫 *Ref No:* \`${data.appointmentId}\`\n` +
+        `👤 *Name:* ${data.citizenName}\n` +
+        `📅 *Date:* ${dateDisplay}\n` +
+        `⏰ *Time:* ${timeDisplay}\n` +
+        `🎯 *Purpose:* ${data.purpose || 'Meeting with CEO'}\n` +
+        `📊 *Status:* CONFIRMED${remarksText}\n\n` +
+        `Please arrive 15 minutes early with valid ID.\n\n` +
+        `Thank you for using our services.\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `*${company.name}*\n` +
+        `Digital Appointment System`;
+
+    } else if (data.newStatus === AppointmentStatus.CANCELLED) {
+      // Appointment has been cancelled
+      message = 
+        `*${company.name}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `❌ *APPOINTMENT CANCELLED*\n\n` +
+        `Respected ${data.citizenName},\n\n` +
+        `We regret to inform you that your appointment request has been cancelled.\n\n` +
+        `*Appointment Details:*\n` +
+        `🎫 *Ref No:* \`${data.appointmentId}\`\n` +
+        `📅 *Date:* ${dateDisplay}\n` +
+        `⏰ *Time:* ${timeDisplay}\n` +
+        `🎯 *Purpose:* ${data.purpose || 'Meeting with CEO'}${remarksText}\n\n` +
+        `If you have any questions or would like to reschedule, please contact us.\n\n` +
+        `We apologize for any inconvenience caused.\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `*${company.name}*\n` +
+        `Digital Appointment System`;
+
+    } else if (data.newStatus === AppointmentStatus.COMPLETED) {
+      // Appointment completed
+      message = 
+        `*${company.name}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `✅ *APPOINTMENT COMPLETED*\n\n` +
+        `Respected ${data.citizenName},\n\n` +
+        `Your appointment has been marked as completed.\n\n` +
+        `*Appointment Details:*\n` +
+        `🎫 *Ref No:* \`${data.appointmentId}\`\n` +
+        `📅 *Date:* ${dateDisplay}\n` +
+        `⏰ *Time:* ${timeDisplay}${remarksText}\n\n` +
+        `Thank you for visiting us. We hope your concern was addressed satisfactorily.\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `*${company.name}*\n` +
+        `Digital Appointment System`;
+    }
+
+    if (message) {
+      const result = await safeSendWhatsApp(company, data.citizenWhatsApp || data.citizenPhone, message);
+      if (result.success) {
+        logger.info(`✅ Appointment status notification sent to ${data.citizenName} (${data.citizenPhone})`);
+      } else {
+        logger.error(`❌ Failed to send appointment status notification to ${data.citizenName} (${data.citizenPhone}): ${result.error}`);
+      }
+    } else {
+      logger.warn(`⚠️ No notification message generated for status change: ${data.oldStatus} → ${data.newStatus}`);
+    }
+
+  } catch (error) {
+    logger.error('❌ notifyCitizenOnAppointmentStatusChange failed:', error);
   }
 }

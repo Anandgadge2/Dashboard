@@ -17,6 +17,7 @@
     "seed:zpamaravati": "ts-node src/scripts/seedZPAmaravati.ts",
     "seed:zpamaravati:data": "ts-node src/scripts/seedZPAmaravatiData.ts",
     "fix:zpadmin": "ts-node src/scripts/fixZPAdminPassword.ts",
+    "fix:phone-id": "ts-node src/scripts/fixPhoneNumberId.ts",
     "seed:departments": "ts-node src/scripts/seedDepartments.ts",
     "seed:users": "ts-node src/scripts/seedUsers.ts",
     "generate:sso-token": "ts-node src/scripts/generateSSOToken.ts",
