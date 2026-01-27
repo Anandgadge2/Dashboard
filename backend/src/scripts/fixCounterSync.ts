@@ -13,7 +13,15 @@ dotenv.config();
 const syncCounters = async () => {
   try {
     console.log('🔄 Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGO_URI || '');
+    
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      console.error('❌ MONGODB_URI is not defined in environment variables');
+      console.error('💡 Please check your .env file in the backend directory');
+      process.exit(1);
+    }
+    
+    await mongoose.connect(mongoUri);
     console.log('✅ Connected to MongoDB');
 
     // Fix Grievance Counter

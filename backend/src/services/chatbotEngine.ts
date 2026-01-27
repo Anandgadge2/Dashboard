@@ -1047,7 +1047,7 @@ async function continueGrievanceFlow(
       const confirmMsg = getTranslation('grievanceConfirm', session.language)
         .replace('{name}', session.data.citizenName)
         .replace('{category}', translatedCat)
-        .replace('{description}', session.data.description.substring(0, 100) + '...');
+        .replace('{description}', (session.data.description || 'N/A').substring(0, 100) + (session.data.description && session.data.description.length > 100 ? '...' : ''));
       
       await sendWhatsAppButtons(
         company,
@@ -1112,7 +1112,7 @@ async function continueGrievanceFlow(
         const confirmMessage = getTranslation('grievanceConfirm', session.language)
           .replace('{name}', session.data.citizenName)
           .replace('{category}', session.data.category)
-          .replace('{description}', session.data.description.substring(0, 100) + '...');
+          .replace('{description}', (session.data.description || 'N/A').substring(0, 100) + (session.data.description && session.data.description.length > 100 ? '...' : ''));
         
         await sendWhatsAppButtons(
           company,

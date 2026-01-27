@@ -165,16 +165,50 @@ const init = async () => {
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   const startServer = async () => {
     await init();
-    try {
-      app.listen(PORT, () => {
-        logger.info(`🚀 Server running on port ${PORT}`);
-      });
-    } catch (error) {
-      logger.error('❌ Failed to start HTTP server:', error);
-      process.exit(1);
-    }
+    
+    // Create server instance
+    const server = app.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT}`);
+    });
+
+    // Production-grade error handling for port conflicts
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`❌ Port ${PORT} is already in use`);
+        logger.error('💡 Solutions:');
+        logger.error('   1. Kill the process: taskkill /F /IM node.exe');
+        logger.error('   2. Use a different port: set PORT=5001');
+        logger.error('   3. Find process: netstat -ano | findstr :5000');
+        
+        // Try to gracefully shutdown
+        setTimeout(() => {
+          logger.info('⏳ Attempting graceful shutdown...');
+          process.exit(1);
+        }, 1000);
+      } else if (error.code === 'EACCES') {
+        logger.error(`❌ Permission denied to use port ${PORT}`);
+        logger.error('💡 Try using a port above 1024 or run with elevated privileges');
+        process.exit(1);
+      } else {
+        logger.error('❌ Failed to start HTTP server:', error);
+        process.exit(1);
+      }
+    });
+
+    // Handle server listening event
+    server.on('listening', () => {
+      const addr = server.address();
+      const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr?.port}`;
+      logger.info(`✅ Server listening on ${bind}`);
+    });
+
+    return server;
   };
-  startServer();
+  
+  startServer().catch(err => {
+    logger.error('❌ Server startup failed:', err);
+    process.exit(1);
+  });
 } else {
   // In Vercel environment, init needs to be handled
   // We'll call it once at the top level if supported, or rely on lazy-loading
