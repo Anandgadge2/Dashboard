@@ -5,8 +5,12 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev:prod": "node scripts/start-prod.js",
     "build": "npx tsc",
     "start": "node dist/server.js",
+    "start:prod": "node scripts/start-prod.js",
+    "kill:port": "node scripts/kill-port.js",
+    "health": "node scripts/health-check.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:integration": "jest --testPathPattern=integration",

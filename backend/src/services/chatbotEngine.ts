@@ -12,7 +12,7 @@ import { findDepartmentByCategory, getAvailableCategories } from './departmentMa
 import { notifyDepartmentAdminOnCreation } from './notificationService';
 import { uploadWhatsAppMediaToCloudinary } from './mediaService';
 import { getSession, updateSession, clearSession, UserSession } from './sessionService';
-import { getNextGrievanceId, getNextAppointmentId } from '../utils/idGenerator';
+// Note: ID generation is handled by pre-save hooks in Grievance and Appointment models
 
 export interface ChatbotMessage {
   companyId: string;
@@ -1047,7 +1047,7 @@ async function continueGrievanceFlow(
       const confirmMsg = getTranslation('grievanceConfirm', session.language)
         .replace('{name}', session.data.citizenName)
         .replace('{category}', translatedCat)
-        .replace('{description}', session.data.description.substring(0, 100) + '...');
+        .replace('{description}', (session.data.description || 'N/A').substring(0, 100) + (session.data.description && session.data.description.length > 100 ? '...' : ''));
       
       await sendWhatsAppButtons(
         company,
@@ -1112,7 +1112,7 @@ async function continueGrievanceFlow(
         const confirmMessage = getTranslation('grievanceConfirm', session.language)
           .replace('{name}', session.data.citizenName)
           .replace('{category}', session.data.category)
-          .replace('{description}', session.data.description.substring(0, 100) + '...');
+          .replace('{description}', (session.data.description || 'N/A').substring(0, 100) + (session.data.description && session.data.description.length > 100 ? '...' : ''));
         
         await sendWhatsAppButtons(
           company,
@@ -1166,14 +1166,8 @@ async function createGrievanceWithDepartment(
       category: session.data.category
     });
     
-    
-    // Generate unique grievanceId by finding the highest existing ID
-    // Use atomic counter for ID generation (prevents race conditions)
-    const grievanceId = await getNextGrievanceId();
-    console.log('🆔 Generated grievanceId (atomic):', grievanceId);
-    
     const grievanceData = {
-      grievanceId: grievanceId,  // Add the generated ID
+      // Don't set grievanceId here - let the pre-save hook generate it automatically
       companyId: company._id,
       departmentId: departmentId || undefined,
       citizenName: session.data.citizenName,
@@ -1806,14 +1800,9 @@ async function createAppointment(
     const appointmentDate = new Date(session.data.appointmentDate);
     const appointmentTime = session.data.appointmentTime;
     
-    
-    // Use atomic counter for ID generation (prevents race conditions)
-    const appointmentId = await getNextAppointmentId();
-    console.log('🆔 Generated appointmentId (atomic):', appointmentId);
-    
     // Appointment is for CEO only - no department
     const appointmentData = {
-      appointmentId: appointmentId,  // Add the generated ID
+      // Don't set appointmentId here - let the pre-save hook generate it automatically
       companyId: company._id,
       departmentId: null, // No department for CEO appointments - explicitly set to null
       citizenName: session.data.citizenName,
