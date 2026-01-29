@@ -270,7 +270,7 @@ function DashboardContent() {
         toast.error('Failed to delete grievances');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete grievances');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to delete grievances');
     } finally {
       setIsDeleting(false);
     }
@@ -295,7 +295,7 @@ function DashboardContent() {
         toast.error('Failed to delete appointments');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete appointments');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to delete appointments');
     } finally {
       setIsDeleting(false);
     }

@@ -33,6 +33,9 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({ isOpen, onClo
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreateCompanyData>({
     name: '',
+    nameHi: '',
+    nameOr: '',
+    nameMr: '',
     companyType: 'GOVERNMENT',
     contactEmail: '',
     contactPhone: '',
@@ -56,6 +59,9 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({ isOpen, onClo
     if (editingCompany) {
       setFormData({
         name: editingCompany.name,
+        nameHi: editingCompany.nameHi || '',
+        nameOr: editingCompany.nameOr || '',
+        nameMr: editingCompany.nameMr || '',
         companyType: editingCompany.companyType,
         contactEmail: editingCompany.contactEmail,
         contactPhone: editingCompany.contactPhone,
@@ -78,6 +84,9 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({ isOpen, onClo
       // Reset form for creating new company
       setFormData({
         name: '',
+        nameHi: '',
+        nameOr: '',
+        nameMr: '',
         companyType: 'GOVERNMENT',
         contactEmail: '',
         contactPhone: '',
@@ -151,6 +160,9 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({ isOpen, onClo
       if (response.success) {
         setFormData({
           name: '',
+          nameHi: '',
+          nameOr: '',
+          nameMr: '',
           companyType: 'GOVERNMENT',
           contactEmail: '',
           contactPhone: '',
@@ -231,7 +243,7 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({ isOpen, onClo
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="name">Company Name *</Label>
+                <Label htmlFor="name">Company Name (English) *</Label>
                 <Input
                   id="name"
                   name="name"
@@ -259,6 +271,44 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({ isOpen, onClo
                   <option value="LEAD_COLLECTION">Lead Collection</option>
                   <option value="CUSTOM_ENTERPRISE">Custom Enterprise</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nameHi">Company Name (Hindi)</Label>
+                <Input
+                  id="nameHi"
+                  name="nameHi"
+                  type="text"
+                  value={formData.nameHi || ''}
+                  onChange={handleChange}
+                  placeholder="कंपनी का नाम"
+                />
+              </div>
+              <div>
+                <Label htmlFor="nameMr">Company Name (Marathi)</Label>
+                <Input
+                  id="nameMr"
+                  name="nameMr"
+                  type="text"
+                  value={formData.nameMr || ''}
+                  onChange={handleChange}
+                  placeholder="कंपनीचे नाव"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nameOr">Company Name (Odia)</Label>
+                <Input
+                  id="nameOr"
+                  name="nameOr"
+                  type="text"
+                  value={formData.nameOr || ''}
+                  onChange={handleChange}
+                  placeholder="କମ୍ପାନି ନାମ"
+                />
               </div>
             </div>
 

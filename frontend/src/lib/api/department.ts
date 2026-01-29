@@ -4,7 +4,16 @@ export interface Department {
   _id: string;
   departmentId: string;
   name: string;
+  /** Display name in Hindi (for chatbot when user selects Hindi) */
+  nameHi?: string;
+  /** Display name in Odia (for chatbot when user selects Odia) */
+  nameOr?: string;
+  /** Display name in Marathi (for chatbot when user selects Marathi) */
+  nameMr?: string;
   description?: string;
+  descriptionHi?: string;
+  descriptionOr?: string;
+  descriptionMr?: string;
   contactPerson?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -16,7 +25,13 @@ export interface Department {
 
 export interface CreateDepartmentData {
   name: string;
+  nameHi?: string;
+  nameOr?: string;
+  nameMr?: string;
   description?: string;
+  descriptionHi?: string;
+  descriptionOr?: string;
+  descriptionMr?: string;
   contactPerson?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -25,7 +40,13 @@ export interface CreateDepartmentData {
 
 export interface UpdateDepartmentData {
   name?: string;
+  nameHi?: string;
+  nameOr?: string;
+  nameMr?: string;
   description?: string;
+  descriptionHi?: string;
+  descriptionOr?: string;
+  descriptionMr?: string;
   contactPerson?: string;
   contactEmail?: string;
   contactPhone?: string;

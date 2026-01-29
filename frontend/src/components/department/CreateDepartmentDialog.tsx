@@ -24,7 +24,13 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
   const [companies, setCompanies] = useState<Company[]>([]);
   const [formData, setFormData] = useState({
     name: '',
+    nameHi: '',
+    nameOr: '',
+    nameMr: '',
     description: '',
+    descriptionHi: '',
+    descriptionOr: '',
+    descriptionMr: '',
     contactPerson: '',
     contactEmail: '',
     contactPhone: '',
@@ -37,7 +43,13 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
       if (editingDepartment) {
         setFormData({
           name: editingDepartment.name || '',
+          nameHi: editingDepartment.nameHi || '',
+          nameOr: editingDepartment.nameOr || '',
+          nameMr: editingDepartment.nameMr || '',
           description: editingDepartment.description || '',
+          descriptionHi: editingDepartment.descriptionHi || '',
+          descriptionOr: editingDepartment.descriptionOr || '',
+          descriptionMr: editingDepartment.descriptionMr || '',
           contactPerson: editingDepartment.contactPerson || '',
           contactEmail: editingDepartment.contactEmail || '',
           contactPhone: editingDepartment.contactPhone || '',
@@ -53,7 +65,13 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
         
         setFormData({
           name: '',
+          nameHi: '',
+          nameOr: '',
+          nameMr: '',
           description: '',
+          descriptionHi: '',
+          descriptionOr: '',
+          descriptionMr: '',
           contactPerson: '',
           contactEmail: '',
           contactPhone: '',
@@ -111,7 +129,13 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
       if (response.success) {
         setFormData({
           name: '',
+          nameHi: '',
+          nameOr: '',
+          nameMr: '',
           description: '',
+          descriptionHi: '',
+          descriptionOr: '',
+          descriptionMr: '',
           contactPerson: '',
           contactEmail: '',
           contactPhone: '',
@@ -159,7 +183,7 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="name">Department Name *</Label>
+              <Label htmlFor="name">Department Name (English) *</Label>
               <Input
                 id="name"
                 name="name"
@@ -167,8 +191,46 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
                 value={formData.name}
                 onChange={handleChange}
                 required
-                placeholder="Enter department name"
+                placeholder="e.g. Revenue Department"
               />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="nameHi">Name in Hindi (optional)</Label>
+                <Input
+                  id="nameHi"
+                  name="nameHi"
+                  type="text"
+                  value={formData.nameHi}
+                  onChange={handleChange}
+                  placeholder="e.g. राजस्व विभाग"
+                />
+                <p className="text-[10px] text-slate-500 mt-0.5">Shown when user selects Hindi</p>
+              </div>
+              <div>
+                <Label htmlFor="nameOr">Name in Odia (optional)</Label>
+                <Input
+                  id="nameOr"
+                  name="nameOr"
+                  type="text"
+                  value={formData.nameOr}
+                  onChange={handleChange}
+                  placeholder="e.g. ଆଦାୟ ବିଭାଗ"
+                />
+                <p className="text-[10px] text-slate-500 mt-0.5">Shown when user selects Odia</p>
+              </div>
+              <div>
+                <Label htmlFor="nameMr">Name in Marathi (optional)</Label>
+                <Input
+                  id="nameMr"
+                  name="nameMr"
+                  type="text"
+                  value={formData.nameMr}
+                  onChange={handleChange}
+                  placeholder="e.g. राजस्व विभाग"
+                />
+                <p className="text-[10px] text-slate-500 mt-0.5">Shown when user selects Marathi</p>
+              </div>
             </div>
 
            {/* <div>
@@ -204,16 +266,54 @@ const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({ isOpen,
             </div> */}
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description (English)</Label>
               <textarea
                 id="description"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                rows={3}
+                rows={2}
                 className="w-full p-2 border rounded-md"
                 placeholder="Department description"
               />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="descriptionHi">Description in Hindi (optional)</Label>
+                <textarea
+                  id="descriptionHi"
+                  name="descriptionHi"
+                  value={formData.descriptionHi}
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full p-2 border rounded-md"
+                  placeholder="For chatbot list when Hindi selected"
+                />
+              </div>
+              <div>
+                <Label htmlFor="descriptionOr">Description in Odia (optional)</Label>
+                <textarea
+                  id="descriptionOr"
+                  name="descriptionOr"
+                  value={formData.descriptionOr}
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full p-2 border rounded-md"
+                  placeholder="For chatbot list when Odia selected"
+                />
+              </div>
+              <div>
+                <Label htmlFor="descriptionMr">Description in Marathi (optional)</Label>
+                <textarea
+                  id="descriptionMr"
+                  name="descriptionMr"
+                  value={formData.descriptionMr}
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full p-2 border rounded-md"
+                  placeholder="For chatbot list when Marathi selected"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

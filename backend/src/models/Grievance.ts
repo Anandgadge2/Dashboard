@@ -37,7 +37,7 @@ export interface IGrievance extends Document {
   isDeleted: boolean;
   deletedAt?: Date;
   deletedBy?: mongoose.Types.ObjectId;
-  language: 'en' | 'hi' | 'mr';
+  language: 'en' | 'hi' | 'mr' | 'or';
   timeline: Array<{
     action: string;
     details?: any;
@@ -53,7 +53,6 @@ const GrievanceSchema: Schema = new Schema(
     grievanceId: {
       type: String,
       required: false, // Set by pre-save hook, not required on input
-      unique: true,
       index: true
     },
     companyId: {
@@ -175,7 +174,7 @@ const GrievanceSchema: Schema = new Schema(
     },
     language: {
       type: String,
-      enum: ['en', 'hi', 'mr'],
+      enum: ['en', 'hi', 'mr', 'or'],
       default: 'en'
     },
     timeline: [{
@@ -204,31 +203,21 @@ GrievanceSchema.index({ companyId: 1, status: 1, isDeleted: 1 });
 GrievanceSchema.index({ departmentId: 1, status: 1, isDeleted: 1 });
 GrievanceSchema.index({ assignedTo: 1, status: 1, isDeleted: 1 });
 GrievanceSchema.index({ createdAt: -1 });
+// ✅ Per-company uniqueness: allows GRV00000001.. to restart per company safely
+GrievanceSchema.index({ companyId: 1, grievanceId: 1 }, { unique: true, sparse: true });
 
 // Pre-save hook to generate grievanceId (using atomic counter if not provided)
 GrievanceSchema.pre('save', async function (next) {
   if (this.isNew && !this.grievanceId) {
     try {
       // Use atomic counter for ID generation (prevents race conditions)
+      // Pass companyId for per-company counters
       const { getNextGrievanceId } = await import('../utils/idGenerator');
-      this.grievanceId = await getNextGrievanceId();
+      this.grievanceId = await getNextGrievanceId(this.companyId as any);
     } catch (error) {
       console.error('❌ Error generating grievance ID:', error);
-      // Fallback to old method if counter fails
-      const lastGrievance = await mongoose.model('Grievance')
-        .findOne({}, { grievanceId: 1 })
-        .sort({ grievanceId: -1 })
-        .setOptions({ includeDeleted: true });
-
-      let nextNum = 1;
-      if (lastGrievance && lastGrievance.grievanceId) {
-        const match = lastGrievance.grievanceId.match(/^GRV(\d+)$/);
-        if (match) {
-          nextNum = parseInt(match[1], 10) + 1;
-        }
-      }
-      
-      this.grievanceId = `GRV${String(nextNum).padStart(8, '0')}`;
+      // ✅ Production: do NOT fall back to a non-atomic scan (causes duplicates under concurrency).
+      return next(error as any);
     }
     
     // Initialize status history

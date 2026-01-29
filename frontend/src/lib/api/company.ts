@@ -4,6 +4,9 @@ export interface Company {
   _id: string;
   companyId: string;
   name: string;
+  nameHi?: string;
+  nameOr?: string;
+  nameMr?: string;
   companyType: string;
   enabledModules: string[];
   contactEmail: string;
@@ -28,6 +31,9 @@ export interface Company {
 
 export interface CreateCompanyData {
   name: string;
+  nameHi?: string;
+  nameOr?: string;
+  nameMr?: string;
   companyType: string;
   contactEmail: string;
   contactPhone: string;
@@ -37,11 +43,6 @@ export interface CreateCompanyData {
     primaryColor?: string;
     secondaryColor?: string;
     logoUrl?: string;
-  };
-  whatsappConfig?: {
-    phoneNumberId: string;
-    accessToken: string;
-    businessAccountId: string;
   };
   admin?: {
     firstName: string;

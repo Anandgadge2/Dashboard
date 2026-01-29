@@ -4,6 +4,12 @@ import { CompanyType, Module } from '../config/constants';
 export interface ICompany extends Document {
   companyId: string;
   name: string;
+  /** Display name in Hindi */
+  nameHi?: string;
+  /** Display name in Odia */
+  nameOr?: string;
+  /** Display name in Marathi */
+  nameMr?: string;
   companyType: CompanyType;
   enabledModules: Module[];
   contactEmail: string;
@@ -14,32 +20,8 @@ export interface ICompany extends Document {
     secondaryColor: string;
     logoUrl?: string;
   };
-  whatsappConfig?: {
-    phoneNumberId: string;
-    accessToken: string;
-    businessAccountId: string;
-  };
-  chatbotConfig?: {
-    flows: Array<{
-      id: string;
-      name: string;
-      triggers: string[];
-      steps: Array<{
-        id: string;
-        type: string;
-        question?: string;
-        action?: string;
-        response?: string;
-        nextStepId?: string;
-        validation?: {
-          type: string;
-          required: boolean;
-        };
-      }>;
-      defaultResponse?: string;
-    }>;
-    enabled: boolean;
-  };
+  // Note: whatsappConfig moved to CompanyWhatsAppConfig model
+  // Note: chatbotConfig moved to ChatbotFlow model
   isActive: boolean;
   isSuspended: boolean;
   isDeleted: boolean;
@@ -62,6 +44,9 @@ const CompanySchema: Schema = new Schema(
       required: true,
       trim: true
     },
+    nameHi: { type: String, trim: true },
+    nameOr: { type: String, trim: true },
+    nameMr: { type: String, trim: true },
     companyType: {
       type: String,
       enum: Object.values(CompanyType),
@@ -98,35 +83,8 @@ const CompanySchema: Schema = new Schema(
         type: String
       }
     },
-    whatsappConfig: {
-      phoneNumberId: String,
-      accessToken: String,
-      businessAccountId: String
-    },
-    chatbotConfig: {
-      flows: [{
-        id: String,
-        name: String,
-        triggers: [String],
-        steps: [{
-          id: String,
-          type: String,
-          question: String,
-          action: String,
-          response: String,
-          nextStepId: String,
-          validation: {
-            type: String,
-            required: Boolean
-          }
-        }],
-        defaultResponse: String
-      }],
-      enabled: {
-        type: Boolean,
-        default: true
-      }
-    },
+    // Removed: whatsappConfig - now in CompanyWhatsAppConfig model
+    // Removed: chatbotConfig - now in ChatbotFlow model
     isActive: {
       type: Boolean,
       default: true

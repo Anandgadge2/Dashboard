@@ -1,57 +1,71 @@
 import nodemailer, { Transporter, SendMailOptions } from 'nodemailer';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
+import mongoose from 'mongoose';
 import { logger } from '../config/logger';
+import CompanyEmailConfig from '../models/CompanyEmailConfig';
+import CompanyEmailTemplate from '../models/CompanyEmailTemplate';
+import CompanyWhatsAppTemplate from '../models/CompanyWhatsAppTemplate';
 
 /**
- * Reusable SMTP transporter (singleton)
+ * Reusable SMTP transporter from env (singleton, fallback)
  */
-let transporter: Transporter<SMTPTransport.SentMessageInfo> | null = null;
+let envTransporter: Transporter<SMTPTransport.SentMessageInfo> | null = null;
 
-/**
- * Create or reuse transporter
- */
-const createTransporter = (): Transporter<SMTPTransport.SentMessageInfo> => {
-  if (transporter) return transporter;
-
-  const port: number = Number(process.env.SMTP_PORT ?? 465);
-  const isSecure: boolean = port === 465;
-
+const createEnvTransporter = (): Transporter<SMTPTransport.SentMessageInfo> | null => {
+  if (envTransporter) return envTransporter;
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
+  const port = Number(process.env.SMTP_PORT ?? 465);
   const options: SMTPTransport.Options = {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port,
-    secure: isSecure,        // 465 → implicit TLS, 587 → STARTTLS
+    secure: port === 465,
     requireTLS: port === 587,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    },
-    tls: {
-      rejectUnauthorized: true // MUST be true in production
-    }
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    tls: { rejectUnauthorized: true }
   };
-
-  transporter = nodemailer.createTransport(options);
-  return transporter;
+  envTransporter = nodemailer.createTransport(options);
+  return envTransporter;
 };
 
 /**
- * Send email notification
+ * Get transporter for a company from DB (CompanyEmailConfig). Prefer DB over env.
+ */
+export async function getTransporterForCompany(companyId: string | mongoose.Types.ObjectId): Promise<Transporter<SMTPTransport.SentMessageInfo> | null> {
+  try {
+    const id = typeof companyId === 'string' && mongoose.Types.ObjectId.isValid(companyId)
+      ? new mongoose.Types.ObjectId(companyId)
+      : companyId;
+    const config = await CompanyEmailConfig.findOne({ companyId: id, isActive: true });
+    if (!config) return null;
+    return nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      requireTLS: config.port === 587,
+      auth: config.auth,
+      tls: { rejectUnauthorized: true }
+    } as SMTPTransport.Options);
+  } catch (e) {
+    logger.warn('getTransporterForCompany failed:', e);
+    return null;
+  }
+}
+
+export interface SendEmailOptions {
+  companyId?: string | mongoose.Types.ObjectId;
+}
+
+/**
+ * Send email notification. Uses company SMTP from DB when options.companyId is set; otherwise env.
  */
 export async function sendEmail(
   to: string | string[],
   subject: string,
   html: string,
-  text?: string
+  text?: string,
+  options?: SendEmailOptions
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    // Check SMTP configuration
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      const errorMsg = 'SMTP credentials not configured. Please set SMTP_USER and SMTP_PASS environment variables.';
-      logger.warn(`⚠️ ${errorMsg}`);
-      return { success: false, error: errorMsg };
-    }
-
-    // Validate email address
     const recipients = Array.isArray(to) ? to : [to];
     const invalidEmails = recipients.filter(email => !email || !email.includes('@'));
     if (invalidEmails.length > 0) {
@@ -60,10 +74,34 @@ export async function sendEmail(
       return { success: false, error: errorMsg };
     }
 
-    const transport = createTransporter();
+    let transport: Transporter<SMTPTransport.SentMessageInfo> | null = null;
+    let fromLine: string;
+
+    if (options?.companyId) {
+      transport = await getTransporterForCompany(options.companyId);
+      if (transport) {
+        const config = await CompanyEmailConfig.findOne({
+          companyId: options.companyId,
+          isActive: true
+        });
+        fromLine = config
+          ? `"${config.fromName}" <${config.fromEmail}>`
+          : `"Dashboard" <noreply@dashboard.local>`;
+      }
+    }
+
+    if (!transport) {
+      transport = createEnvTransporter();
+      if (!transport) {
+        const errorMsg = 'SMTP not configured. Set company Email Config (DB) or SMTP_* env variables.';
+        logger.warn(`⚠️ ${errorMsg}`);
+        return { success: false, error: errorMsg };
+      }
+      fromLine = `"${process.env.SMTP_FROM_NAME || 'Zilla Parishad Amravati'}" <${process.env.SMTP_USER}>`;
+    }
 
     const mailOptions: SendMailOptions = {
-      from: `"${process.env.SMTP_FROM_NAME || 'Zilla Parishad Amravati'}" <${process.env.SMTP_USER}>`,
+      from: fromLine!,
       to: recipients.join(', '),
       subject,
       text: text ?? subject,
@@ -77,25 +115,12 @@ export async function sendEmail(
     return { success: true };
   } catch (err: any) {
     let errorMessage = 'Unknown email error';
-    
     if (err instanceof Error) {
       errorMessage = err.message;
-      
-      // Provide more helpful error messages
-      if (err.message.includes('Invalid login')) {
-        errorMessage = 'Invalid SMTP credentials. Please check SMTP_USER and SMTP_PASS.';
-      } else if (err.message.includes('ECONNREFUSED') || err.message.includes('ETIMEDOUT')) {
-        errorMessage = `Cannot connect to SMTP server (${process.env.SMTP_HOST || 'smtp.gmail.com'}:${process.env.SMTP_PORT || 465}). Check network and SMTP settings.`;
-      } else if (err.message.includes('self signed certificate')) {
-        errorMessage = 'SMTP server certificate validation failed. Check TLS settings.';
-      }
+      if (err.message.includes('Invalid login')) errorMessage = 'Invalid SMTP credentials.';
+      else if (err.message.includes('ECONNREFUSED') || err.message.includes('ETIMEDOUT')) errorMessage = 'Cannot connect to SMTP server.';
     }
-
-    logger.error(`❌ Failed to send email to ${Array.isArray(to) ? to.join(', ') : to}:`, {
-      error: errorMessage,
-      details: err
-    });
-    
+    logger.error(`❌ Failed to send email:`, { error: errorMessage, details: err });
     return { success: false, error: errorMessage };
   }
 }
@@ -103,9 +128,25 @@ export async function sendEmail(
 /**
  * Test email configuration
  */
-export async function testEmailConfiguration(): Promise<{ success: boolean; error?: string; details?: any }> {
+export async function testEmailConfiguration(companyId?: string | mongoose.Types.ObjectId): Promise<{ success: boolean; error?: string; details?: any }> {
   try {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    if (companyId) {
+      const transport = await getTransporterForCompany(companyId);
+      if (!transport) {
+        return { success: false, error: 'No email config found for this company' };
+      }
+      await transport.verify();
+      const config = await CompanyEmailConfig.findOne({ companyId, isActive: true });
+      return {
+        success: true,
+        details: config
+          ? { host: config.host, port: config.port, fromName: config.fromName, fromEmail: config.fromEmail }
+          : undefined
+      };
+    }
+
+    const transport = createEnvTransporter();
+    if (!transport) {
       return {
         success: false,
         error: 'SMTP credentials not configured',
@@ -117,8 +158,6 @@ export async function testEmailConfiguration(): Promise<{ success: boolean; erro
         }
       };
     }
-
-    const transport = createTransporter();
     
     // Test connection by verifying credentials
     await transport.verify();
@@ -352,6 +391,60 @@ function generateTimelineHTML(timeline: any[] | undefined, resolvedBy: any, reso
   
   html += '</div></div>';
   return html;
+}
+
+/**
+ * Replace placeholders in a string with data values. E.g. {citizenName} -> data.citizenName
+ */
+export function replacePlaceholders(str: string, data: Record<string, any>): string {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/\{(\w+)\}/g, (_, key) => {
+    const v = data[key];
+    return v != null ? String(v) : `{${key}}`;
+  });
+}
+
+/**
+ * Get email content for a notification: use company custom template if set, else built-in.
+ */
+export async function getNotificationEmailContent(
+  companyId: string | mongoose.Types.ObjectId,
+  type: 'grievance' | 'appointment',
+  action: 'created' | 'assigned' | 'resolved',
+  data: any
+): Promise<{ subject: string; html: string; text: string }> {
+  const key = `${type}_${action}` as 'grievance_created' | 'grievance_assigned' | 'grievance_resolved' | 'appointment_created' | 'appointment_assigned' | 'appointment_resolved';
+  const cid = typeof companyId === 'string' && mongoose.Types.ObjectId.isValid(companyId)
+    ? new mongoose.Types.ObjectId(companyId)
+    : companyId;
+  const template = await CompanyEmailTemplate.findOne({ companyId: cid, templateKey: key, isActive: true });
+  if (template && template.subject && template.htmlBody) {
+    const subject = replacePlaceholders(template.subject, data);
+    const html = replacePlaceholders(template.htmlBody, data);
+    const text = template.textBody ? replacePlaceholders(template.textBody, data) : subject;
+    return { subject, html, text };
+  }
+  return generateNotificationEmail(type, action, data);
+}
+
+/**
+ * Get WhatsApp message for a notification: use company custom template if set, else return null (caller uses default).
+ */
+export async function getNotificationWhatsAppMessage(
+  companyId: string | mongoose.Types.ObjectId,
+  type: 'grievance' | 'appointment',
+  action: 'created' | 'assigned' | 'resolved',
+  data: Record<string, any>
+): Promise<string | null> {
+  const key = `${type}_${action}`;
+  const cid = typeof companyId === 'string' && mongoose.Types.ObjectId.isValid(companyId)
+    ? new mongoose.Types.ObjectId(companyId)
+    : companyId;
+  const template = await CompanyWhatsAppTemplate.findOne({ companyId: cid, templateKey: key as any, isActive: true });
+  if (template && template.message && template.message.trim()) {
+    return replacePlaceholders(template.message.trim(), data);
+  }
+  return null;
 }
 
 /**

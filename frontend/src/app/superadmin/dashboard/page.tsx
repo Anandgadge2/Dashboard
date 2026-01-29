@@ -176,7 +176,7 @@ export default function SuperAdminDashboard() {
             toast.error('Failed to delete company');
           }
         } catch (error: any) {
-          toast.error(error.message || 'Failed to delete company');
+          toast.error(error?.response?.data?.message || error?.message || 'Failed to delete company');
         }
       },
       variant: 'danger'
@@ -199,7 +199,7 @@ export default function SuperAdminDashboard() {
             toast.error('Failed to delete department');
           }
         } catch (error: any) {
-          toast.error(error.message || 'Failed to delete department');
+          toast.error(error?.response?.data?.message || error?.message || 'Failed to delete department');
         }
       },
       variant: 'danger'

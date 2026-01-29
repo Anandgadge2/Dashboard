@@ -333,24 +333,62 @@ router.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    // Check if user already exists by phone
-    const existingUser = await User.findOne({ phone });
+    // Check if user already exists by phone in the same company
+    // Allow same phone/email across different companies, but not within the same company
+    // For SUPER_ADMIN (companyId = null), keep phone/email globally unique
+    const phoneQuery: any = { 
+      phone, 
+      isDeleted: false 
+    };
+    
+    if (companyId) {
+      phoneQuery.companyId = companyId;
+    } else {
+      // SUPER_ADMIN: check globally (companyId is null or undefined)
+      phoneQuery.$or = [
+        { companyId: null },
+        { companyId: { $exists: false } }
+      ];
+    }
+    
+    const existingUser = await User.findOne(phoneQuery);
 
     if (existingUser) {
+      const message = companyId 
+        ? 'User with this phone number already exists in this company'
+        : 'User with this phone number already exists';
       res.status(400).json({
         success: false,
-        message: 'User with this phone number already exists'
+        message
       });
       return;
     }
 
-    // Check if email already exists if provided
+    // Check if email already exists in the same company if provided
     if (email) {
-      const existingEmail = await User.findOne({ email });
+      const emailQuery: any = { 
+        email: email.toLowerCase().trim(), 
+        isDeleted: false 
+      };
+      
+      if (companyId) {
+        emailQuery.companyId = companyId;
+      } else {
+        // SUPER_ADMIN: check globally (companyId is null or undefined)
+        emailQuery.$or = [
+          { companyId: null },
+          { companyId: { $exists: false } }
+        ];
+      }
+      
+      const existingEmail = await User.findOne(emailQuery);
       if (existingEmail) {
+        const message = companyId 
+          ? 'User with this email already exists in this company'
+          : 'User with this email already exists';
         res.status(400).json({
           success: false,
-          message: 'User with this email already exists'
+          message
         });
         return;
       }

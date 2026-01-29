@@ -4,7 +4,19 @@ export interface IDepartment extends Document {
   departmentId: string;
   companyId: mongoose.Types.ObjectId;
   name: string;
+  /** Display name in Hindi (for chatbot list when user selects Hindi) */
+  nameHi?: string;
+  /** Display name in Odia (for chatbot list when user selects Odia) */
+  nameOr?: string;
+  /** Display name in Marathi (for chatbot list when user selects Marathi) */
+  nameMr?: string;
   description?: string;
+  /** Description in Hindi */
+  descriptionHi?: string;
+  /** Description in Odia */
+  descriptionOr?: string;
+  /** Description in Marathi */
+  descriptionMr?: string;
   contactPerson?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -35,10 +47,16 @@ const DepartmentSchema: Schema = new Schema(
       required: true,
       trim: true
     },
+    nameHi: { type: String, trim: true },
+    nameOr: { type: String, trim: true },
+    nameMr: { type: String, trim: true },
     description: {
       type: String,
       trim: true
     },
+    descriptionHi: { type: String, trim: true },
+    descriptionOr: { type: String, trim: true },
+    descriptionMr: { type: String, trim: true },
     contactPerson: {
       type: String,
       trim: true

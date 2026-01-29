@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 export interface UserSession {
   companyId: string;
   phoneNumber: string;
-  language: 'en' | 'hi' | 'mr';
+  language: 'en' | 'hi' | 'mr' | 'or';
   step: string;
   data: Record<string, any>;
   pendingAction?: string;
@@ -102,6 +102,35 @@ async function releaseLock(phoneNumber: string, companyId: string): Promise<void
 }
 
 /**
+ * Get session from MongoDB only (for recovery when Redis returns empty/stale)
+ */
+export async function getSessionFromMongo(phoneNumber: string, companyId: string): Promise<UserSession | null> {
+  try {
+    const companyObjectId = await getCompanyObjectId(companyId);
+    if (!companyObjectId) return null;
+    const dbSession = await WhatsAppSession.findOne({
+      phoneNumber,
+      companyId: companyObjectId,
+      isActive: true,
+      expiresAt: { $gt: new Date() }
+    });
+    if (!dbSession) return null;
+    const company = await Company.findById(companyObjectId);
+    return {
+      companyId: company?.companyId || companyId,
+      phoneNumber: dbSession.phoneNumber,
+      language: (dbSession.language as 'en' | 'hi' | 'mr') || 'en',
+      step: dbSession.currentStep || 'start',
+      data: dbSession.sessionData && typeof dbSession.sessionData === 'object' ? dbSession.sessionData : {},
+      lastActivity: dbSession.lastMessageAt
+    };
+  } catch (error) {
+    console.error('❌ Error reading session from MongoDB (recovery):', error);
+    return null;
+  }
+}
+
+/**
  * Get or create session with locking
  */
 export async function getSession(phoneNumber: string, companyId: string): Promise<UserSession> {
@@ -115,6 +144,10 @@ export async function getSession(phoneNumber: string, companyId: string): Promis
       if (sessionData) {
         const session: UserSession = JSON.parse(sessionData);
         session.lastActivity = new Date(session.lastActivity);
+        // Ensure data is an object (Redis may have stored null/undefined)
+        if (session.data == null || typeof session.data !== 'object') {
+          session.data = {};
+        }
         return session;
       }
     } catch (error) {
@@ -136,12 +169,13 @@ export async function getSession(phoneNumber: string, companyId: string): Promis
       if (dbSession) {
         // Get the companyId string back from the Company document
         const company = await Company.findById(companyObjectId);
+        const sessionData = dbSession.sessionData;
         const session: UserSession = {
           companyId: company?.companyId || companyId,
           phoneNumber: dbSession.phoneNumber,
           language: (dbSession.language as 'en' | 'hi' | 'mr') || 'en',
           step: dbSession.currentStep || 'start',
-          data: dbSession.sessionData || {},
+          data: sessionData && typeof sessionData === 'object' ? sessionData : {},
           lastActivity: dbSession.lastMessageAt
         };
 

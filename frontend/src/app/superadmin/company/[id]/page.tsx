@@ -19,7 +19,7 @@ import StatusUpdateModal from '@/components/grievance/StatusUpdateModal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Building, Users, FileText, Calendar, ArrowLeft, BarChart2, Search, Filter, ArrowUpDown, Download, RefreshCw, CheckCircle, Clock, TrendingUp, Trash2 } from 'lucide-react';
+import { Building, Users, FileText, Calendar, ArrowLeft, BarChart2, Search, Filter, ArrowUpDown, Download, RefreshCw, CheckCircle, Clock, TrendingUp, Trash2, MessageSquare, Mail, Settings, Workflow } from 'lucide-react';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -53,6 +53,7 @@ export default function CompanyDrillDown() {
   const [showUserDetailsDialog, setShowUserDetailsDialog] = useState(false);
   const [showGrievanceStatusModal, setShowGrievanceStatusModal] = useState(false);
   const [selectedGrievanceForStatus, setSelectedGrievanceForStatus] = useState<Grievance | null>(null);
+  const [whatsappConfig, setWhatsappConfig] = useState<any>(null);
   
   // Selection state for bulk delete (Super Admin only)
   const [selectedGrievances, setSelectedGrievances] = useState<Set<string>>(new Set());
@@ -107,6 +108,21 @@ export default function CompanyDrillDown() {
       const appointmentsRes = await appointmentAPI.getAll({ companyId, limit: 100 });
       if (appointmentsRes.success) {
         setAppointments(appointmentsRes.data.appointments);
+      }
+
+      // Fetch WhatsApp config
+      try {
+        const configRes = await apiClient.get(`/whatsapp-config/company/${companyId}`);
+        if (configRes.success && configRes.data) {
+          setWhatsappConfig(configRes.data);
+        } else if (configRes.data) {
+          setWhatsappConfig(configRes.data);
+        }
+      } catch (configError: any) {
+        // WhatsApp config not found is OK - just don't show it
+        if (configError.response?.status !== 404) {
+          console.error('Failed to load WhatsApp config:', configError);
+        }
       }
 
       // Calculate stats
@@ -230,7 +246,7 @@ export default function CompanyDrillDown() {
         toast.error('Failed to delete grievances');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete grievances');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to delete grievances');
     } finally {
       setIsDeleting(false);
     }
@@ -250,7 +266,7 @@ export default function CompanyDrillDown() {
         toast.error('Failed to delete appointments');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete appointments');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to delete appointments');
     } finally {
       setIsDeleting(false);
     }
@@ -268,7 +284,7 @@ export default function CompanyDrillDown() {
       setSelectedDepartments(new Set());
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete departments');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to delete departments');
     } finally {
       setIsDeleting(false);
     }
@@ -286,7 +302,7 @@ export default function CompanyDrillDown() {
       setSelectedUsers(new Set());
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete users');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to delete users');
     } finally {
       setIsDeleting(false);
     }
@@ -376,6 +392,32 @@ export default function CompanyDrillDown() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* WhatsApp Configuration Button */}
+              <Button
+                onClick={() => router.push(`/superadmin/company/${companyId}/whatsapp-config`)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all shadow-lg"
+              >
+                <MessageSquare className="w-4 h-4" />
+                WhatsApp Config
+              </Button>
+              {/* Email Configuration Button */}
+              <Button
+                onClick={() => router.push(`/superadmin/company/${companyId}/email-config`)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl transition-all shadow-lg"
+              >
+                <Mail className="w-4 h-4" />
+                Email Config
+              </Button>
+              
+              {/* Chatbot Flows Button */}
+              <Button
+                onClick={() => router.push(`/superadmin/company/${companyId}/chatbot-flows`)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl transition-all shadow-lg"
+              >
+                <Workflow className="w-4 h-4" />
+                Customize Chatbot
+              </Button>
+              
               <button
                 onClick={fetchData}
                 className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all border border-white/30"
@@ -499,6 +541,62 @@ export default function CompanyDrillDown() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* WhatsApp Configuration Card */}
+            {whatsappConfig && whatsappConfig._id && (
+              <Card className="rounded-2xl border-0 shadow-xl overflow-hidden bg-white/80 backdrop-blur-sm border-green-200">
+                <CardHeader className="bg-gradient-to-r from-green-100 to-emerald-50 border-b px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5 text-green-600" />
+                      WhatsApp Configuration
+                    </CardTitle>
+                    <Button
+                      onClick={() => router.push(`/superadmin/company/${companyId}/whatsapp-config`)}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Configure
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Phone Number</p>
+                      <p className="text-lg font-bold text-slate-800">{whatsappConfig.displayPhoneNumber || whatsappConfig.phoneNumber || 'N/A'}</p>
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Phone Number ID</p>
+                      <p className="text-sm font-mono text-slate-700 truncate">{whatsappConfig.phoneNumberId || 'N/A'}</p>
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Business Account</p>
+                      <p className="text-sm font-mono text-slate-700 truncate">{whatsappConfig.businessAccountId || 'N/A'}</p>
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Status</p>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${whatsappConfig.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {whatsappConfig.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                  {whatsappConfig.activeFlows && whatsappConfig.activeFlows.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-green-200">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Active Flows</p>
+                      <div className="flex flex-wrap gap-2">
+                        {whatsappConfig.activeFlows.filter((af: any) => af.isActive).map((af: any, idx: number) => (
+                          <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                            {af.flowType || 'Custom'} Flow
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Departments Tab */}

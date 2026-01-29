@@ -3,8 +3,7 @@ import { AuditAction } from '../config/constants';
 
 export interface IAuditLog extends Document {
   userId?: mongoose.Types.ObjectId;
-  userEmail?: string;
-  userName?: string;
+  // Removed: userEmail, userName - can be populated from userId reference
   action: AuditAction;
   resource: string; // e.g., 'Company', 'Grievance', 'User'
   resourceId?: string;
@@ -23,13 +22,7 @@ const AuditLogSchema: Schema = new Schema(
       ref: 'User',
       index: true
     },
-    userEmail: {
-      type: String,
-      lowercase: true
-    },
-    userName: {
-      type: String
-    },
+    // Removed: userEmail, userName - can be populated from userId reference
     action: {
       type: String,
       enum: Object.values(AuditAction),

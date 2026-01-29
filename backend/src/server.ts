@@ -1,7 +1,8 @@
-import express, { Application, Request, Response} from 'express';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import 'express-async-errors';
 
@@ -31,6 +32,9 @@ import dashboardRoutes from './routes/dashboard.routes';
 import assignmentRoutes from './routes/assignment.routes';
 import statusRoutes from './routes/status.routes';
 import availabilityRoutes from './routes/availability.routes';
+import chatbotFlowRoutes from './routes/chatbotFlow.routes';
+import whatsappConfigRoutes from './routes/companyWhatsAppConfig.routes';
+import emailConfigRoutes from './routes/companyEmailConfig.routes';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -51,17 +55,42 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin requests from WhatsApp
 }));
 
-// CORS - Allow WhatsApp webhook requests
+// CORS - In production restrict to frontend URL when set
+const frontendUrl = process.env.FRONTEND_URL;
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' && frontendUrl
+    ? (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+        if (!origin || frontendUrl.split(',').map(u => u.trim()).some(allowed => origin === allowed || origin.startsWith(allowed))) {
+          cb(null, true);
+        } else {
+          cb(null, false);
+        }
+      }
+    : true,
+  credentials: true
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
+// Rate limiting - protect against brute force and abuse
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // per IP
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/', apiLimiter);
 
-app.use(
-  cors({
-    origin: true,        // reflect origin
-    credentials: true
-  })
-);
-
-app.options("*", cors());
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20, // stricter for auth
+  message: { success: false, message: 'Too many login attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/sso', authLimiter);
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -116,6 +145,9 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/availability', availabilityRoutes);
+app.use('/api/chatbot-flows', chatbotFlowRoutes);
+app.use('/api/whatsapp-config', whatsappConfigRoutes);
+app.use('/api/email-config', emailConfigRoutes);
 
 // ================================
 // Error Handling
@@ -142,6 +174,24 @@ const init = async () => {
     await connectDatabase();
   } catch (error: any) {
     logger.error('MongoDB connection failed:', error.message);
+  }
+
+  // ✅ Production safety: ensure indexes match current schemas
+  // This prevents legacy unique indexes (e.g., counters.name_1, grievances.grievanceId_1)
+  // from breaking per-company ID generation.
+  try {
+    const Counter = (await import('./models/Counter')).default;
+    const Grievance = (await import('./models/Grievance')).default;
+    const Appointment = (await import('./models/Appointment')).default;
+    const ChatbotFlow = (await import('./models/ChatbotFlow')).default;
+
+    await Counter.syncIndexes();
+    await Grievance.syncIndexes();
+    await Appointment.syncIndexes();
+    await ChatbotFlow.syncIndexes();
+    logger.info('✅ MongoDB indexes synced (Counter/Grievance/Appointment/ChatbotFlow)');
+  } catch (error: any) {
+    logger.warn('⚠️ Index sync failed (will continue):', error.message);
   }
 
   // Connect to Redis (optional)

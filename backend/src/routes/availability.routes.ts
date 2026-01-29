@@ -88,6 +88,170 @@ router.get('/public/:companyId', async (req: Request, res: Response) => {
   }
 });
 
+// Get available dates for chatbot (formatted for buttons)
+router.get('/chatbot/:companyId', async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const { departmentId, selectedDate, daysAhead = '30' } = req.query;
+    
+    const daysToShow = parseInt(daysAhead as string) || 30;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + daysToShow);
+
+    const query: any = { companyId: companyId, isActive: true };
+    if (departmentId) {
+      query.departmentId = departmentId;
+    } else {
+      query.departmentId = { $exists: false };
+    }
+
+    const availability = await AppointmentAvailability.findOne(query);
+    
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    const availableDates: Array<{
+      date: string;
+      formattedDate: string;
+      timeSlots: string[];
+      formattedTimeSlots: Array<{ time: string; label: string }>;
+    }> = [];
+
+    // If selectedDate is provided, return only time slots for that date
+    if (selectedDate) {
+      const targetDate = new Date(selectedDate as string);
+      const dayOfWeek = targetDate.getDay();
+      const dayName = dayNames[dayOfWeek] as 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
+      
+      // Check for special date
+      const specialDate = availability?.specialDates?.find(sd => {
+        const sdDate = new Date(sd.date);
+        return sdDate.getFullYear() === targetDate.getFullYear() &&
+               sdDate.getMonth() === targetDate.getMonth() &&
+               sdDate.getDate() === targetDate.getDate();
+      });
+
+      const daySchedule = specialDate || availability?.weeklySchedule[dayName];
+      
+      if (daySchedule && (specialDate?.isAvailable !== false && daySchedule.isAvailable !== false)) {
+        const timeSlots: string[] = [];
+        const formattedTimeSlots: Array<{ time: string; label: string }> = [];
+        
+        const slots = specialDate || daySchedule;
+        
+        if (slots.morning?.enabled) {
+          const time = slots.morning.startTime;
+          timeSlots.push(time);
+          formattedTimeSlots.push({ 
+            time, 
+            label: `🕘 ${time} AM` 
+          });
+        }
+        if (slots.afternoon?.enabled) {
+          const time = slots.afternoon.startTime;
+          timeSlots.push(time);
+          formattedTimeSlots.push({ 
+            time, 
+            label: `🕑 ${time} PM` 
+          });
+        }
+        if (slots.evening?.enabled) {
+          const time = slots.evening.startTime;
+          timeSlots.push(time);
+          formattedTimeSlots.push({ 
+            time, 
+            label: `🕔 ${time} PM` 
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            date: targetDate.toISOString().split('T')[0],
+            formattedDate: `${weekdayNames[dayOfWeek]}, ${targetDate.getDate()} ${monthNames[targetDate.getMonth()]} ${targetDate.getFullYear()}`,
+            timeSlots,
+            formattedTimeSlots
+          }
+        });
+      }
+      
+      return res.json({
+        success: true,
+        data: {
+          date: targetDate.toISOString().split('T')[0],
+          formattedDate: `${weekdayNames[dayOfWeek]}, ${targetDate.getDate()} ${monthNames[targetDate.getMonth()]} ${targetDate.getFullYear()}`,
+          timeSlots: [],
+          formattedTimeSlots: []
+        }
+      });
+    }
+
+    // Otherwise, return available dates
+    for (let i = 0; i < daysToShow; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      
+      if (date > maxDate) break;
+      
+      const dayOfWeek = date.getDay();
+      const dayName = dayNames[dayOfWeek] as 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
+      
+      // Check for special dates (holidays)
+      const specialDate = availability?.specialDates?.find(sd => {
+        const sdDate = new Date(sd.date);
+        return sdDate.getFullYear() === date.getFullYear() &&
+               sdDate.getMonth() === date.getMonth() &&
+               sdDate.getDate() === date.getDate();
+      });
+
+      if (specialDate && !specialDate.isAvailable) continue; // Skip holidays
+      
+      const daySchedule = availability?.weeklySchedule[dayName];
+      if (!daySchedule?.isAvailable && !specialDate) continue;
+
+      const slots = specialDate || daySchedule;
+      if (!slots || slots.isAvailable === false) continue;
+
+      const timeSlots: string[] = [];
+      if (slots.morning?.enabled) timeSlots.push(slots.morning.startTime);
+      if (slots.afternoon?.enabled) timeSlots.push(slots.afternoon.startTime);
+      if (slots.evening?.enabled) timeSlots.push(slots.evening.startTime);
+
+      if (timeSlots.length > 0) {
+        availableDates.push({
+          date: date.toISOString().split('T')[0],
+          formattedDate: `${weekdayNames[dayOfWeek]}, ${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`,
+          timeSlots,
+          formattedTimeSlots: timeSlots.map(time => {
+            const [hours, minutes] = time.split(':');
+            const hour = parseInt(hours);
+            const period = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+            const emoji = hour < 12 ? '🕘' : hour < 17 ? '🕑' : '🕔';
+            return {
+              time,
+              label: `${emoji} ${displayHour}:${minutes} ${period}`
+            };
+          })
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        availableDates
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error fetching chatbot availability:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Get available dates for a month (for chatbot)
 router.get('/available-dates/:companyId', async (req: Request, res: Response) => {
   try {

@@ -262,31 +262,28 @@ router.put('/:id/status', requirePermission(Permission.STATUS_CHANGE_GRIEVANCE, 
     // Notify citizen if status changed to RESOLVED
     if (oldStatus !== GrievanceStatus.RESOLVED && status === GrievanceStatus.RESOLVED) {
       const { notifyCitizenOnResolution, notifyHierarchyOnStatusChange } = await import('../services/notificationService');
-      
-      await notifyCitizenOnResolution({
-        type: 'grievance',
-        action: 'resolved',
+
+      const resolutionPayload = {
+        type: 'grievance' as const,
+        action: 'resolved' as const,
         grievanceId: grievance.grievanceId,
         citizenName: grievance.citizenName,
         citizenPhone: grievance.citizenPhone,
         citizenWhatsApp: grievance.citizenWhatsApp,
         departmentId: grievance.departmentId,
         companyId: grievance.companyId,
-        remarks: remarks
-      });
-
-      // Notify hierarchy about status change
-      await notifyHierarchyOnStatusChange({
-        type: 'grievance',
-        action: 'resolved',
-        grievanceId: grievance.grievanceId,
-        citizenName: grievance.citizenName,
-        citizenPhone: grievance.citizenPhone,
-        departmentId: grievance.departmentId,
-        companyId: grievance.companyId,
         assignedTo: grievance.assignedTo,
-        remarks: remarks
-      }, oldStatus, status);
+        resolvedBy: currentUser._id,
+        resolvedAt: grievance.resolvedAt,
+        createdAt: grievance.createdAt,
+        assignedAt: grievance.assignedAt,
+        timeline: grievance.timeline,
+        remarks
+      };
+
+      await notifyCitizenOnResolution(resolutionPayload);
+
+      await notifyHierarchyOnStatusChange(resolutionPayload, oldStatus, status);
     }
 
     await logUserAction(

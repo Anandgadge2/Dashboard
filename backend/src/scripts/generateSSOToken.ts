@@ -4,7 +4,11 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-sso-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ JWT_SECRET is required. Set it in .env or environment.');
+  process.exit(1);
+}
 
 // This is what the MAIN DASHBOARD will send in the JWT token
 // The token should contain at minimum the user's phone number
@@ -14,7 +18,7 @@ const ssoPayload = {
 };
 
 // Generate the SSO token (this is what the main dashboard does)
-const ssoToken = jwt.sign(ssoPayload, JWT_SECRET);
+const ssoToken = jwt.sign(ssoPayload, JWT_SECRET as string);
 
 // Decode to show what's inside (for verification)
 const decoded = jwt.decode(ssoToken);

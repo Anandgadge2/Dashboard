@@ -117,7 +117,7 @@ export default function DepartmentDetail() {
         });
       }
     } catch (error: any) {
-      toast.error('Failed to load department data');
+      toast.error(error?.response?.data?.message || 'Failed to load department data');
       console.error(error);
     } finally {
       setLoading(false);

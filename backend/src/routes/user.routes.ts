@@ -174,17 +174,6 @@ router.post('/', requirePermission(Permission.CREATE_USER), async (req: Request,
     }
     console.log('✅ Basic validation passed');
 
-    // Check if email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      console.log('❌ User with email already exists:', email);
-      return res.status(400).json({
-        success: false,
-        message: 'User with this email already exists'
-      });
-    }
-    console.log('✅ Email is unique');
-
     // Scope validation and role-specific requirements
     if (currentUser.role === UserRole.COMPANY_ADMIN) {
       console.log('Checking COMPANY_ADMIN scope:', { requestedCompanyId: companyId, userCompanyId: currentUser.companyId?.toString() });
@@ -260,6 +249,72 @@ router.post('/', requirePermission(Permission.CREATE_USER), async (req: Request,
         console.log('✅ Auto-set companyId from department:', finalCompanyId);
       }
     }
+    
+    // Check if email already exists in the same company
+    // Allow same email/phone across different companies, but not within the same company
+    // For SUPER_ADMIN (companyId = null), keep email/phone globally unique
+    if (email) {
+      const emailQuery: any = { 
+        email: email.toLowerCase().trim(), 
+        isDeleted: false 
+      };
+      
+      // For SUPER_ADMIN, check globally; for others, check within company
+      if (finalCompanyId) {
+        emailQuery.companyId = finalCompanyId;
+      } else {
+        // SUPER_ADMIN: check globally (companyId is null or undefined)
+        emailQuery.$or = [
+          { companyId: null },
+          { companyId: { $exists: false } }
+        ];
+      }
+      
+      const existingUser = await User.findOne(emailQuery);
+      if (existingUser) {
+        console.log('❌ User with email already exists:', email);
+        const message = finalCompanyId 
+          ? 'User with this email already exists in this company'
+          : 'User with this email already exists';
+        return res.status(400).json({
+          success: false,
+          message
+        });
+      }
+    }
+    console.log('✅ Email is unique');
+
+    // Check if phone already exists in the same company
+    if (normalizedPhone) {
+      const phoneQuery: any = { 
+        phone: normalizedPhone, 
+        isDeleted: false 
+      };
+      
+      // For SUPER_ADMIN, check globally; for others, check within company
+      if (finalCompanyId) {
+        phoneQuery.companyId = finalCompanyId;
+      } else {
+        // SUPER_ADMIN: check globally (companyId is null or undefined)
+        phoneQuery.$or = [
+          { companyId: null },
+          { companyId: { $exists: false } }
+        ];
+      }
+      
+      const existingPhoneUser = await User.findOne(phoneQuery);
+      if (existingPhoneUser) {
+        console.log('❌ User with phone already exists:', normalizedPhone);
+        const message = finalCompanyId 
+          ? 'User with this phone number already exists in this company'
+          : 'User with this phone number already exists';
+        return res.status(400).json({
+          success: false,
+          message
+        });
+      }
+    }
+    console.log('✅ Phone is unique');
     
     console.log('Creating user with data:', { firstName, lastName, email, role, companyId: finalCompanyId, departmentId });
     
@@ -578,6 +633,89 @@ router.put('/:id', requirePermission(Permission.UPDATE_USER), async (req: Reques
 
     // Don't allow password update through this route
     delete req.body.password;
+
+    // Check if email/phone is being updated and validate uniqueness within the same company
+    // For SUPER_ADMIN (companyId = null), keep email/phone globally unique
+    if (req.body.email && req.body.email !== existingUser.email) {
+      const normalizedEmail = req.body.email.toLowerCase().trim();
+      const emailQuery: any = {
+        email: normalizedEmail,
+        _id: { $ne: existingUser._id }, // Exclude current user
+        isDeleted: false
+      };
+      
+      // For SUPER_ADMIN, check globally; for others, check within company
+      if (existingUser.companyId) {
+        emailQuery.companyId = existingUser.companyId;
+      } else {
+        // SUPER_ADMIN: check globally (companyId is null or undefined)
+        emailQuery.$or = [
+          { companyId: null },
+          { companyId: { $exists: false } }
+        ];
+      }
+      
+      const conflictingUser = await User.findOne(emailQuery);
+      
+      if (conflictingUser) {
+        const message = existingUser.companyId 
+          ? 'User with this email already exists in this company'
+          : 'User with this email already exists';
+        return res.status(400).json({
+          success: false,
+          message
+        });
+      }
+    }
+
+    // Check if phone is being updated and validate uniqueness within the same company
+    if (req.body.phone && req.body.phone !== existingUser.phone) {
+      // Normalize phone number
+      let normalizedPhone = req.body.phone;
+      if (normalizedPhone && normalizedPhone.trim()) {
+        const { validatePhoneNumber, normalizePhoneNumber } = await import('../utils/phoneUtils');
+        const phoneTrimmed = normalizedPhone.trim();
+        if (!validatePhoneNumber(phoneTrimmed)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Phone number must be exactly 10 digits'
+          });
+        }
+        normalizedPhone = normalizePhoneNumber(phoneTrimmed);
+      }
+
+      const phoneQuery: any = {
+        phone: normalizedPhone,
+        _id: { $ne: existingUser._id }, // Exclude current user
+        isDeleted: false
+      };
+      
+      // For SUPER_ADMIN, check globally; for others, check within company
+      if (existingUser.companyId) {
+        phoneQuery.companyId = existingUser.companyId;
+      } else {
+        // SUPER_ADMIN: check globally (companyId is null or undefined)
+        phoneQuery.$or = [
+          { companyId: null },
+          { companyId: { $exists: false } }
+        ];
+      }
+
+      const conflictingUser = await User.findOne(phoneQuery);
+      
+      if (conflictingUser) {
+        const message = existingUser.companyId 
+          ? 'User with this phone number already exists in this company'
+          : 'User with this phone number already exists';
+        return res.status(400).json({
+          success: false,
+          message
+        });
+      }
+      
+      // Update the phone in req.body with normalized version
+      req.body.phone = normalizedPhone;
+    }
 
     const user = await User.findByIdAndUpdate(
       req.params.id,

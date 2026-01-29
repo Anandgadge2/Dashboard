@@ -1,31 +1,28 @@
 import axios from 'axios';
+import {
+  WHATSAPP_LIMITS_BUTTONS,
+  WHATSAPP_LIMITS_LIST
+} from '../config/whatsappLimits';
 
 /**
- * ============================================================
- * INTERNAL HELPERS
- * ============================================================
+ * WhatsApp Business API limits are enforced here and in flow builder.
+ * See config/whatsappLimits.ts for full documentation.
  */
 
 function getWhatsAppConfig(company: any) {
-  const phoneNumberId = company?.whatsappConfig?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const accessToken = company?.whatsappConfig?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
+  // Check if config is attached to company object (from chatbotEngine)
+  // Source of truth: CompanyWhatsAppConfig attached to company (DB). No env fallback.
+  const phoneNumberId = company?.whatsappConfig?.phoneNumberId;
+  const accessToken = company?.whatsappConfig?.accessToken;
 
-  // HARDCODED FALLBACK (Last Resort)
-  // Used if both DB and ENV fail, to match user's previous context
-  const fallbackPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const fallbackToken = process.env.WHATSAPP_ACCESS_TOKEN;
-
-  const finalPhoneId = phoneNumberId || fallbackPhoneId;
-  const finalToken = accessToken || fallbackToken;
-
-  if (!finalPhoneId || !finalToken) {
+  if (!phoneNumberId || !accessToken) {
     throw new Error(`WhatsApp not configured for company: ${company?.name || 'System'}`);
   }
 
   return {
-    url: `https://graph.facebook.com/v18.0/${finalPhoneId}/messages`,
+    url: `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
     headers: {
-      Authorization: `Bearer ${finalToken}`,
+      Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     }
   };
@@ -83,7 +80,7 @@ export async function sendWhatsAppMessage(
       action: 'send_text',
       to,
       company: company?.name,
-      phoneNumberId: company?.whatsappConfig?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID
+      phoneNumberId: company?.whatsappConfig?.phoneNumberId
     };
     
     logMetaError(error, errorDetails);
@@ -134,7 +131,7 @@ export async function sendWhatsAppTemplate(
   to: string,
   templateName: string,
   parameters: string[] = [],
-  language: 'en' | 'hi' | 'mr' = 'en'
+  language: 'en' | 'hi' | 'mr' | 'or' = 'en'
 ): Promise<any> {
   try {
     const { url, headers } = getWhatsAppConfig(company);
@@ -208,13 +205,15 @@ export async function sendWhatsAppButtons(
           text: safeText(message)
         },
         action: {
-          buttons: buttons.slice(0, 3).map(btn => ({
-            type: 'reply',
-            reply: {
-              id: btn.id,
-              title: btn.title
-            }
-          }))
+          buttons: buttons
+            .slice(0, WHATSAPP_LIMITS_BUTTONS.MAX_BUTTONS_PER_MESSAGE)
+            .map(btn => ({
+              type: 'reply',
+              reply: {
+                id: btn.id,
+                title: (btn.title || '').slice(0, WHATSAPP_LIMITS_BUTTONS.BUTTON_TITLE_MAX_LENGTH)
+              }
+            }))
         }
       }
     };
@@ -262,15 +261,21 @@ export async function sendWhatsAppList(
   try {
     const { url, headers } = getWhatsAppConfig(company);
 
-    // Validate sections (WhatsApp requires 1-10 rows per section, max 10 sections)
-    const validatedSections = sections.map(section => ({
-      title: section.title.substring(0, 24), // Max 24 chars for section title
-      rows: section.rows.slice(0, 10).map(row => ({
-        id: row.id.substring(0, 200), // Max 200 chars for ID
-        title: row.title.substring(0, 24), // Max 24 chars for title
-        description: row.description ? row.description.substring(0, 72) : undefined // Max 72 chars for description
-      }))
-    })).slice(0, 10); // Max 10 sections
+    // Enforce WhatsApp list limits (max 1 section, 10 rows, 24/72 chars)
+    const validatedSections = sections
+      .slice(0, WHATSAPP_LIMITS_LIST.MAX_SECTIONS_PER_LIST)
+      .map(section => ({
+        title: (section.title || '').slice(0, WHATSAPP_LIMITS_LIST.SECTION_TITLE_MAX_LENGTH),
+        rows: section.rows
+          .slice(0, WHATSAPP_LIMITS_LIST.MAX_ROWS_PER_SECTION)
+          .map(row => ({
+            id: (row.id || '').slice(0, 200),
+            title: (row.title || '').slice(0, WHATSAPP_LIMITS_LIST.ROW_TITLE_MAX_LENGTH),
+            description: row.description
+              ? (row.description || '').slice(0, WHATSAPP_LIMITS_LIST.ROW_DESCRIPTION_MAX_LENGTH)
+              : undefined
+          }))
+      }));
 
     const payload = {
       messaging_product: 'whatsapp',
@@ -282,7 +287,7 @@ export async function sendWhatsAppList(
           text: safeText(message, 1024) // Max 1024 chars for body
         },
         action: {
-          button: buttonText.substring(0, 20), // Max 20 chars for button text
+          button: (buttonText || 'Select').slice(0, WHATSAPP_LIMITS_BUTTONS.BUTTON_TITLE_MAX_LENGTH),
           sections: validatedSections
         }
       }

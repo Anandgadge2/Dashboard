@@ -74,13 +74,15 @@ router.post('/', requireSuperAdmin, async (req: Request, res: Response) => {
     
     const { 
       name, 
+      nameHi,
+      nameOr,
+      nameMr,
       companyType, 
       contactEmail, 
       contactPhone, 
       address, 
       enabledModules,
       theme,
-      whatsappConfig,
       admin // Admin user data
     } = req.body;
 
@@ -131,6 +133,9 @@ router.post('/', requireSuperAdmin, async (req: Request, res: Response) => {
     // Create company
     const company = await Company.create({
       name,
+      nameHi: nameHi || undefined,
+      nameOr: nameOr || undefined,
+      nameMr: nameMr || undefined,
       companyType,
       contactEmail,
       contactPhone: normalizedContactPhone,
@@ -140,7 +145,6 @@ router.post('/', requireSuperAdmin, async (req: Request, res: Response) => {
         primaryColor: '#0f4c81',
         secondaryColor: '#1a73e8'
       },
-      whatsappConfig,
       isActive: true,
       isSuspended: false,
       isDeleted: false

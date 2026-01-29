@@ -45,7 +45,6 @@ const AppointmentSchema: Schema = new Schema(
     appointmentId: {
       type: String,
       required: false, // Set by pre-save hook, not required on input
-      unique: true,
       index: true
     },
     companyId: {
@@ -175,31 +174,21 @@ const AppointmentSchema: Schema = new Schema(
 AppointmentSchema.index({ companyId: 1, status: 1, isDeleted: 1 });
 AppointmentSchema.index({ departmentId: 1, appointmentDate: 1, isDeleted: 1 });
 AppointmentSchema.index({ assignedTo: 1, appointmentDate: 1, isDeleted: 1 });
+// ✅ Per-company uniqueness: allows APT00000001.. to restart per company safely
+AppointmentSchema.index({ companyId: 1, appointmentId: 1 }, { unique: true, sparse: true });
 
 // Pre-save hook to generate appointmentId (using atomic counter if not provided)
 AppointmentSchema.pre('save', async function (next) {
   if (this.isNew && !this.appointmentId) {
     try {
       // Use atomic counter for ID generation (prevents race conditions)
+      // Pass companyId for per-company counters
       const { getNextAppointmentId } = await import('../utils/idGenerator');
-      this.appointmentId = await getNextAppointmentId();
+      this.appointmentId = await getNextAppointmentId(this.companyId as any);
     } catch (error) {
       console.error('❌ Error generating appointment ID:', error);
-      // Fallback to old method if counter fails
-      const lastAppointment = await mongoose.model('Appointment')
-        .findOne({}, { appointmentId: 1 })
-        .sort({ appointmentId: -1 })
-        .setOptions({ includeDeleted: true });
-
-      let nextNum = 1;
-      if (lastAppointment && lastAppointment.appointmentId) {
-        const match = lastAppointment.appointmentId.match(/^APT(\d+)$/);
-        if (match) {
-          nextNum = parseInt(match[1], 10) + 1;
-        }
-      }
-      
-      this.appointmentId = `APT${String(nextNum).padStart(8, '0')}`;
+      // ✅ Production: do NOT fall back to a non-atomic scan (causes duplicates under concurrency).
+      return next(error as any);
     }
     
     // Initialize status history

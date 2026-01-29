@@ -87,7 +87,7 @@ router.get('/', requirePermission(Permission.READ_DEPARTMENT), async (req: Reque
 router.post('/', requirePermission(Permission.CREATE_DEPARTMENT), async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { companyId, name, description, contactPerson, contactEmail, contactPhone } = req.body;
+    const { companyId, name, nameHi, nameOr, nameMr, description, descriptionHi, descriptionOr, descriptionMr, contactPerson, contactEmail, contactPhone } = req.body;
 
     // Validation
     if (!companyId || !name) {
@@ -123,7 +123,13 @@ router.post('/', requirePermission(Permission.CREATE_DEPARTMENT), async (req: Re
     const department = await Department.create({
       companyId,
       name,
+      nameHi: nameHi || undefined,
+      nameOr: nameOr || undefined,
+      nameMr: nameMr || undefined,
       description,
+      descriptionHi: descriptionHi || undefined,
+      descriptionOr: descriptionOr || undefined,
+      descriptionMr: descriptionMr || undefined,
       contactPerson,
       contactEmail,
       contactPhone: normalizedContactPhone

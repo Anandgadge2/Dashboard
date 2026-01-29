@@ -134,7 +134,8 @@ export default function AssignmentDialog({
       
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to assign', { id: toastId });
+      const msg = error?.response?.data?.message || error?.message || 'Failed to assign';
+      toast.error(msg, { id: toastId });
     } finally {
       setAssigningUserId(null);
     }

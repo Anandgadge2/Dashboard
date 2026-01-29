@@ -75,7 +75,7 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
         setAvailability(response.availability);
       }
     } catch (error: any) {
-      toast.error('Failed to load availability settings');
+      toast.error(error?.response?.data?.message || 'Failed to load availability settings');
     } finally {
       setLoading(false);
     }
@@ -116,7 +116,7 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
         setHasChanges(false);
       }
     } catch (error: any) {
-      toast.error('Failed to save settings');
+      toast.error(error?.response?.data?.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -188,8 +188,8 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
         setAvailability(response.availability);
         toast.success(`${holiday.name} added as holiday`);
       }
-    } catch (error) {
-      toast.error('Failed to add holiday');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add holiday');
     }
   };
 
@@ -201,8 +201,8 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
         setAvailability(response.availability);
         toast.success('Date removed successfully');
       }
-    } catch (error) {
-      toast.error('Failed to remove date');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to remove date');
     }
   };
 

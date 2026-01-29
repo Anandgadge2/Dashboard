@@ -6,12 +6,15 @@ import Department from '../models/Department';
 import Grievance from '../models/Grievance';
 import Appointment from '../models/Appointment';
 import AppointmentAvailability, { IAppointmentAvailability, IDayAvailability } from '../models/AppointmentAvailability';
+import ChatbotFlow from '../models/ChatbotFlow';
 import { GrievanceStatus, AppointmentStatus, Module } from '../config/constants';
 import { sendWhatsAppMessage, sendWhatsAppButtons, sendWhatsAppList } from './whatsappService';
 import { findDepartmentByCategory, getAvailableCategories } from './departmentMapper';
 import { notifyDepartmentAdminOnCreation } from './notificationService';
 import { uploadWhatsAppMediaToCloudinary } from './mediaService';
-import { getSession, updateSession, clearSession, UserSession } from './sessionService';
+import { getSession, getSessionFromMongo, updateSession, clearSession, UserSession } from './sessionService';
+import { loadFlowForTrigger, DynamicFlowEngine, getStartStepForTrigger } from './dynamicFlowEngine';
+import CompanyWhatsAppConfig from '../models/CompanyWhatsAppConfig';
 // Note: ID generation is handled by pre-save hooks in Grievance and Appointment models
 
 export interface ChatbotMessage {
@@ -397,10 +400,100 @@ const translations = {
     help: 'ℹ️ *हेल्पडेस्क आणि समर्थन*\n\nअधिक मदतीसाठी:\n📞 *हेल्पलाइन:* 1800-123-4567\n🌐 *वेबसाइट:* zpamravati.gov.in\n📍 *कचेरी:* जिल्हा परिषद भवन, अमरावती\n\n_कार्यालय वेळ: सकाळी १०:०० - संध्याकाळी ६:०० (सोम-शनि)_',
     invalidOption: '⚠️ *अवैध इनपुट*\n\nकृपया दिलेल्या बटणांमधून वैध पर्याय निवडा.',
     sessionExpired: '⏳ *सत्र समाप्त*\n\nतुमचे सत्र समाप्त झाले आहे. कृपया पुन्हा सुरू करण्यासाठी "Hi" टाइप करा.'
+  },
+  or: {
+    welcome: '🇮🇳 *ଝାରସୁଗୁଡା ଓଡ଼ିଶା ସରକାର - ଅଧିକାରିକ ଡିଜିଟାଲ ପୋର୍ଟାଲ*\n\nନମସ୍କାର! ଝାରସୁଗୁଡା ଓଡ଼ିଶା ସରକାରର ଅଧିକାରିକ ୱହାଟସଆପ ସେବାରେ ସ୍ୱାଗତ।\n\nଆମେ ସମସ୍ତ ନାଗରିକଙ୍କୁ ସ୍ୱଚ୍ଛ ଏବଂ କାର୍ଯ୍ୟକ୍ଷମ ସେବା ପ୍ରଦାନ କରିବାକୁ ପ୍ରତିବଦ୍ଧ।\n\n👇 *ଦୟାକରି ଆପଣଙ୍କର ପସନ୍ଦିତ ଭାଷା ବାଛନ୍ତୁ:*',
+    serviceUnavailable: '⚠️ *ସେବା ସୂଚନା*\n\nଅନୁରୋଧିତ ସେବା ବର୍ତ୍ତମାନ ରଖରଖାବିରେ ଅଛି। ଅସୁବିଧା ପାଇଁ ଆମେ କ୍ଷମା ପ୍ରାର୍ଥନା କରୁଛୁ।\n\nଦୟାକରି ପରେ ପୁନର୍ବାର ଚେଷ୍ଟା କରନ୍ତୁ କିମ୍ବା ଆମର ଅଧିକାରିକ ୱେବସାଇଟ୍ ପରିଦର୍ଶନ କରନ୍ତୁ।',
+    mainMenu: '🏛️ *ନାଗରିକ ସେବା ମେନୁ*\n\nଝାରସୁଗୁଡା ଓଡ଼ିଶା ସରକାର ଡିଜିଟାଲ ସାହାଯ୍ୟକେନ୍ଦ୍ରରେ ସ୍ୱାଗତ।\n\n👇 *ଦୟାକରି ନିମ୍ନଲିଖିତ ବିକଳ୍ପଗୁଡ଼ିକରୁ ଏକ ସେବା ବାଛନ୍ତୁ:*',
+    grievanceRaise: '📝 *ଅଭିଯୋଗ ଦାଖଲ କରନ୍ତୁ*\n\nଆପଣ ଯେକୌଣସି ବିଭାଗ ସମ୍ବନ୍ଧରେ ଏକ ଆନୁଷ୍ଠାନିକ ଅଭିଯୋଗ ଦାଖଲ କରିପାରିବେ।\n\nଆରମ୍ଭ କରିବାକୁ, ଦୟାକରି ଅନୁରୋଧିତ ବିବରଣୀ ପ୍ରଦାନ କରନ୍ତୁ।',
+    appointmentBook: '📅 *ଏକ ଆନୁଷ୍ଠାନିକ ନିଯୁକ୍ତି ବୁକ୍ କରନ୍ତୁ*\n\nମୁଖ୍ୟ କାର୍ଯ୍ୟନିର୍ବାହୀ ଅଧିକାରୀ (CEO), ଝାରସୁଗୁଡା ଓଡ଼ିଶା ସରକାର ସହିତ ଏକ ସଭା ନିର୍ଦ୍ଧାରଣ କରନ୍ତୁ।\n\nଦୟାକରି ଆପଣଙ୍କର ନିଯୁକ୍ତି ଅନୁରୋଧ ପାଇଁ ଆବଶ୍ୟକ ବିବରଣୀ ପ୍ରଦାନ କରନ୍ତୁ।',
+    appointmentBookCEO: '📅 *ନୂତନ ନିଯୁକ୍ତି ଅନୁରୋଧ*\n\nଦୟାକରି ଆପଣଙ୍କର ସମ୍ପୂର୍ଣ୍ଣ ନାମ ପ୍ରବେଶ କରନ୍ତୁ (ଆନୁଷ୍ଠାନିକ ରେକର୍ଡ ଅନୁଯାୟୀ):',
+    rtsServices: '⚖️ *ସେବାର ଅଧିକାର (RTS) ପୋର୍ଟାଲ*\n\nସେବାର ଅଧିକାର ଅଧିନିୟମ ଅଧୀନରେ ବିଭିନ୍ନ ସରକାରୀ ସେବା ପ୍ରବେଶ କରନ୍ତୁ।\n\n👇 *ଏକ ସେବା ବାଛନ୍ତୁ:*',
+    trackStatus: '🔍 *ଆବେଦନ ସ୍ଥିତି ଟ୍ରାକ୍ କରନ୍ତୁ*\n\nଆପଣଙ୍କର ଅଭିଯୋଗ କିମ୍ବା ନିଯୁକ୍ତିର ସ୍ଥିତି ଯାଞ୍ଚ କରନ୍ତୁ।\n\nଦୟାକରି ଆପଣଙ୍କର *ରେଫରେନ୍ସ ନମ୍ବର* ପ୍ରବେଶ କରନ୍ତୁ (ଉଦାହରଣ, GRV... କିମ୍ବା APT...):',
+    grievanceName: '👤 *ନାଗରିକ ପରିଚୟ*\n\nଦୟାକରି ଆପଣଙ୍କର *ସମ୍ପୂର୍ଣ୍ଣ ନାମ* ପ୍ରବେଶ କରନ୍ତୁ ଯେପରି ଆନୁଷ୍ଠାନିକ ଦସ୍ତାବିଜରେ ଦେଖାଯାଏ:',
+    grievanceCategory: '📂 *ବର୍ଗ ବାଛନ୍ତୁ*\n\nଆପଣଙ୍କର ସମସ୍ୟା ପାଇଁ ଉପଯୁକ୍ତ ବିଭାଗ କିମ୍ବା ବର୍ଗ ବାଛନ୍ତୁ:',
+    grievanceDescription: '✍️ *ଅଭିଯୋଗ ବିବରଣୀ*\n\nଦୟାକରି ଆପଣଙ୍କର ସମସ୍ୟାର ବିସ୍ତୃତ ବିବରଣୀ ଟାଇପ୍ କରନ୍ତୁ।\n\n_ଟିପ୍: ଶୀଘ୍ର ସମାଧାନ ପାଇଁ ତାରିଖ, ସ୍ଥାନ, ଏବଂ ନିର୍ଦ୍ଦିଷ୍ଟ ବିବରଣୀ ଅନ୍ତର୍ଭୁକ୍ତ କରନ୍ତୁ।_',
+    grievancePhoto: '📷 *ସହାୟକ ପ୍ରମାଣ*\n\nଆପଣଙ୍କର ଦାବିର ସମର୍ଥନରେ ଏକ ଫଟୋ କିମ୍ବା ଦସ୍ତାବିଜ୍ ଅପଲୋଡ୍ କରନ୍ତୁ (ବିକଳ୍ପ)।\n\n👇 *ଏକ ବିକଳ୍ପ ବାଛନ୍ତୁ:*',
+    grievanceConfirm: '📋 *ଦାଖଲ ନିଶ୍ଚିତ କରନ୍ତୁ*\n\nଦୟାକରି ଆପଣଙ୍କର ବିବରଣୀ ଯାଞ୍ଚ କରନ୍ତୁ:\n\n👤 *ନାମ:* {name}\n🏢 *ବିଭାଗ:* {category}\n📝 *ସମସ୍ୟା:* {description}\n\n👇 *ଏହା ସଠିକ୍ କି?*',
+    grievanceSuccess: '✅ *ଅଭିଯୋଗ ସଫଳତାପୂର୍ବକ ରେଜିଷ୍ଟର ହେଲା*\n\nଆପଣଙ୍କର ଅଭିଯୋଗ ଆମର ସିଷ୍ଟମରେ ଲଗ୍ ହୋଇଛି।\n\n🎫 *ରେଫ୍ ନମ୍ବର:* `{id}`\n🏢 *ବିଭାଗ:* {department}\n📅 *ତାରିଖ:* {date}\n\nଆପଣଙ୍କୁ ୱହାଟସଆପ ମାଧ୍ୟମରେ ଅପଡେଟ୍ ମିଳିବ।',
+    grievanceError: '❌ *ସିଷ୍ଟମ୍ ତ୍ରୁଟି*\n\nଆମେ ବର୍ତ୍ତମାନ ଆପଣଙ୍କର ଅନୁରୋଧକୁ ପ୍ରକ୍ରିୟାକରଣ କରିପାରିଲୁ ନାହିଁ। ଦୟାକରି ପରେ ପୁନର୍ବାର ଚେଷ୍ଟା କରନ୍ତୁ।',
+    backToMenu: '↩️ ମୁଖ୍ୟ ମେନୁ',
+    help: 'ℹ️ *ସାହାଯ୍ୟକେନ୍ଦ୍ର ଏବଂ ସମର୍ଥନ*\n\nଅଧିକ ସାହାଯ୍ୟ ପାଇଁ:\n📞 *ହେଲ୍ପଲାଇନ୍:* 1800-123-4567\n🌐 *ୱେବସାଇଟ୍:* jharsuguda.gov.in\n📍 *କାର୍ଯ୍ୟାଳୟ:* ଝାରସୁଗୁଡା ଓଡ଼ିଶା ସରକାର, ଝାରସୁଗୁଡା\n\n_କାର୍ଯ୍ୟାଳୟ ସମୟ: ସକାଳ 10:00 - ସନ୍ଧ୍ୟା 6:00 (ସୋମ-ଶନି)_',
+    invalidOption: '⚠️ *ଅବୈଧ ଇନପୁଟ୍*\n\nଦୟାକରି ପ୍ରଦାନ କରାଯାଇଥିବା ବଟନ୍ ମଧ୍ୟରୁ ଏକ ବୈଧ ବିକଳ୍ପ ବାଛନ୍ତୁ।',
+    sessionExpired: '⏳ *ସେସନ୍ ସମୟ ସମାପ୍ତ*\n\nଆପଣଙ୍କର ସେସନ୍ ସମାପ୍ତ ହୋଇଛି। ଦୟାକରି ପୁନର୍ବାର ଆରମ୍ଭ କରିବାକୁ "Hi" ଟାଇପ୍ କରନ୍ତୁ।',
+    menu_grievance: '📝 ଅଭିଯୋଗ ଦାଖଲ କରନ୍ତୁ',
+    menu_appointment: '📅 ନିଯୁକ୍ତି ବୁକ୍ କରନ୍ତୁ',
+    menu_rts: '⚖️ RTS ସେବା',
+    menu_track: '🔍 ସ୍ଥିତି ଟ୍ରାକ୍ କରନ୍ତୁ',
+    menu_help: 'ℹ️ ସାହାଯ୍ୟ ଏବଂ ଯୋଗାଯୋଗ',
+    nav_track_another: '🔍 ଅନ୍ୟଟି ଟ୍ରାକ୍ କରନ୍ତୁ',
+    nav_main_menu: '↩️ ମୁଖ୍ୟ ମେନୁ',
+    trackStatusPortal: '🔍 *ସ୍ଥିତି ପ୍ରଶ୍ନ*\n\nବର୍ତ୍ତମାନର ସ୍ଥିତି ଯାଞ୍ଚ କରିବାକୁ ନିମ୍ନରେ ଆପଣଙ୍କର ରେଫରେନ୍ସ୍ ନମ୍ବର୍ ପ୍ରବେଶ କରନ୍ତୁ।',
+    label_date: '📅 ତାରିଖ',
+    label_ref_no: '🎫 ରେଫ୍ ନମ୍ବର',
+    label_department: '🏢 ବିଭାଗ',
+    label_category: '📂 ବର୍ଗ',
+    label_status: '📊 ସ୍ଥିତି',
+    label_description: '📝 ବିବରଣୀ',
+    label_purpose: '🎯 ଉଦ୍ଦେଶ୍ୟ',
+    label_citizen: '👤 ନାମ',
+    label_time: '⏰ ସମୟ',
+    selection_department: '🏢 *ବିଭାଗ ବାଛନ୍ତୁ*\n\nସମ୍ବନ୍ଧିତ ବିଭାଗ ବାଛନ୍ତୁ:',
+    btn_select_dept: 'ବିଭାଗ ଦେଖନ୍ତୁ',
+    btn_load_more: 'ଅଧିକ ବିଭାଗ ଦେଖନ୍ତୁ',
+    err_name_invalid: '⚠️ *ଅବୈଧ ନାମ*\n\nଦୟାକରି ଏକ ବୈଧ ସମ୍ପୂର୍ଣ୍ଣ ନାମ ପ୍ରବେଶ କରନ୍ତୁ (ନ୍ୟୂନତମ 2 ଅକ୍ଷର)।',
+    err_description_short: '⚠️ *ଅପର୍ଯ୍ୟାପ୍ତ ବିବରଣୀ*\n\nଦୟାକରି ସମସ୍ୟା ବୁଝିବାରେ ସାହାଯ୍ୟ କରିବାକୁ ଅଧିକ ବିବରଣୀ (ନ୍ୟୂନତମ 10 ଅକ୍ଷର) ପ୍ରଦାନ କରନ୍ତୁ।',
+    err_purpose_short: '⚠️ *ଉଦ୍ଦେଶ୍ୟ ଆବଶ୍ୟକ*\n\nଦୟାକରି ଭ୍ରମଣର ଉଦ୍ଦେଶ୍ୟ ନିର୍ଦ୍ଦିଷ୍ଟ କରନ୍ତୁ (ନ୍ୟୂନତମ 5 ଅକ୍ଷର)।',
+    msg_type_address: '📍 ଦୟାକରି ଠିକଣା ଟାଇପ୍ କରନ୍ତୁ:',
+    msg_upload_photo: '📷 ଦୟାକରି ବର୍ତ୍ତମାନ ଛବି/ଦସ୍ତାବିଜ୍ ଅପଲୋଡ୍ କରନ୍ତୁ:',
+    btn_skip_location: '⏭️ ଛାଡ଼ନ୍ତୁ',
+    btn_manual_location: '✍️ ଠିକଣା ଟାଇପ୍ କରନ୍ତୁ',
+    btn_skip_photo: '⏭️ ଛାଡ଼ନ୍ତୁ',
+    btn_upload_photo: '📤 ଅପଲୋଡ୍ କରନ୍ତୁ',
+    btn_confirm_submit: '✅ ଅଭିଯୋଗ ଦାଖଲ କରନ୍ତୁ',
+    btn_cancel: '❌ ବାତିଲ୍ କରନ୍ତୁ',
+    btn_confirm_book: '✅ ବୁକିଂ ନିଶ୍ଚିତ କରନ୍ତୁ',
+    label_placeholder_dept: 'ସାଧାରଣ ପ୍ରଶାସନ',
+    label_apt_header: '📅 *ନୂତନ ନିଯୁକ୍ତି ଅନୁରୋଧ*\n\nଦୟାକରି ଆପଣଙ୍କର ସମ୍ପୂର୍ଣ୍ଣ ନାମ ପ୍ରବେଶ କରନ୍ତୁ:',
+    label_select_date: '🗓️ *ତାରିଖ ବାଛନ୍ତୁ*\n\nଏକ ସୁବିଧାଜନକ ତାରିଖ ବାଛନ୍ତୁ:',
+    label_select_time: '⏰ *ସମୟ ସ୍ଲଟ୍ ବାଛନ୍ତୁ*\n\nଆପଣଙ୍କର ଭ୍ରମଣ ପାଇଁ ଏକ ସମୟ ବାଛନ୍ତୁ:',
+    goodbye: '👋 *ଧନ୍ୟବାଦ*\n\nଝାରସୁଗୁଡା ଓଡ଼ିଶା ସରକାର ସହିତ ଯୋଗାଯୋଗ କରିବା ପାଇଁ ଧନ୍ୟବାଦ। ଆମେ ସର୍ବଦା ଆପଣଙ୍କର ସେବା ପାଇଁ ପ୍ରସ୍ତୁତ।\n\n📞 *ସାହାଯ୍ୟ ପାଇଁ:*\n• ଯେକୌଣସି ସମୟରେ "Hi" ଟାଇପ୍ କରନ୍ତୁ\n• "Help" ଟାଇପ୍ କରନ୍ତୁ ସାହାଯ୍ୟକେନ୍ଦ୍ର ସୂଚନା ପାଇଁ\n• "Menu" ଟାଇପ୍ କରନ୍ତୁ ସମସ୍ତ ସେବା ଦେଖିବାକୁ\n\n🌐 *ୱେବସାଇଟ୍:* jharsuguda.gov.in\n📍 *କାର୍ଯ୍ୟାଳୟ:* ଝାରସୁଗୁଡା ଓଡ଼ିଶା ସରକାର, ଝାରସୁଗୁଡା\n\n_କାର୍ଯ୍ୟାଳୟ ସମୟ: ସକାଳ 10:00 - ସନ୍ଧ୍ୟା 6:00 (ସୋମ-ଶନି)_',
+    appointmentConfirm: '📋 *ନିଯୁକ୍ତି ଯାଞ୍ଚ କରନ୍ତୁ*\n\nଦୟାକରି ଆପଣଙ୍କର ବୁକିଂ ବିବରଣୀ ନିଶ୍ଚିତ କରନ୍ତୁ:',
+    err_no_record_found: '❌ *କୌଣସି ରେକର୍ଡ୍ ମିଳିଲା ନାହିଁ*\n\nଆମେ ସେହି ରେଫରେନ୍ସ୍ ନମ୍ବର୍ ସହିତ ମେଳ ଖାଉଥିବା କୌଣସି ରେକର୍ଡ୍ ପାଇଲୁ ନାହିଁ।',
+    grievanceCancel: '🚫 *ବାତିଲ୍*\n\nଅଭିଯୋଗ ରେଜିଷ୍ଟ୍ରେସନ୍ ବାତିଲ୍ ହୋଇଛି।',
+    aptCancel: '🚫 *ବାତିଲ୍*\n\nନିଯୁକ୍ତି ବୁକିଂ ବାତିଲ୍ ହୋଇଛି।',
+    aptSuccess: '✅ *ନିଯୁକ୍ତି ନିଶ୍ଚିତ*\n\nଆପଣଙ୍କର ସଭା ନିର୍ଦ୍ଧାରଣ କରାଯାଇଛି।\n\n🎫 *ରେଫ୍ ନମ୍ବର:* `{id}`\n🏢 *ବିଭାଗ:* {dept}\n📅 *ତାରିଖ:* {date}\n⏰ *ସମୟ:* {time}\n\nଦୟାକରି ବୈଧ ଆଇଡି ସହିତ 15 ମିନିଟ୍ ପୂର୍ବରୁ ପହଞ୍ଚନ୍ତୁ।',
+    aptError: '❌ *ବୁକିଂ ବିଫଳ*\n\nଦୟାକରି ପରେ ପୁନର୍ବାର ଚେଷ୍ଟା କରନ୍ତୁ।',
+    nextActionPrompt: '🔄 *ପରବର୍ତ୍ତୀ ପଦକ୍ଷେପ*\n\nଆପଣ କଣ କରିବାକୁ ଚାହାନ୍ତି?',
+    msg_apt_enhanced: 'ℹ️ ନିଯୁକ୍ତି ସିଷ୍ଟମ୍ ଅପଗ୍ରେଡ୍ କରାଯାଉଛି।',
+    msg_no_dept: '⚠️ ବର୍ତ୍ତମାନ କୌଣସି ବିଭାଗ ନିଯୁକ୍ତି ସ୍ୱୀକାର କରୁନାହିଁ।',
+    msg_no_dept_grv: '⚠️ *କୌଣସି ବିଭାଗ ଉପଲବ୍ଧ ନାହିଁ*\n\nବର୍ତ୍ତମାନ, ଅଭିଯୋଗ ରେଜିଷ୍ଟ୍ରେସନ୍ ପାଇଁ କୌଣସି ବିଭାଗ କନଫିଗର୍ କରାଯାଇନାହିଁ।\n\nଦୟାକରି ପ୍ରଶାସନ ସହିତ ଯୋଗାଯୋଗ କରନ୍ତୁ କିମ୍ବା ପରେ ପୁନର୍ବାର ଚେଷ୍ଟା କରନ୍ତୁ।',
+    header_grv_status: '📄 ଅଭିଯୋଗ ସ୍ଥିତି',
+    header_apt_status: '🗓️ ନିଯୁକ୍ତି ସ୍ଥିତି',
+    status_PENDING: 'ସମୀକ୍ଷା ବିଳମ୍ବିତ',
+    status_ASSIGNED: 'ଅଧିକାରୀଙ୍କୁ ଦାୟିତ୍ୱ ଦିଆଯାଇଛି',
+    status_RESOLVED: 'ସମାଧାନ ହୋଇଛି',
+    status_SCHEDULED: 'ନିର୍ଦ୍ଧାରିତ',
+    status_CANCELLED: 'ବାତିଲ୍',
+    status_COMPLETED: 'ସମାପ୍ତ',
+    footer_grv_guidance: 'କେସ୍ ଏସ୍କାଲେସନ୍ ପାଇଁ, ଦୟାକରି ବିଭାଗ ମୁଖ୍ୟ ସହିତ ଯୋଗାଯୋଗ କରନ୍ତୁ।',
+    footer_apt_guidance: 'ପ୍ରବେଶ ପାଇଁ ଏହି ଡିଜିଟାଲ୍ ରସିଦ୍ ସହିତ ରଖନ୍ତୁ।',
+    err_no_record_guidance: 'ଦୟାକରି ନମ୍ବର୍ ପୁନର୍ବାର ଯାଞ୍ଚ କରନ୍ତୁ କିମ୍ବା ସାହାଯ୍ୟ ସହିତ ଯୋଗାଯୋଗ କରନ୍ତୁ।',
+    label_no_remarks: 'ପ୍ରୋଟୋକଲ୍ ଅନୁଯାୟୀ କେସ୍ ବନ୍ଦ।',
+    voiceReceived: '🎤 *ଭଏସ୍ ମେସେଜ୍ ଗ୍ରହଣ କରାଯାଇଛି*\n\nଆମେ ଆପଣଙ୍କର ଭଏସ୍ ମେସେଜ୍ ଗ୍ରହଣ କରିଛୁ। ଉନ୍ନତ ସାହାଯ୍ୟ ପାଇଁ, ଦୟାକରି ଆପଣଙ୍କର ମେସେଜ୍ ଟାଇପ୍ କରନ୍ତୁ କିମ୍ବା ପ୍ରଦାନ କରାଯାଇଥିବା ବଟନ୍ ବ୍ୟବହାର କରନ୍ତୁ।',
+    // Department names in Odia (basic translations - can be expanded)
+    'dept_Health Department': 'ସ୍ୱାସ୍ଥ୍ୟ ବିଭାଗ',
+    'dept_Education Department': 'ଶିକ୍ଷା ବିଭାଗ',
+    'dept_Water Supply Department': 'ଜଳ ସରବରାହ ବିଭାଗ',
+    'dept_Public Works Department': 'ଜନସାଧାରଣ କାର୍ଯ୍ୟ ବିଭାଗ',
+    'dept_Urban Development Department': 'ନଗର ବିକାଶ ବିଭାଗ',
+    'dept_Revenue Department': 'ରାଜସ୍ୱ ବିଭାଗ',
+    'dept_Agriculture Department': 'କୃଷି ବିଭାଗ',
+    'dept_Social Welfare Department': 'ସାମାଜିକ କଲ୍ୟାଣ ବିଭାଗ'
   }
 };
 
-export function getTranslation(key: string, language: 'en' | 'hi' | 'mr' = 'en'): string {
+export function getTranslation(key: string, language: 'en' | 'hi' | 'mr' | 'or' = 'en'): string {
   const langData = translations[language] as any;
   const enData = translations.en as any;
   return langData?.[key] || enData[key] || key;
@@ -420,39 +513,37 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     return;
   }
 
-  // CRITICAL FIX: Always use the metadata phone number ID when available
-  // The access token is tied to the phone number ID that received the message
-  // Using a different phone number ID will cause API failures
-  if (metadata?.phone_number_id) {
-    const metadataPhoneId = metadata.phone_number_id as string;
-    const configuredPhoneId = company.whatsappConfig?.phoneNumberId;
+  // Fetch WhatsApp configuration from separate model (SOURCE OF TRUTH: Database)
+  let whatsappConfig = await CompanyWhatsAppConfig.findOne({ 
+    companyId: company._id,
+    isActive: true 
+  });
+
+  if (whatsappConfig) {
+    console.log(`✅ Using company WhatsApp config from database: ${whatsappConfig.phoneNumberId}`);
     
-    // Create whatsappConfig if it doesn't exist
-    if (!company.whatsappConfig) {
-      company.whatsappConfig = {
-        accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
-        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
-        phoneNumberId: metadataPhoneId
-      } as any;
-      console.log(`🔌 Setting Phone Number ID from metadata (no config): ${metadataPhoneId}`);
-    } else {
-      // ALWAYS use metadata phone number ID - it's the one that received the message
-      // The access token has permission for this phone number ID
-      if (configuredPhoneId !== metadataPhoneId) {
-        console.warn(`⚠️ Phone Number ID mismatch! Metadata: ${metadataPhoneId}, Configured: ${configuredPhoneId}`);
-        console.warn(`🔧 Using metadata Phone Number ID: ${metadataPhoneId} (access token has permission for this)`);
-        company.whatsappConfig.phoneNumberId = metadataPhoneId;
+    // If metadata phone number ID is provided, verify it matches
+    // This ensures we're using the correct phone number that received the message
+    if (metadata?.phone_number_id) {
+      const metadataPhoneId = metadata.phone_number_id as string;
+      
+      if (whatsappConfig.phoneNumberId !== metadataPhoneId) {
+        console.warn(`⚠️ Phone Number ID mismatch! Database: ${whatsappConfig.phoneNumberId}, Metadata: ${metadataPhoneId}`);
+        console.warn(`🔧 Using database Phone Number ID: ${whatsappConfig.phoneNumberId}`);
+        // Keep using database config - it's the source of truth for this company
+        // The access token in the database should match the phone number ID
       } else {
         console.log(`✅ Phone Number ID matches metadata: ${metadataPhoneId}`);
       }
-      
-      // Ensure access token is set (use env if available and matches phone number ID)
-      if (!company.whatsappConfig.accessToken || 
-          (process.env.WHATSAPP_PHONE_NUMBER_ID === metadataPhoneId && process.env.WHATSAPP_ACCESS_TOKEN)) {
-        company.whatsappConfig.accessToken = process.env.WHATSAPP_ACCESS_TOKEN || company.whatsappConfig.accessToken || '';
-      }
     }
+  } else {
+    // No DB config => we cannot send replies safely
+    console.error(`❌ No WhatsApp config found in DB for company ${company.name} (${company.companyId}). Cannot process messages.`);
+    return;
   }
+
+  // Attach config to company object for backward compatibility with whatsappService
+  (company as any).whatsappConfig = whatsappConfig;
 
   console.log('✅ Company found:', { name: company.name, _id: company._id, companyId: company.companyId });
 
@@ -465,7 +556,7 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
   const session = await getSession(from, companyId);
   let userInput = (buttonId || messageText || '').trim().toLowerCase();
 
-  console.log('📋 Session state:', { step: session.step, language: session.language, userInput });
+  console.log('📋 Session state:', { step: session.step, language: session.language, hasFlowId: !!session.data?.flowId, hasAwaitingInput: !!session.data?.awaitingInput, userInput });
 
   // Handle voice notes/audio messages
   // Voice transcription is currently disabled - voiceTranscriptionService not available
@@ -494,16 +585,337 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
   const greetings = ['hi', 'hii','hello', 'start', 'namaste', 'नमस्ते', 'restart', 'menu'];
   if (!buttonId && greetings.includes(userInput)) {
     console.log('🔄 Global reset triggered by greeting:', userInput);
+    console.log(`   Company ID: ${company._id.toString()}, Company Name: ${company.name}`);
+    
+    // ✅ NEW: Check for custom dynamic flow first
+    const customFlow = await loadFlowForTrigger(company._id.toString(), userInput);
+    if (customFlow && customFlow.isActive) {
+      console.log(`✅ Custom flow found: ${customFlow.flowName} (${customFlow.flowId})`);
+      console.log(`   Flow startStepId: ${customFlow.startStepId}`);
+      
+      // Get start step from trigger config, but validate it exists
+      let startStepId = getStartStepForTrigger(customFlow, userInput) || customFlow.startStepId;
+      
+      // Verify the start step exists - if not, use flow's default startStepId
+      const startStep = customFlow.steps.find(s => s.stepId === startStepId);
+      if (!startStep) {
+        console.warn(`⚠️ Trigger startStepId "${startStepId}" not found in flow ${customFlow.flowId}!`);
+        console.log(`   Available steps: ${customFlow.steps.map(s => s.stepId).join(', ')}`);
+        console.log(`   Falling back to flow's startStepId: ${customFlow.startStepId}`);
+        
+        // Use flow's default startStepId instead
+        startStepId = customFlow.startStepId;
+        
+        // Verify the fallback step exists
+        const fallbackStep = customFlow.steps.find(s => s.stepId === startStepId);
+        if (!fallbackStep) {
+          console.error(`❌ Flow's startStepId "${startStepId}" also not found in flow ${customFlow.flowId}!`);
+          await sendWhatsAppMessage(company, from, '⚠️ Flow configuration error. Please contact support.');
+          return;
+        }
+      }
+      
+      console.log(`   Will start from step: ${startStepId}`);
+      
+      if (!startStepId) {
+        console.error(`❌ Flow ${customFlow.flowId} has no startStepId configured!`);
+        await sendWhatsAppMessage(company, from, '⚠️ Flow configuration error. Please contact support.');
+        return;
+      }
+      
+      // Verify the start step exists one more time (after fallback)
+      const finalStartStep = customFlow.steps.find(s => s.stepId === startStepId);
+      if (!finalStartStep) {
+        console.error(`❌ Final start step "${startStepId}" not found in flow ${customFlow.flowId}!`);
+        console.log(`   Available steps: ${customFlow.steps.map(s => s.stepId).join(', ')}`);
+        await sendWhatsAppMessage(company, from, '⚠️ Flow configuration error. Please contact support.');
+        return;
+      }
+      
+      // Clear session and start custom flow (do NOT set currentStepId yet – first step will set it)
+      await clearSession(from, companyId);
+      const newSession = await getSession(from, companyId);
+      
+      // Store only flowId so executeStep(startStepId) runs the first step (e.g. language_selection)
+      newSession.data = { flowId: customFlow.flowId };
+      await updateSession(newSession);
+      
+      console.log(`🚀 Executing flow step: ${startStepId} (${finalStartStep.stepType})`);
+      
+      // Execute the custom flow
+      try {
+        const flowEngine = new DynamicFlowEngine(customFlow, newSession, company, from);
+        await flowEngine.executeStep(startStepId);
+        console.log(`✅ Flow step executed successfully`);
+      } catch (flowError: any) {
+        console.error(`❌ Error executing flow step:`, flowError);
+        console.error(`   Error stack:`, flowError.stack);
+        
+        // Try to send error message to user
+        try {
+          await sendWhatsAppMessage(company, from, '⚠️ We encountered an error. Please try again later.');
+        } catch (sendError: any) {
+          console.error(`❌ Failed to send error message:`, sendError);
+        }
+      }
+      return;
+    }
+    
+    console.log(`⚠️ No custom flow found for trigger "${userInput}", using default language selection`);
+    
+    // Fallback to default language selection if no custom flow
     await clearSession(from, companyId);
     const newSession = await getSession(from, companyId);
     await showLanguageSelection(newSession, message, company);
     return;
   }
 
-  // Initial greeting/auto-start if session is new
-  if (session.step === 'start') {
+  // ✅ Recovery: if session has no flow context but user sent text (not a greeting), try restoring from MongoDB (Redis may have lost sessionData)
+  if (
+    session.step === 'start' &&
+    !session.data?.flowId &&
+    !buttonId &&
+    userInput &&
+    !greetings.includes(userInput)
+  ) {
+    const mongoSession = await getSessionFromMongo(from, companyId);
+    if (mongoSession?.data?.flowId && (mongoSession.data.currentStepId || mongoSession.data.awaitingInput)) {
+      console.log('🔄 Recovered session from MongoDB (flowId + currentStepId/awaitingInput)');
+      session.data = mongoSession.data;
+      session.step = mongoSession.step;
+      session.language = mongoSession.language;
+      // Fall through to "if (session.data?.flowId)" below to handle the input
+    }
+  }
+
+  // Initial greeting/auto-start only when session has no flow context (skip when we have flowId so "continuing flow" or recovered flow handles it)
+  if (session.step === 'start' && !session.data?.flowId) {
+    // ✅ NEW: Check for custom flow with default trigger
+    const defaultTrigger = 'hi';
+    const customFlow = await loadFlowForTrigger(company._id.toString(), defaultTrigger);
+    if (customFlow && customFlow.isActive) {
+      let startStepId = getStartStepForTrigger(customFlow, defaultTrigger) || customFlow.startStepId;
+      const startStep = customFlow.steps.find(s => s.stepId === startStepId);
+      if (!startStep) {
+        console.warn(`⚠️ Trigger startStepId "${startStepId}" not found in flow ${customFlow.flowId}! Falling back to flow's startStepId: ${customFlow.startStepId}`);
+        startStepId = customFlow.startStepId;
+      }
+
+      // ✅ If user sent a button/list click (e.g. lang_en) but session has no flowId, treat as "continue flow" and handle the click
+      if (buttonId) {
+        console.log(`✅ Custom flow found for new session: ${customFlow.flowName} (${customFlow.flowId}) – treating button/list click as flow continuation`);
+        session.data = {
+          flowId: customFlow.flowId,
+          currentStepId: startStepId,
+          buttonMapping: {},
+          listMapping: {}
+        };
+        customFlow.steps.forEach((s: any) => {
+          if (s.buttons) {
+            s.buttons.forEach((btn: any) => {
+              if (btn.nextStepId) (session.data as any).buttonMapping[btn.id] = btn.nextStepId;
+            });
+          }
+          if (s.listConfig?.sections) {
+            s.listConfig.sections.forEach((sec: any) => {
+              (sec.rows || []).forEach((row: any) => {
+                if (row.nextStepId) (session.data as any).listMapping[row.id] = row.nextStepId;
+              });
+            });
+          }
+        });
+        if (customFlow.steps.some((s: any) => s.expectedResponses?.length)) {
+          const langStep = customFlow.steps.find((s: any) => s.stepId === startStepId);
+          if (langStep?.expectedResponses) {
+            langStep.expectedResponses.forEach((r: any) => {
+              if (r.type === 'button_click' && r.nextStepId) (session.data as any).buttonMapping[r.value] = r.nextStepId;
+            });
+          }
+        }
+        await updateSession(session);
+        const flowEngine = new DynamicFlowEngine(customFlow, session, company, from);
+        if ((session.data as any).listMapping?.[buttonId]) {
+          await flowEngine.handleListSelection(buttonId);
+        } else {
+          await flowEngine.handleButtonClick(buttonId);
+        }
+        return;
+      }
+
+      console.log(`✅ Custom flow found for new session: ${customFlow.flowName} (${customFlow.flowId})`);
+      session.data = { flowId: customFlow.flowId };
+      await updateSession(session);
+      const flowEngine = new DynamicFlowEngine(customFlow, session, company, from);
+      await flowEngine.executeStep(startStepId);
+      return;
+    }
+    
+    // Fallback to default language selection
     await showLanguageSelection(session, message, company);
     return;
+  }
+  
+  // ✅ NEW: Check if user is in a custom flow
+  if (session.data?.flowId) {
+    let customFlow = await ChatbotFlow.findOne({ 
+      flowId: session.data.flowId, 
+      isActive: true 
+    });
+    // Fallback: session may store flow _id instead of flowId string
+    if (!customFlow && session.data.flowId && mongoose.Types.ObjectId.isValid(String(session.data.flowId))) {
+      customFlow = await ChatbotFlow.findOne({ _id: session.data.flowId, isActive: true });
+      if (customFlow) {
+        console.log(`   Flow resolved by _id (session had ObjectId)`);
+        session.data.flowId = (customFlow as any).flowId;
+        await updateSession(session);
+      }
+    }
+    
+    if (customFlow) {
+      console.log(`🔄 Continuing custom flow: ${customFlow.flowName} (${(customFlow as any).flowId})`);
+      const flowEngine = new DynamicFlowEngine(customFlow, session, company, from);
+      
+      // Handle date selections from availability API
+      if (buttonId && buttonId.startsWith('date_') && session.data.dateMapping) {
+        const selectedDate = session.data.dateMapping[buttonId];
+        if (selectedDate) {
+          session.data.selectedDate = selectedDate;
+          await updateSession(session);
+          // Continue to next step (usually time selection)
+          if (session.data.currentStepId) {
+            await flowEngine.executeStep(session.data.currentStepId);
+          }
+        }
+        return;
+      }
+      
+      // Handle time selections from availability API
+      if (buttonId && buttonId.startsWith('time_') && session.data.timeMapping) {
+        const selectedTime = session.data.timeMapping[buttonId];
+        if (selectedTime) {
+          session.data.selectedTime = selectedTime;
+          await updateSession(session);
+          // Continue to next step
+          if (session.data.currentStepId) {
+            await flowEngine.executeStep(session.data.currentStepId);
+          }
+        }
+        return;
+      }
+      
+      // Handle list selections first (grv_dept_*, etc.) – list row ids must go to handleListSelection
+      if (buttonId && session.data.listMapping && session.data.listMapping[buttonId] !== undefined) {
+        await flowEngine.handleListSelection(buttonId);
+        return;
+      }
+      
+      // ✅ Handle button clicks in custom flow (language, menu, etc.)
+      if (buttonId) {
+        await flowEngine.handleButtonClick(buttonId);
+        return;
+      }
+      
+      // ✅ Handle media upload in custom flow (e.g. user sent image after "Please send a photo or document")
+      if (session.data.awaitingMedia && (messageType === 'image' || messageType === 'document' || messageType === 'video') && mediaUrl) {
+        const nextStepId = session.data.awaitingMedia.nextStepId;
+        const saveToField = session.data.awaitingMedia.saveToField || 'media';
+        try {
+          const accessToken = (company as any)?.whatsappConfig?.accessToken;
+          if (accessToken) {
+            const folder = (company?.name || (company as any)?._id?.toString() || 'chatbot').replace(/\s+/g, '_');
+            const cloudinaryUrl = await uploadWhatsAppMediaToCloudinary(mediaUrl, accessToken, folder);
+            if (saveToField === 'media') {
+              session.data.media = session.data.media || [];
+              session.data.media.push({
+                url: cloudinaryUrl || mediaUrl,
+                type: messageType,
+                uploadedAt: new Date(),
+                isCloudinary: !!cloudinaryUrl
+              });
+            } else {
+              session.data[saveToField] = cloudinaryUrl || mediaUrl;
+            }
+          } else {
+            if (saveToField === 'media') {
+              session.data.media = session.data.media || [];
+              session.data.media.push({ url: mediaUrl, type: messageType });
+            } else {
+              session.data[saveToField] = mediaUrl;
+            }
+          }
+        } catch (err: any) {
+          console.error('❌ Error uploading media in flow:', err);
+          if (saveToField === 'media') {
+            session.data.media = session.data.media || [];
+            session.data.media.push({ url: mediaUrl, type: messageType });
+          } else {
+            session.data[saveToField] = mediaUrl;
+          }
+        }
+        delete session.data.awaitingMedia;
+        await updateSession(session);
+        if (nextStepId) {
+          console.log(`📎 Media received for step; advancing to: ${nextStepId}`);
+          await flowEngine.executeStep(nextStepId);
+        }
+        return;
+      }
+
+      // When awaiting media but user sent text: treat skip keywords as skip and advance; otherwise remind
+      if (session.data.awaitingMedia) {
+        const skipKeywords = ['back', 'skip', 'cancel', 'no', 'no thanks', 'continue without', 'without photo', 'na', 'n/a'];
+        const userText = (messageText || '').trim().toLowerCase();
+        const isSkip = skipKeywords.some(k => userText === k || userText.includes(k));
+        if (isSkip) {
+          const nextStepId = session.data.awaitingMedia.nextStepId;
+          delete session.data.awaitingMedia;
+          await updateSession(session);
+          if (nextStepId) {
+            await flowEngine.executeStep(nextStepId);
+          }
+          return;
+        }
+        const reminder = (getTranslation('msg_upload_photo', session.language || 'en') as string) + '\n\n_Type *back* or *skip* to continue without uploading._';
+        await sendWhatsAppMessage(company, from, reminder);
+        return;
+      }
+      
+      // When awaiting media-type input (image/document/video), do not advance on text – only on media or skip
+      const awaitingMediaInput = session.data.awaitingInput?.type === 'image' || session.data.awaitingInput?.type === 'document' || session.data.awaitingInput?.type === 'video';
+      if (awaitingMediaInput && session.data.awaitingInput) {
+        const skipKeywords = ['back', 'skip', 'cancel', 'no', 'no thanks', 'continue without', 'without photo', 'na', 'n/a'];
+        const userText = (messageText || '').trim().toLowerCase();
+        const isSkip = skipKeywords.some(k => userText === k || userText.includes(k));
+        if (isSkip) {
+          const nextStepId = session.data.awaitingInput.nextStepId;
+          delete session.data.awaitingInput;
+          await updateSession(session);
+          if (nextStepId) await flowEngine.executeStep(nextStepId);
+        } else {
+          const reminder = (getTranslation('msg_upload_photo', session.language || 'en') as string) + '\n\n_Type *back* or *skip* to continue without uploading._';
+          await sendWhatsAppMessage(company, from, reminder);
+        }
+        return;
+      }
+
+      // Handle input in custom flow (e.g. user sent name after "Please enter your Full Name")
+      if (session.data.awaitingInput) {
+        console.log(`📥 Handling user input for step: ${session.data.currentStepId}, input length: ${(userInput || '').length}`);
+        await flowEngine.executeStep(session.data.currentStepId, userInput);
+        return;
+      }
+      
+      // Get current step or next step based on user input
+      const currentStepId = session.data.currentStepId || customFlow.startStepId;
+      console.log(`🔄 No awaitingInput; running step: ${currentStepId} with userInput`);
+      await flowEngine.executeStep(currentStepId, userInput);
+      return;
+    } else {
+      // Flow was deactivated, clear it
+      console.log('⚠️ Custom flow not found or inactive, clearing session');
+      session.data = {};
+      await updateSession(session);
+    }
   }
 
   // Language selection
@@ -521,6 +933,10 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     } else if (userInput === 'marathi' || buttonId === 'lang_mr' || userInput === '3' || userInput === 'मराठी') {
       session.language = 'mr';
       console.log('✅ Language set to Marathi');
+      await showMainMenu(session, message, company);
+    } else if (userInput === 'odia' || buttonId === 'lang_or' || userInput === '4' || userInput === 'ଓଡ଼ିଆ') {
+      session.language = 'or';
+      console.log('✅ Language set to Odia');
       await showMainMenu(session, message, company);
     } else {
       console.log('⚠️ Invalid language selection');
@@ -597,7 +1013,8 @@ export async function processWhatsAppMessage(message: ChatbotMessage): Promise<a
     const unrecognizedResponses = {
       en: '⚠️ *Unrecognized Input*\n\nI didn\'t understand that. Please use the buttons provided or type one of these commands:\n\n• "Hi" or "Hello" - Start over\n• "Menu" - Show main menu\n• "Help" - Get assistance\n• "Track" - Track status\n\nOr select an option from the buttons above.',
       hi: '⚠️ *अमान्य इनपुट*\n\nमैं इसे समझ नहीं पाया। कृपया प्रदान किए गए बटन का उपयोग करें या इनमें से कोई एक कमांड टाइप करें:\n\n• "Hi" या "Hello" - फिर से शुरू करें\n• "Menu" - मुख्य मेनू दिखाएं\n• "Help" - सहायता प्राप्त करें\n• "Track" - स्थिति ट्रैक करें\n\nया ऊपर दिए गए बटन से एक विकल्प चुनें।',
-      mr: '⚠️ *अमान्य इनपुट*\n\nमला ते समजले नाही. कृपया प्रदान केलेले बटण वापरा किंवा यापैकी एक आदेश टाइप करा:\n\n• "Hi" किंवा "Hello" - पुन्हा सुरू करा\n• "Menu" - मुख्य मेनू दाखवा\n• "Help" - मदत मिळवा\n• "Track" - स्थिती ट्रॅक करा\n\nकिंवा वर दिलेल्या बटणातून एक पर्याय निवडा.'
+      mr: '⚠️ *अमान्य इनपुट*\n\nमला ते समजले नाही. कृपया प्रदान केलेले बटण वापरा किंवा यापैकी एक आदेश टाइप करा:\n\n• "Hi" किंवा "Hello" - पुन्हा सुरू करा\n• "Menu" - मुख्य मेनू दाखवा\n• "Help" - मदत मिळवा\n• "Track" - स्थिती ट्रॅक करा\n\nकिंवा वर दिलेल्या बटणातून एक पर्याय निवडा.',
+      or: '⚠️ *ଅଚିହ୍ନିତ ଇନପୁଟ୍*\n\nମୁଁ ତାହା ବୁଝିପାରିଲି ନାହିଁ। ଦୟାକରି ପ୍ରଦାନ କରାଯାଇଥିବା ବଟନ୍ ବ୍ୟବହାର କରନ୍ତୁ କିମ୍ବା ଏହି କମାଣ୍ଡଗୁଡ଼ିକ ମଧ୍ୟରୁ ଗୋଟିଏ ଟାଇପ୍ କରନ୍ତୁ:\n\n• "Hi" କିମ୍ବା "Hello" - ପୁନର୍ବାର ଆରମ୍ଭ କରନ୍ତୁ\n• "Menu" - ମୁଖ୍ୟ ମେନୁ ଦେଖାନ୍ତୁ\n• "Help" - ସାହାଯ୍ୟ ପାଆନ୍ତୁ\n• "Track" - ସ୍ଥିତି ଟ୍ରାକ୍ କରନ୍ତୁ\n\nକିମ୍ବା ଉପରେ ଥିବା ବଟନ୍ ମଧ୍ୟରୁ ଏକ ବିକଳ୍ପ ବାଛନ୍ତୁ।'
     };
 
     await sendWhatsAppMessage(
@@ -986,8 +1403,12 @@ async function continueGrievanceFlow(
         session.data.media = [];
       } else if (message.mediaUrl && (message.messageType === 'image' || message.messageType === 'document')) {
         // Professional media handling: Download from WhatsApp and upload to Cloudinary
-        const accessToken = company?.whatsappConfig?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
-        const cloudinaryUrl = await uploadWhatsAppMediaToCloudinary(message.mediaUrl, accessToken as string, 'ZP amravati');
+        const accessToken = company?.whatsappConfig?.accessToken;
+        if (!accessToken) {
+          throw new Error('WhatsApp access token missing for company (cannot download media)');
+        }
+        const folder = (company?.name || company?._id?.toString() || 'chatbot').replace(/\s+/g, '_');
+        const cloudinaryUrl = await uploadWhatsAppMediaToCloudinary(message.mediaUrl, accessToken as string, folder);
         
         session.data.media = [{ 
           url: cloudinaryUrl || message.mediaUrl, // Fallback to ID if upload fails
@@ -1028,27 +1449,38 @@ async function continueGrievanceFlow(
       await updateSession(session);
       break;
 
-    case 'grievance_photo_upload':
-      if (message.mediaUrl && (message.messageType === 'image' || message.messageType === 'document')) {
-        // Professional media handling: Download from WhatsApp and upload to Cloudinary
-        const accessToken = company?.whatsappConfig?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
-        const cloudinaryUrl = await uploadWhatsAppMediaToCloudinary(message.mediaUrl, accessToken as string, 'ZP amravati');
-        
-        session.data.media = [{ 
-          url: cloudinaryUrl || message.mediaUrl, // Fallback to ID if upload fails
-          type: message.messageType, 
+    case 'grievance_photo_upload': {
+      // Only proceed to confirmation after media is uploaded or user explicitly skips
+      const skipKeywords = ['back', 'skip', 'cancel', 'no', 'no thanks', 'continue without', 'without photo', 'na', 'n/a'];
+      const userText = (message.messageText || '').trim().toLowerCase();
+      const isSkip = skipKeywords.some(k => userText === k || userText.includes(k));
+      const hasMedia = message.mediaUrl && (message.messageType === 'image' || message.messageType === 'document');
+
+      if (hasMedia) {
+        const accessToken = company?.whatsappConfig?.accessToken;
+        if (!accessToken) {
+          throw new Error('WhatsApp access token missing for company (cannot download media)');
+        }
+        const folder = (company?.name || company?._id?.toString() || 'chatbot').replace(/\s+/g, '_');
+        const cloudinaryUrl = await uploadWhatsAppMediaToCloudinary(message.mediaUrl, accessToken as string, folder);
+        session.data.media = [{
+          url: cloudinaryUrl || message.mediaUrl,
+          type: message.messageType,
           uploadedAt: new Date(),
           isCloudinary: !!cloudinaryUrl
         }];
+      } else if (!isSkip) {
+        const reminder = getTranslation('msg_upload_photo', session.language) + '\n\n_Type *back* or *skip* to continue without uploading._';
+        await sendWhatsAppMessage(company, message.from, reminder);
+        await updateSession(session);
+        break;
       }
-      
+
       const translatedCat = getTranslation(`dept_${session.data.category}`, session.language);
-     
       const confirmMsg = getTranslation('grievanceConfirm', session.language)
         .replace('{name}', session.data.citizenName)
         .replace('{category}', translatedCat)
         .replace('{description}', (session.data.description || 'N/A').substring(0, 100) + (session.data.description && session.data.description.length > 100 ? '...' : ''));
-      
       await sendWhatsAppButtons(
         company,
         message.from,
@@ -1058,10 +1490,10 @@ async function continueGrievanceFlow(
           { id: 'confirm_no', title: getTranslation('btn_cancel', session.language) }
         ]
       );
-      
       session.step = 'grievance_confirm';
       await updateSession(session);
       break;
+    }
 
     case 'grievance_confirm':
       console.log('✅ Grievance confirmation received:', { 
@@ -1554,7 +1986,7 @@ async function continueAppointmentFlow(
         const isAvailable = await isDateAvailableForBooking(date, availabilitySettings);
         
         if (isAvailable) {
-          const locale = session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN';
+          const locale = session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : session.language === 'or' ? 'or-IN' : 'mr-IN';
           const dateStr = date.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
           dateButtons.push({
             id: `date_${date.toISOString().split('T')[0]}`,

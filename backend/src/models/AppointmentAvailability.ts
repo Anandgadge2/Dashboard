@@ -51,13 +51,8 @@ export interface IAppointmentAvailability extends Document {
   maxAdvanceBookingDays: number; // How far in advance can book
   minAdvanceBookingHours: number; // Minimum hours before appointment
   
-  // Fallback defaults
-  defaultMorningStart: string;
-  defaultMorningEnd: string;
-  defaultAfternoonStart: string;
-  defaultAfternoonEnd: string;
-  defaultEveningStart: string;
-  defaultEveningEnd: string;
+  // Removed: defaultMorningStart/End, defaultAfternoonStart/End, defaultEveningStart/End
+  // These can be derived from weeklySchedule if needed
   
   isActive: boolean;
   createdAt: Date;
@@ -115,12 +110,7 @@ const AppointmentAvailabilitySchema = new Schema<IAppointmentAvailability>({
   maxAdvanceBookingDays: { type: Number, default: 30 },
   minAdvanceBookingHours: { type: Number, default: 24 },
   
-  defaultMorningStart: { type: String, default: '09:00' },
-  defaultMorningEnd: { type: String, default: '12:00' },
-  defaultAfternoonStart: { type: String, default: '14:00' },
-  defaultAfternoonEnd: { type: String, default: '17:00' },
-  defaultEveningStart: { type: String, default: '17:00' },
-  defaultEveningEnd: { type: String, default: '19:00' },
+  // Removed redundant default time fields - can be derived from weeklySchedule
   
   isActive: { type: Boolean, default: true }
 }, {
