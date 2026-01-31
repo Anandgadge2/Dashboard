@@ -1018,6 +1018,7 @@ export async function notifyCitizenOnAppointmentStatusChange(data: {
   appointmentDate: Date;
   appointmentTime: string;
   purpose?: string;
+  preferredLanguage?: 'en' | 'hi' | 'mr';
 }): Promise<void> {
   try {
     const company = await Company.findById(data.companyId);
@@ -1028,8 +1029,9 @@ export async function notifyCitizenOnAppointmentStatusChange(data: {
 
     const { AppointmentStatus } = await import('../config/constants');
     const { getTranslation } = await import('./chatbotEngine');
-    
-    // Format date and time
+    const lang = data.preferredLanguage || 'en';
+
+    // Format date (no time for "Appointment Requested" template)
     const appointmentDate = new Date(data.appointmentDate);
     const dateDisplay = formatDateIST(appointmentDate, {
       weekday: 'long',
@@ -1062,7 +1064,6 @@ export async function notifyCitizenOnAppointmentStatusChange(data: {
         `🎫 *Ref No:* \`${data.appointmentId}\`\n` +
         `👤 *Name:* ${data.citizenName}\n` +
         `📅 *Date:* ${dateDisplay}\n` +
-        `⏰ *Time:* ${timeDisplay}\n` +
         `🎯 *Purpose:* ${data.purpose || 'Meeting with CEO'}\n` +
         `📊 *Status:* SCHEDULED${remarksText}\n\n` +
         `Please wait for confirmation.\n\n` +
@@ -1072,23 +1073,19 @@ export async function notifyCitizenOnAppointmentStatusChange(data: {
         `Digital Appointment System`;
 
     } else if (data.newStatus === AppointmentStatus.CONFIRMED) {
-      // Appointment has been confirmed by admin
-      message = 
+      // Appointment confirmed by admin: "Appointment Requested" template, no time, in citizen's language
+      const template = getTranslation('aptStatusRequestedConfirm', lang);
+      const body = template
+        .replace(/\{citizenName\}/g, data.citizenName)
+        .replace(/\{appointmentId\}/g, data.appointmentId)
+        .replace(/\{dateDisplay\}/g, dateDisplay)
+        .replace(/\{purpose\}/g, data.purpose || 'Meeting with CEO')
+        .replace(/\{remarks\}/g, remarksText || '');
+      message =
         `*${company.name}*\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `✅ *APPOINTMENT CONFIRMED*\n\n` +
-        `Respected ${data.citizenName},\n\n` +
-        `Your appointment has been confirmed and is ready.\n\n` +
-        `*Appointment Details:*\n` +
-        `🎫 *Ref No:* \`${data.appointmentId}\`\n` +
-        `👤 *Name:* ${data.citizenName}\n` +
-        `📅 *Date:* ${dateDisplay}\n` +
-        `⏰ *Time:* ${timeDisplay}\n` +
-        `🎯 *Purpose:* ${data.purpose || 'Meeting with CEO'}\n` +
-        `📊 *Status:* CONFIRMED${remarksText}\n\n` +
-        `Please arrive 15 minutes early with valid ID.\n\n` +
-        `Thank you for using our services.\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        body +
+        `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `*${company.name}*\n` +
         `Digital Appointment System`;
 

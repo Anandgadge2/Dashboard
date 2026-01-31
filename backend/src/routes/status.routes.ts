@@ -339,7 +339,8 @@ router.put('/appointment/:id', requirePermission(Permission.STATUS_CHANGE_APPOIN
         remarks: remarks || '',
         appointmentDate: appointment.appointmentDate,
         appointmentTime: appointment.appointmentTime,
-        purpose: appointment.purpose
+        purpose: appointment.purpose,
+        preferredLanguage: appointment.preferredLanguage || 'en'
       });
     }
 

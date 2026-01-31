@@ -9,6 +9,7 @@ export interface IAppointment extends Document {
   citizenPhone: string;
   citizenWhatsApp?: string;
   citizenEmail?: string;
+  preferredLanguage?: 'en' | 'hi' | 'mr';
   purpose: string;
   appointmentDate: Date;
   appointmentTime: string;
@@ -76,6 +77,11 @@ const AppointmentSchema: Schema = new Schema(
       type: String,
       lowercase: true,
       trim: true
+    },
+    preferredLanguage: {
+      type: String,
+      enum: ['en', 'hi', 'mr'],
+      default: 'en'
     },
     purpose: {
       type: String,
