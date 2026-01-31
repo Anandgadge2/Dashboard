@@ -655,8 +655,9 @@ export function generateNotificationEmail(
   }
 
   if (action === 'created' && type === 'appointment') {
+    const dashboardAppointmentsUrl = 'https://connect.zpamravati.org/dashboard?tab=appointments';
     return {
-      subject: `New Appointment Booking Received - ${data.appointmentId} | ${companyName}`,
+      subject: `New Appointment Request Received - ${data.appointmentId} | ${companyName}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -668,14 +669,14 @@ export function generateNotificationEmail(
         <body>
           <div class="email-container">
             <div class="header">
-              <h2>📅 New Appointment Booking Received</h2>
+              <h2>📅 New Appointment Request Received</h2>
             </div>
             <div class="content">
               <div class="greeting">
                 <strong>Respected ${recipientName},</strong>
               </div>
               <div class="intro-text">
-                This is to inform you that a new appointment has been booked through our digital portal and has been assigned to your department for scheduling and management.
+                A citizen has submitted an appointment request through the digital portal. The requested <strong>date</strong> is mentioned below. The <strong>time</strong> will be set by you after review—please open the dashboard, confirm the appointment, and set the confirmed date &amp; time so the citizen receives a confirmation message.
               </div>
               
               <div class="detail-box">
@@ -701,36 +702,41 @@ export function generateNotificationEmail(
                 </div>
                 ${data.appointmentDate ? `
                 <div class="detail-row">
-                  <span class="detail-label">Scheduled Date:</span>
+                  <span class="detail-label">Requested Date:</span>
                   <span class="detail-value"><strong>${formatDate(data.appointmentDate)}</strong></span>
-                </div>
-                ` : ''}
-                ${data.appointmentTime ? `
-                <div class="detail-row">
-                  <span class="detail-label">Scheduled Time:</span>
-                  <span class="detail-value"><strong>${data.appointmentTime}</strong></span>
                 </div>
                 ` : ''}
                 ${data.createdAt ? `
                 <div class="detail-row">
-                  <span class="detail-label">Booked On:</span>
+                  <span class="detail-label">Request Received On:</span>
                   <span class="detail-value">${formatDateTime(data.createdAt)}</span>
                 </div>
                 ` : ''}
               </div>
 
-              <div style="background: #d1ecf1; border-left: 4px solid #17a2b8; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                <strong style="color: #0c5460;">ℹ️ Information:</strong>
-                <p style="margin: 8px 0 0 0; color: #0c5460; font-size: 14px;">
-                  Please review this appointment booking and ensure proper scheduling. Kindly confirm the appointment with the citizen and make necessary arrangements.
+              <div style="background: #e8f4fd; border-left: 4px solid #0f4c81; padding: 18px; margin: 20px 0; border-radius: 4px;">
+                <strong style="color: #0f4c81;">📌 Action Required:</strong>
+                <p style="margin: 10px 0 0 0; color: #2c3e50; font-size: 14px; line-height: 1.6;">
+                  Please review this appointment request, confirm it from the dashboard, and set the confirmed date and time. The citizen will then receive a WhatsApp confirmation with the final schedule.
+                </p>
+                <p style="margin: 16px 0 0 0;">
+                  <a href="${dashboardAppointmentsUrl}" class="action-button" style="display: inline-block; background: #0f4c81; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 14px;">Open Appointments Dashboard</a>
                 </p>
               </div>
+
+              <p style="font-size: 13px; color: #7f8c8d; margin-top: 20px;">
+                Or copy this link to open the appointments tab directly:<br/>
+                <a href="${dashboardAppointmentsUrl}" style="color: #0f4c81; word-break: break-all;">${dashboardAppointmentsUrl}</a>
+              </p>
 
               ${generateTimelineHTML(data.timeline, undefined, undefined, data.createdAt, undefined)}
             </div>
             <div class="footer">
               <div class="footer-text"><strong>${companyName}</strong></div>
-              <div class="footer-text">Digital Appointment Booking System</div>
+              <div class="footer-text">Digital Appointment System</div>
+              <div class="footer-text" style="margin-top: 8px;">
+                <a href="${dashboardAppointmentsUrl}" style="color: #0f4c81; text-decoration: none; font-weight: 600;">View appointments →</a>
+              </div>
               <div class="footer-text" style="margin-top: 10px; font-size: 11px;">
                 This is an automated notification. Please do not reply to this email.
               </div>
@@ -739,7 +745,7 @@ export function generateNotificationEmail(
         </body>
         </html>
       `,
-      text: `NEW APPOINTMENT BOOKING RECEIVED\n\nRespected ${recipientName},\n\nA new appointment has been booked and assigned to your department.\n\nAppointment ID: ${data.appointmentId}\nCitizen Name: ${data.citizenName}\nContact: ${data.citizenPhone}\nDepartment: ${data.departmentName}\nPurpose: ${data.purpose}\n${data.appointmentDate ? `Scheduled Date: ${formatDate(data.appointmentDate)}\n` : ''}${data.appointmentTime ? `Scheduled Time: ${data.appointmentTime}\n` : ''}${data.createdAt ? `Booked On: ${formatDateTime(data.createdAt)}\n` : ''}\n\nPlease review and confirm the appointment.\n\n${companyName} - Digital Portal`
+      text: `NEW APPOINTMENT REQUEST RECEIVED\n\nRespected ${recipientName},\n\nA citizen has submitted an appointment request through the digital portal. The time will be set by you after review—please open the dashboard, confirm the appointment, and set the confirmed date and time.\n\nAppointment ID: ${data.appointmentId}\nCitizen Name: ${data.citizenName}\nContact: ${data.citizenPhone}\nDepartment: ${data.departmentName}\nPurpose: ${data.purpose}\n${data.appointmentDate ? `Requested Date: ${formatDate(data.appointmentDate)}\n` : ''}${data.createdAt ? `Request Received On: ${formatDateTime(data.createdAt)}\n` : ''}\n\nAction Required: Review and confirm the appointment from the dashboard, then set the confirmed date & time. The citizen will receive a WhatsApp confirmation.\n\nOpen Appointments Dashboard:\n${dashboardAppointmentsUrl}\n\n${companyName} - Digital Appointment System`
     };
   }
 
