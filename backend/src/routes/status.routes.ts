@@ -228,7 +228,7 @@ router.put('/grievance/:id', requirePermission(Permission.STATUS_CHANGE_GRIEVANC
 router.put('/appointment/:id', requirePermission(Permission.STATUS_CHANGE_APPOINTMENT, Permission.UPDATE_APPOINTMENT), async (req: Request, res: Response) => {
   try {
     const currentUser = req.user!;
-    const { status, remarks } = req.body;
+    const { status, remarks, appointmentTime, appointmentDate } = req.body;
 
     if (!status) {
       return res.status(400).json({
@@ -275,6 +275,19 @@ router.put('/appointment/:id', requirePermission(Permission.STATUS_CHANGE_APPOIN
 
     const oldStatus = appointment.status;
     appointment.status = status;
+
+    // When confirming, optionally update appointment time and/or date
+    if (status === AppointmentStatus.CONFIRMED) {
+      if (appointmentTime != null && typeof appointmentTime === 'string') {
+        appointment.appointmentTime = appointmentTime;
+      }
+      if (appointmentDate != null) {
+        const d = new Date(appointmentDate);
+        if (!isNaN(d.getTime())) {
+          appointment.appointmentDate = d;
+        }
+      }
+    }
 
     // Add to status history
     if (!appointment.statusHistory) {

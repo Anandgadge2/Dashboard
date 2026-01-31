@@ -3,14 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { availabilityAPI, AppointmentAvailability, DayAvailability, TimeSlot, SpecialDate, Holiday, WeeklySchedule } from '@/lib/api/availability';
+import { availabilityAPI, AppointmentAvailability, DayAvailability, SpecialDate, Holiday } from '@/lib/api/availability';
 import toast from 'react-hot-toast';
 import {
   Calendar,
-  Clock,
-  Sun,
-  Sunset,
-  Moon,
   ChevronLeft,
   ChevronRight,
   X,
@@ -18,7 +14,6 @@ import {
   RotateCcw,
   Info,
   CalendarDays,
-  Settings,
   PartyPopper,
   CheckCircle,
   XCircle,
@@ -44,27 +39,16 @@ const DAYS_OF_WEEK: { key: DayName; label: string; short: string }[] = [
   { key: 'saturday', label: 'Saturday', short: 'Sat' }
 ];
 
-const TIME_OPTIONS = Array.from({ length: 24 * 4 }, (_, i) => {
-  const hours = Math.floor(i / 4);
-  const minutes = (i % 4) * 15;
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-});
-
-const DEFAULT_TIME_SLOT: TimeSlot = {
-  enabled: true,
-  startTime: '09:00',
-  endTime: '12:00'
-};
-
 export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: AvailabilityCalendarProps) {
   const [availability, setAvailability] = useState<AppointmentAvailability | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'weekly' | 'calendar' | 'holidays' | 'settings'>('weekly');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'holidays'>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [togglingDate, setTogglingDate] = useState(false);
 
   // Fetch availability settings
   const fetchAvailability = useCallback(async () => {
@@ -146,26 +130,6 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
     setHasChanges(true);
   };
 
-  // Update time slot
-  const updateTimeSlot = (day: DayName, period: 'morning' | 'afternoon' | 'evening', updates: Partial<TimeSlot>) => {
-    if (!availability) return;
-    
-    setAvailability({
-      ...availability,
-      weeklySchedule: {
-        ...availability.weeklySchedule,
-        [day]: {
-          ...availability.weeklySchedule[day],
-          [period]: {
-            ...availability.weeklySchedule[day][period],
-            ...updates
-          }
-        }
-      }
-    });
-    setHasChanges(true);
-  };
-
   // Update settings
   const updateSettings = (updates: Partial<AppointmentAvailability>) => {
     if (!availability) return;
@@ -203,6 +167,33 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
       }
     } catch (error) {
       toast.error('Failed to remove date');
+    }
+  };
+
+  // Toggle a specific date Available / Unavailable (writes to specialDates)
+  const setSelectedDateAvailability = async (isAvailable: boolean) => {
+    if (!selectedDate || !availability) return;
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    setTogglingDate(true);
+    try {
+      await removeSpecialDate(dateStr);
+      if (!isAvailable) {
+        const specialDate: SpecialDate = {
+          date: dateStr,
+          type: 'custom',
+          name: 'Unavailable',
+          isAvailable: false
+        };
+        const response = await availabilityAPI.addSpecialDate(specialDate, departmentId);
+        if (response?.availability) setAvailability(response.availability);
+        toast.success('Date marked as unavailable');
+      } else {
+        toast.success('Date uses default availability');
+      }
+    } catch (error) {
+      toast.error('Failed to update date');
+    } finally {
+      setTogglingDate(false);
     }
   };
 
@@ -286,10 +277,8 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
         <div className="border-b border-slate-200 bg-white/80 backdrop-blur-sm overflow-x-auto">
           <div className="flex gap-1 px-2 sm:px-4 py-2 min-w-max">
             {[
-              { id: 'weekly', label: 'Weekly Schedule', icon: Calendar, tooltip: 'Set your default weekly availability' },
-              { id: 'calendar', label: 'Calendar View', icon: CalendarDays, tooltip: 'View and manage specific dates' },
-              { id: 'holidays', label: 'Holidays', icon: PartyPopper, tooltip: 'Add national and custom holidays' },
-              { id: 'settings', label: 'Settings', icon: Settings, tooltip: 'Configure booking rules and time slots' }
+              { id: 'calendar', label: 'Calendar View', icon: CalendarDays, tooltip: 'Set available days and mark dates' },
+              { id: 'holidays', label: 'Holidays', icon: PartyPopper, tooltip: 'Add holidays and blocked dates' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -317,175 +306,89 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
             </div>
           ) : (
             <>
-              {/* Weekly Schedule Tab */}
-              {activeTab === 'weekly' && availability && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-blue-50 px-4 py-3 rounded-xl border border-blue-100">
-                    <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                    <span>Configure your weekly availability schedule. Toggle days on/off and set time slots for morning, afternoon, and evening.</span>
-                  </div>
-
-                  <div className="grid gap-3">
-                    {DAYS_OF_WEEK.map((day) => {
-                      const dayAvailability = availability.weeklySchedule[day.key];
-                      const isWeekend = day.key === 'saturday' || day.key === 'sunday';
-
-                      return (
-                        <div
-                          key={day.key}
-                          className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
-                            dayAvailability.isAvailable
-                              ? 'border-emerald-200 bg-gradient-to-r from-emerald-50/50 to-green-50/50 shadow-sm'
-                              : 'border-slate-200 bg-slate-50/50'
-                          }`}
-                        >
-                          {/* Day Header */}
-                          <div className="flex items-center justify-between px-5 py-4">
-                            <div className="flex items-center gap-4">
-                              <button
-                                onClick={() => updateDayAvailability(day.key, { isAvailable: !dayAvailability.isAvailable })}
-                                title={dayAvailability.isAvailable ? 'Click to mark as unavailable' : 'Click to mark as available'}
-                                className={`w-14 h-8 rounded-full transition-all duration-300 relative ${
-                                  dayAvailability.isAvailable
-                                    ? 'bg-gradient-to-r from-emerald-400 to-green-500'
-                                    : 'bg-slate-300'
-                                }`}
-                              >
-                                <div
-                                  className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${
-                                    dayAvailability.isAvailable ? 'left-7' : 'left-1'
-                                  }`}
-                                />
-                              </button>
-                              <div>
-                                <span className={`font-semibold text-lg ${
-                                  dayAvailability.isAvailable ? 'text-slate-800' : 'text-slate-500'
-                                }`}>
-                                  {day.label}
-                                </span>
-                                {isWeekend && (
-                                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                                    Weekend
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className={`text-sm font-medium ${
-                              dayAvailability.isAvailable ? 'text-emerald-600' : 'text-slate-400'
-                            }`}>
-                              {dayAvailability.isAvailable ? 'Available' : 'Not Available'}
-                            </div>
-                          </div>
-
-                          {/* Time Slots */}
-                          {dayAvailability.isAvailable && (
-                            <div className="px-5 pb-4 grid grid-cols-3 gap-4">
-                              {(['morning', 'afternoon', 'evening'] as const).map((period) => {
-                                const slot = dayAvailability[period];
-                                const periodConfig = {
-                                  morning: { icon: Sun, label: 'Morning', color: 'amber', gradient: 'from-amber-400 to-orange-400' },
-                                  afternoon: { icon: Sunset, label: 'Afternoon', color: 'blue', gradient: 'from-blue-400 to-cyan-400' },
-                                  evening: { icon: Moon, label: 'Evening', color: 'indigo', gradient: 'from-indigo-400 to-purple-400' }
-                                }[period];
-                                const PeriodIcon = periodConfig.icon;
-
-                                return (
-                                  <div
-                                    key={period}
-                                    className={`rounded-xl p-4 transition-all duration-200 ${
-                                      slot.enabled
-                                        ? `bg-gradient-to-br ${periodConfig.gradient} text-white shadow-lg`
-                                        : 'bg-slate-100 text-slate-500'
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between mb-3">
-                                      <div className="flex items-center gap-2">
-                                        <PeriodIcon className={`w-4 h-4 ${slot.enabled ? '' : 'text-slate-400'}`} />
-                                        <span className="font-medium text-sm">{periodConfig.label}</span>
-                                      </div>
-                                      <button
-                                        onClick={() => updateTimeSlot(day.key, period, { enabled: !slot.enabled })}
-                                        title={slot.enabled ? 'Disable this time slot' : 'Enable this time slot'}
-                                        className={`w-8 h-5 rounded-full transition-all relative ${
-                                          slot.enabled ? 'bg-white/30' : 'bg-slate-300'
-                                        }`}
-                                      >
-                                        <div
-                                          className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
-                                            slot.enabled ? 'left-3.5' : 'left-0.5'
-                                          }`}
-                                        />
-                                      </button>
-                                    </div>
-                                    
-                                    {slot.enabled && (
-                                      <div className="flex items-center gap-2 text-xs">
-                                        <select
-                                          value={slot.startTime}
-                                          onChange={(e) => updateTimeSlot(day.key, period, { startTime: e.target.value })}
-                                          title="Select start time"
-                                          className="bg-white/20 border border-white/30 rounded-lg px-2 py-1.5 text-white backdrop-blur-sm text-xs w-full focus:outline-none focus:ring-2 focus:ring-white/50"
-                                        >
-                                          {TIME_OPTIONS.map((time) => (
-                                            <option key={time} value={time} className="text-slate-800">{time}</option>
-                                          ))}
-                                        </select>
-                                        <span className="text-white/80">to</span>
-                                        <select
-                                          value={slot.endTime}
-                                          onChange={(e) => updateTimeSlot(day.key, period, { endTime: e.target.value })}
-                                          title="Select end time"
-                                          className="bg-white/20 border border-white/30 rounded-lg px-2 py-1.5 text-white backdrop-blur-sm text-xs w-full focus:outline-none focus:ring-2 focus:ring-white/50"
-                                        >
-                                          {TIME_OPTIONS.map((time) => (
-                                            <option key={time} value={time} className="text-slate-800">{time}</option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               {/* Calendar View Tab */}
               {activeTab === 'calendar' && availability && (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-purple-50 px-4 py-3 rounded-xl border border-purple-100">
-                    <Info className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                    <span>Click on any date to view or modify its availability. Holidays and custom dates are highlighted.</span>
+                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-3 rounded-2xl border border-indigo-100">
+                    <Info className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                    <span>Set default available days below, then click any date on the calendar to mark it Available or Unavailable. Changes apply to the chatbot booking flow.</span>
                   </div>
 
+                  {/* Default week: Available / Unavailable per day (no time settings) */}
+                  <Card className="border-2 border-slate-200/80 shadow-sm overflow-hidden">
+                    <CardHeader className="pb-3 pt-5">
+                      <CardTitle className="text-base flex items-center gap-2 text-slate-800">
+                        <Calendar className="w-5 h-5 text-indigo-500" />
+                        Default week
+                      </CardTitle>
+                      <CardDescription>Toggle which weekdays are available for appointments by default</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-5">
+                      <div className="flex flex-wrap gap-3 sm:gap-4 justify-center">
+                        {DAYS_OF_WEEK.map((day) => {
+                          const dayAvailability = availability.weeklySchedule[day.key];
+                          const isWeekend = day.key === 'saturday' || day.key === 'sunday';
+                          return (
+                            <div
+                              key={day.key}
+                              className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all min-w-[72px] ${
+                                dayAvailability.isAvailable
+                                  ? 'border-emerald-200 bg-emerald-50/80'
+                                  : 'border-slate-200 bg-slate-50'
+                              }`}
+                            >
+                              <span className={`text-xs font-bold uppercase tracking-wide ${isWeekend ? 'text-rose-600' : 'text-slate-600'}`}>
+                                {day.short}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateDayAvailability(day.key, { isAvailable: !dayAvailability.isAvailable })}
+                                title={dayAvailability.isAvailable ? 'Mark unavailable' : 'Mark available'}
+                                className={`w-12 h-7 rounded-full transition-all relative flex-shrink-0 ${
+                                  dayAvailability.isAvailable
+                                    ? 'bg-emerald-500'
+                                    : 'bg-slate-300'
+                                }`}
+                              >
+                                <span
+                                  className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all ${
+                                    dayAvailability.isAvailable ? 'left-6' : 'left-1'
+                                  }`}
+                                />
+                              </button>
+                              <span className={`text-[10px] font-semibold ${dayAvailability.isAvailable ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                {dayAvailability.isAvailable ? 'Available' : 'Unavailable'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   {/* Month Navigation */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between max-w-3xl mx-auto px-1">
                     <button
                       onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
                       title="Previous month"
-                      className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                      className="p-2.5 rounded-xl hover:bg-indigo-50 transition-colors text-slate-600 hover:text-indigo-600"
                     >
-                      <ChevronLeft className="w-5 h-5 text-slate-600" />
+                      <ChevronLeft className="w-5 h-5" />
                     </button>
                     <h3 className="text-xl font-bold text-slate-800">
-                      {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      {currentMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
                     </h3>
                     <button
                       onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
                       title="Next month"
-                      className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                      className="p-2.5 rounded-xl hover:bg-indigo-50 transition-colors text-slate-600 hover:text-indigo-600"
                     >
-                      <ChevronRight className="w-5 h-5 text-slate-600" />
+                      <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
 
                   {/* Calendar Grid */}
-                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm max-w-3xl mx-auto">
+                  <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-md max-w-3xl mx-auto">
                     {/* Week Headers */}
                     <div className="grid grid-cols-7 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-slate-200">
                       {DAYS_OF_WEEK.map((day) => (
@@ -572,98 +475,86 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
                   </div>
 
                   {/* Legend */}
-                  <div className="flex flex-wrap gap-4 justify-center text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-emerald-100 border border-emerald-300" />
-                      <span className="text-slate-600">Available</span>
+                  <div className="flex flex-wrap gap-5 justify-center text-sm py-2">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                      <span className="text-slate-700 font-medium">Available</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-white border border-slate-200" />
-                      <span className="text-slate-600">Not Available</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200">
+                      <div className="w-3 h-3 rounded-full bg-slate-400" />
+                      <span className="text-slate-700 font-medium">Unavailable</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-rose-100 border border-rose-300" />
-                      <span className="text-slate-600">Holiday</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200">
+                      <div className="w-3 h-3 rounded-full bg-rose-500" />
+                      <span className="text-slate-700 font-medium">Holiday</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full bg-indigo-600" />
-                      <span className="text-slate-600">Today</span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200">
+                      <div className="w-3 h-3 rounded-full bg-indigo-600" />
+                      <span className="text-slate-700 font-medium">Today</span>
                     </div>
                   </div>
 
-                  {/* Selected Date Details */}
+                  {/* Selected Date: Available / Unavailable toggle */}
                   {selectedDate && (
-                    <Card className="border-indigo-200 bg-indigo-50/50">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg flex items-center gap-2">
+                    <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 shadow-md overflow-hidden">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
                           <CalendarDays className="w-5 h-5 text-indigo-600" />
-                          {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                          {selectedDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                         </CardTitle>
+                        <CardDescription>Mark this date as Available or Unavailable for appointments</CardDescription>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="space-y-4">
                         {(() => {
                           const specialDate = getSpecialDateInfo(selectedDate);
                           const dayName = DAYS_OF_WEEK[selectedDate.getDay()].key;
                           const daySchedule = availability.weeklySchedule[dayName];
-
-                          if (specialDate) {
-                            return (
-                              <div className="space-y-3">
-                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
-                                  specialDate.type === 'holiday'
-                                    ? 'bg-rose-100 text-rose-700'
-                                    : 'bg-blue-100 text-blue-700'
-                                }`}>
-                                  <PartyPopper className="w-4 h-4" />
-                                  {specialDate.name || 'Custom Date'}
-                                </div>
-                                <p className="text-slate-600 text-sm">
-                                  {specialDate.isAvailable ? 'This is a special working day.' : 'This day is marked as unavailable.'}
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeSpecialDate(selectedDate.toISOString())}
-                                  className="text-rose-600 border-rose-200 hover:bg-rose-50"
-                                >
-                                  <X className="w-4 h-4 mr-1" />
-                                  Remove Special Date
-                                </Button>
-                              </div>
-                            );
-                          }
-
+                          const currentlyAvailable = specialDate ? specialDate.isAvailable : daySchedule?.isAvailable ?? false;
                           return (
-                            <div className="space-y-3">
-                              <p className="text-slate-600 text-sm">
-                                Following the <span className="font-medium">{DAYS_OF_WEEK[selectedDate.getDay()].label}</span> schedule.
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
-                                  daySchedule.isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {daySchedule.isAvailable ? (
-                                    <>
-                                      <CheckCircle className="w-4 h-4" />
-                                      Available
-                                    </>
-                                  ) : (
-                                    <>
-                                      <XCircle className="w-4 h-4" />
-                                      Not Available
-                                    </>
-                                  )}
-                                </span>
+                            <div className="flex flex-col sm:flex-row items-center gap-4">
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-medium text-slate-600">Status:</span>
+                                <button
+                                  type="button"
+                                  disabled={togglingDate}
+                                  onClick={() => setSelectedDateAvailability(true)}
+                                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all border-2 ${
+                                    currentlyAvailable && !specialDate
+                                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'
+                                  } ${togglingDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  Available
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={togglingDate}
+                                  onClick={() => setSelectedDateAvailability(false)}
+                                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all border-2 ${
+                                    specialDate && !specialDate.isAvailable
+                                      ? 'bg-slate-600 text-white border-slate-600 shadow-md'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:bg-slate-50'
+                                  } ${togglingDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  Unavailable
+                                </button>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => addHoliday({ date: selectedDate.toISOString().split('T')[0], name: 'Custom Holiday', type: 'holiday' })}
-                                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                              >
-                                <PartyPopper className="w-4 h-4 mr-1" />
-                                Mark as Holiday
-                              </Button>
+                              {specialDate && (
+                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                  specialDate.type === 'holiday' ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-600'
+                                }`}>
+                                  {specialDate.type === 'holiday' ? 'Holiday' : 'Custom'}
+                                  {specialDate.name ? `: ${specialDate.name}` : ''}
+                                </span>
+                              )}
+                              {togglingDate && (
+                                <span className="text-xs text-slate-500 flex items-center gap-1">
+                                  <span className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                  Updating…
+                                </span>
+                              )}
                             </div>
                           );
                         })()}
@@ -676,48 +567,47 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
               {/* Holidays Tab */}
               {activeTab === 'holidays' && availability && (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-rose-50 px-4 py-3 rounded-xl border border-rose-100">
+                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 rounded-2xl border border-rose-100">
                     <Info className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                    <span>Add Indian national holidays or custom holidays to block appointments on specific dates.</span>
+                    <span>Add Indian national holidays or custom holidays. These dates will be blocked in the chatbot booking flow.</span>
                   </div>
 
                   {/* Add Indian Holidays */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
+                  <Card className="border-2 border-slate-200/80 shadow-sm overflow-hidden">
+                    <CardHeader className="bg-gradient-to-r from-amber-50 to-rose-50 border-b border-amber-100">
+                      <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
                         <Sparkles className="w-5 h-5 text-amber-500" />
-                        Indian Holidays {currentMonth.getFullYear()}
+                        Indian Holidays — {currentMonth.getFullYear()}
                       </CardTitle>
-                      <CardDescription>Click to add holidays to your unavailable dates</CardDescription>
+                      <CardDescription>Click a holiday to add it as an unavailable date</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-5">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {holidays.map((holiday) => {
                           const isAdded = availability.specialDates.some(
-                            sd => sd.date.includes(holiday.date) && sd.type === 'holiday'
+                            sd => String(sd.date).includes(holiday.date) && sd.type === 'holiday'
                           );
-
                           return (
                             <button
                               key={holiday.date}
                               onClick={() => !isAdded && addHoliday(holiday)}
                               disabled={isAdded}
-                              title={isAdded ? 'Already added' : `Click to add ${holiday.name} as a holiday`}
-                              className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                              title={isAdded ? 'Already added' : `Add ${holiday.name} as holiday`}
+                              className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
                                 isAdded
-                                  ? 'bg-emerald-50 border-emerald-200 cursor-default'
-                                  : 'bg-white border-slate-200 hover:border-rose-300 hover:bg-rose-50 cursor-pointer'
+                                  ? 'bg-emerald-50 border-emerald-200 cursor-default shadow-sm'
+                                  : 'bg-white border-slate-200 hover:border-rose-300 hover:bg-rose-50 hover:shadow-md cursor-pointer'
                               }`}
                             >
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
                                 isAdded ? 'bg-emerald-100' : 'bg-rose-100'
                               }`}>
                                 <PartyPopper className={`w-5 h-5 ${isAdded ? 'text-emerald-600' : 'text-rose-600'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm text-slate-800 truncate">{holiday.name}</p>
-                                <p className="text-xs text-slate-500">
-                                  {new Date(holiday.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                <p className="font-semibold text-sm text-slate-800 truncate">{holiday.name}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {new Date(holiday.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </p>
                               </div>
                               {isAdded && <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />}
@@ -728,52 +618,52 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
                     </CardContent>
                   </Card>
 
-                  {/* Added Special Dates */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
+                  {/* Blocked / special dates list */}
+                  <Card className="border-2 border-slate-200/80 shadow-sm overflow-hidden">
+                    <CardHeader className="bg-gradient-to-r from-slate-50 to-indigo-50 border-b border-slate-100">
+                      <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
                         <Calendar className="w-5 h-5 text-indigo-500" />
-                        Your Blocked Dates
+                        Blocked dates
                       </CardTitle>
-                      <CardDescription>Dates when appointments cannot be scheduled</CardDescription>
+                      <CardDescription>Dates when appointments cannot be scheduled (reflected in chatbot)</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-5">
                       {availability.specialDates.length === 0 ? (
-                        <div className="text-center py-8 text-slate-500">
-                          <CalendarDays className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                          <p>No special dates added yet</p>
-                          <p className="text-sm">Add holidays or custom dates from the list above</p>
+                        <div className="text-center py-10 text-slate-500">
+                          <CalendarDays className="w-14 h-14 mx-auto mb-3 text-slate-300" />
+                          <p className="font-medium text-slate-600">No blocked dates yet</p>
+                          <p className="text-sm mt-1">Add holidays above or mark dates as Unavailable in Calendar View</p>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {availability.specialDates.map((sd, index) => (
                             <div
                               key={index}
-                              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200"
+                              className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border-2 border-slate-100 hover:border-slate-200 transition-colors"
                             >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                  sd.type === 'holiday' ? 'bg-rose-100' : 'bg-blue-100'
+                              <div className="flex items-center gap-4">
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                  sd.type === 'holiday' ? 'bg-rose-100' : 'bg-slate-200'
                                 }`}>
                                   {sd.type === 'holiday' ? (
                                     <PartyPopper className="w-5 h-5 text-rose-600" />
                                   ) : (
-                                    <Calendar className="w-5 h-5 text-blue-600" />
+                                    <XCircle className="w-5 h-5 text-slate-600" />
                                   )}
                                 </div>
                                 <div>
-                                  <p className="font-medium text-slate-800">{sd.name || 'Custom Date'}</p>
-                                  <p className="text-xs text-slate-500">
-                                    {new Date(sd.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                  <p className="font-semibold text-slate-800">{sd.name || 'Custom date'}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">
+                                    {new Date(sd.date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                                   </p>
                                 </div>
                               </div>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => removeSpecialDate(sd.date)}
+                                onClick={() => removeSpecialDate(String(sd.date))}
                                 title="Remove this date"
-                                className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 h-8 w-8 p-0"
+                                className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 h-9 w-9 p-0 rounded-xl"
                               >
                                 <X className="w-4 h-4" />
                               </Button>
@@ -786,174 +676,7 @@ export default function AvailabilityCalendar({ isOpen, onClose, departmentId }: 
                 </div>
               )}
 
-              {/* Settings Tab */}
-              {activeTab === 'settings' && availability && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-sm text-slate-600 bg-amber-50 px-4 py-3 rounded-xl border border-amber-100">
-                    <Info className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    <span>Configure booking rules such as slot duration, advance booking limits, and default time ranges.</span>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Booking Rules */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Clock className="w-5 h-5 text-blue-500" />
-                          Booking Rules
-                        </CardTitle>
-                        <CardDescription>Control how appointments can be scheduled</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2" title="Duration of each appointment slot">
-                            Slot Duration (minutes)
-                          </label>
-                          <select
-                            value={availability.slotDurationMinutes}
-                            onChange={(e) => updateSettings({ slotDurationMinutes: parseInt(e.target.value) })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          >
-                            {[15, 30, 45, 60, 90, 120].map((mins) => (
-                              <option key={mins} value={mins}>{mins} minutes</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2" title="Buffer time between appointments">
-                            Buffer Between Slots (minutes)
-                          </label>
-                          <select
-                            value={availability.bufferMinutes}
-                            onChange={(e) => updateSettings({ bufferMinutes: parseInt(e.target.value) })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          >
-                            {[0, 5, 10, 15, 30].map((mins) => (
-                              <option key={mins} value={mins}>{mins} minutes</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2" title="How many days in advance can appointments be booked">
-                            Max Advance Booking (days)
-                          </label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={365}
-                            value={availability.maxAdvanceBookingDays}
-                            onChange={(e) => updateSettings({ maxAdvanceBookingDays: parseInt(e.target.value) || 30 })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2" title="Minimum hours before an appointment can be booked">
-                            Min Advance Booking (hours)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={168}
-                            value={availability.minAdvanceBookingHours}
-                            onChange={(e) => updateSettings({ minAdvanceBookingHours: parseInt(e.target.value) || 24 })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Default Time Ranges */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Settings className="w-5 h-5 text-purple-500" />
-                          Default Time Ranges
-                        </CardTitle>
-                        <CardDescription>Fallback times when specific times aren&apos;t set</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {[
-                          { period: 'Morning', start: 'defaultMorningStart', end: 'defaultMorningEnd', icon: Sun, color: 'amber' },
-                          { period: 'Afternoon', start: 'defaultAfternoonStart', end: 'defaultAfternoonEnd', icon: Sunset, color: 'blue' },
-                          { period: 'Evening', start: 'defaultEveningStart', end: 'defaultEveningEnd', icon: Moon, color: 'indigo' }
-                        ].map(({ period, start, end, icon: Icon, color }) => (
-                          <div key={period} className={`p-4 rounded-xl bg-${color}-50 border border-${color}-100`}>
-                            <div className="flex items-center gap-2 mb-3">
-                              <Icon className={`w-4 h-4 text-${color}-600`} />
-                              <span className="font-medium text-slate-700">{period}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <select
-                                value={(availability as any)[start]}
-                                onChange={(e) => updateSettings({ [start]: e.target.value })}
-                                title={`Default ${period.toLowerCase()} start time`}
-                                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                              >
-                                {TIME_OPTIONS.map((time) => (
-                                  <option key={time} value={time}>{time}</option>
-                                ))}
-                              </select>
-                              <span className="text-slate-500">to</span>
-                              <select
-                                value={(availability as any)[end]}
-                                onChange={(e) => updateSettings({ [end]: e.target.value })}
-                                title={`Default ${period.toLowerCase()} end time`}
-                                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                              >
-                                {TIME_OPTIONS.map((time) => (
-                                  <option key={time} value={time}>{time}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Active Status */}
-                  <Card>
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {availability.isActive ? (
-                            <CheckCircle className="w-6 h-6 text-emerald-500" />
-                          ) : (
-                            <AlertCircle className="w-6 h-6 text-amber-500" />
-                          )}
-                          <div>
-                            <p className="font-medium text-slate-800">Availability Status</p>
-                            <p className="text-sm text-slate-500">
-                              {availability.isActive
-                                ? 'Your availability settings are active and will be used for appointments'
-                                : 'Availability is paused - default times will be used'}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => updateSettings({ isActive: !availability.isActive })}
-                          title={availability.isActive ? 'Pause availability settings' : 'Activate availability settings'}
-                          className={`w-16 h-9 rounded-full transition-all relative ${
-                            availability.isActive
-                              ? 'bg-gradient-to-r from-emerald-400 to-green-500'
-                              : 'bg-slate-300'
-                          }`}
-                        >
-                          <div
-                            className={`absolute top-1.5 w-6 h-6 bg-white rounded-full shadow-md transition-all ${
-                              availability.isActive ? 'left-8' : 'left-1.5'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </>
+              </>
           )}
         </div>
 

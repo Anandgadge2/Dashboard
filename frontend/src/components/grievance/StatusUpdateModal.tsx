@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, CheckCircle, AlertCircle, Clock, MessageSquare } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Clock, MessageSquare, Calendar } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import toast from 'react-hot-toast';
 
@@ -12,6 +12,9 @@ interface StatusUpdateModalProps {
   itemType: 'grievance' | 'appointment';
   currentStatus: string;
   onSuccess: () => void;
+  /** Prefill for Set Time when updating appointment to Confirmed */
+  appointmentDate?: string;
+  appointmentTime?: string;
 }
 
 const grievanceStatuses = [
@@ -34,11 +37,16 @@ export default function StatusUpdateModal({
   itemId,
   itemType,
   currentStatus,
-  onSuccess
+  onSuccess,
+  appointmentDate: initialAppointmentDate,
+  appointmentTime: initialAppointmentTime
 }: StatusUpdateModalProps) {
   const [selectedStatus, setSelectedStatus] = useState(currentStatus);
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showSetTimeModal, setShowSetTimeModal] = useState(false);
+  const [confirmedTime, setConfirmedTime] = useState('');
+  const [confirmedDate, setConfirmedDate] = useState('');
 
   const statuses = itemType === 'grievance' ? grievanceStatuses : appointmentStatuses;
 
@@ -47,8 +55,26 @@ export default function StatusUpdateModal({
     if (isOpen) {
       setSelectedStatus(currentStatus);
       setRemarks('');
+      setShowSetTimeModal(false);
+      if (initialAppointmentDate) {
+        try {
+          const d = new Date(initialAppointmentDate);
+          setConfirmedDate(d.toISOString().slice(0, 10));
+        } catch {
+          setConfirmedDate('');
+        }
+      } else {
+        setConfirmedDate('');
+      }
+      if (initialAppointmentTime) {
+        const t = String(initialAppointmentTime).trim();
+        if (/^\d{1,2}:\d{2}$/.test(t)) setConfirmedTime(t);
+        else setConfirmedTime('');
+      } else {
+        setConfirmedTime('');
+      }
     }
-  }, [isOpen, currentStatus]);
+  }, [isOpen, currentStatus, initialAppointmentDate, initialAppointmentTime]);
 
   const getStatusColor = (color: string, isSelected: boolean) => {
     const colors = {
@@ -80,12 +106,24 @@ export default function StatusUpdateModal({
       toast.error('Please select a different status');
       return;
     }
+    if (itemType === 'appointment' && selectedStatus === 'CONFIRMED' && (!confirmedTime || !confirmedDate)) {
+      toast.error('Please set the confirmed date and time first');
+      return;
+    }
 
     try {
       setSubmitting(true);
+      const body: { status: string; remarks: string; appointmentTime?: string; appointmentDate?: string } = {
+        status: selectedStatus,
+        remarks
+      };
+      if (itemType === 'appointment' && selectedStatus === 'CONFIRMED' && confirmedTime && confirmedDate) {
+        body.appointmentTime = confirmedTime;
+        body.appointmentDate = new Date(confirmedDate).toISOString();
+      }
       const response = await apiClient.put(
         `/status/${itemType}/${itemId}`,
-        { status: selectedStatus, remarks }
+        body
       );
 
       if (response.success) {
@@ -100,6 +138,14 @@ export default function StatusUpdateModal({
       toast.error(error.response?.data?.message || 'Failed to update status');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleStatusSelect = (value: string) => {
+    if (value === currentStatus) return;
+    setSelectedStatus(value);
+    if (itemType === 'appointment' && value === 'CONFIRMED') {
+      setShowSetTimeModal(true);
     }
   };
 
@@ -161,7 +207,7 @@ export default function StatusUpdateModal({
                 return (
                   <button
                     key={status.value}
-                    onClick={() => !isCurrent && setSelectedStatus(status.value)}
+                    onClick={() => !isCurrent && handleStatusSelect(status.value)}
                     disabled={isCurrent}
                     className={`
                       px-5 py-4 rounded-xl border-2 font-bold text-sm transition-all duration-200
@@ -179,6 +225,30 @@ export default function StatusUpdateModal({
               })}
             </div>
           </div>
+
+          {/* Set confirmed time (appointment + Confirmed only) - inline summary + opens Set Time dialog */}
+          {itemType === 'appointment' && selectedStatus === 'CONFIRMED' && (
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50/50 to-cyan-50/30 rounded-2xl p-6 border-2 border-emerald-200 shadow-sm">
+              <label className="block text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-emerald-600" />
+                Confirmed date & time
+                <span className="text-red-500 text-xs font-normal">*</span>
+              </label>
+              {confirmedDate && confirmedTime ? (
+                <p className="text-sm text-emerald-800 font-medium">
+                  {new Date(confirmedDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} at {confirmedTime}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowSetTimeModal(true)}
+                className="mt-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 transition-colors shadow-md flex items-center gap-2"
+              >
+                <Clock className="w-4 h-4" />
+                {confirmedDate && confirmedTime ? 'Change time' : 'Set time'}
+              </button>
+            </div>
+          )}
 
           {/* Remarks Section - Enhanced */}
           <div className="bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-50/30 rounded-2xl p-6 border-2 border-slate-200 shadow-sm">
@@ -246,6 +316,71 @@ export default function StatusUpdateModal({
           </button>
         </div>
       </div>
+
+      {/* Set Time dialog (when appointment + Confirmed) */}
+      {showSetTimeModal && itemType === 'appointment' && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white p-6 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Set confirmed time</h3>
+                    <p className="text-white/90 text-sm mt-0.5">Date and time for the appointment</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSetTimeModal(false)}
+                  className="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Date</label>
+                <input
+                  type="date"
+                  value={confirmedDate}
+                  onChange={(e) => setConfirmedDate(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Time</label>
+                <input
+                  type="time"
+                  value={confirmedTime}
+                  onChange={(e) => setConfirmedTime(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-sm"
+                />
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSetTimeModal(false)}
+                className="px-5 py-2.5 border-2 border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSetTimeModal(false)}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-semibold hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg flex items-center gap-2"
+              >
+                <CheckCircle className="w-5 h-5" />
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

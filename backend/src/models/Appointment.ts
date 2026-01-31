@@ -96,7 +96,7 @@ const AppointmentSchema: Schema = new Schema(
     },
     status: {
       type: String,
-      default: AppointmentStatus.REQUESTED, // Changed default to REQUESTED
+      default: AppointmentStatus.SCHEDULED,
       index: true
     },
     statusHistory: [{

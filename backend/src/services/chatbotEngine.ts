@@ -77,6 +77,7 @@ const translations = {
     label_purpose: '🎯 Purpose',
     label_citizen: '👤 Name',
     label_time: '⏰ Time',
+    timeToBeConfirmed: 'To be confirmed by office',
     selection_department: '🏢 *Department Selection*\n\nSelect the relevant department:',
     btn_select_dept: 'View Departments',
     btn_load_more: 'Load More Departments',
@@ -195,6 +196,7 @@ const translations = {
     label_purpose: '🎯 उद्देश्य',
     label_citizen: '👤 नाम',
     label_time: '⏰ समय',
+    timeToBeConfirmed: 'कार्यालय द्वारा पुष्टि की जाएगी',
     selection_department: '🏢 *विभाग चयन*\n\nसंबंधित विभाग का चयन करें:',
     btn_select_dept: 'विभाग देखें',
     btn_load_more: 'और विभाग देखें',
@@ -317,6 +319,7 @@ const translations = {
     label_purpose: '🎯 उद्देश',
     label_citizen: '👤 नाव',
     label_time: '⏰ वेळ',
+    timeToBeConfirmed: 'कार्यालयाद्वारे पुष्टी केली जाईल',
     selection_department: '🏢 *विभाग निवड*\n\nसंबंधित विभाग निवडा:',
     btn_select_dept: 'विभाग पहा',
     btn_load_more: 'अधिक विभाग पहा',
@@ -1600,62 +1603,10 @@ async function continueAppointmentFlow(
       }
       
       session.data.appointmentDate = selectedDate;
+      // Time selection step removed: use default time; admin will set confirmed time later
+      session.data.appointmentTime = '09:00';
       
-      // Get time slots based on availability settings
-      const timeButtons = await getAvailableTimeSlots(
-        new Date(selectedDate), 
-        session.data.availabilitySettings
-      );
-      
-      // Show time slots as clickable buttons
-      // Note: WhatsApp button titles have 20-character limit
-      await sendWhatsAppButtons(
-        company,
-        message.from,
-        getTranslation('label_select_time', session.language),
-        timeButtons
-      );
-      
-      session.step = 'appointment_time';
-      await updateSession(session);
-      break;
-
-    case 'appointment_time':
-      // Handle button click or text input
-      let selectedTime = '';
-      if (buttonId && buttonId.startsWith('time_')) {
-        // User clicked a button
-        selectedTime = buttonId.replace('time_', '');
-        console.log('⏰ Time selected via button:', selectedTime);
-      } else if (userInput) {
-        // Fallback: user typed the time
-        selectedTime = userInput.replace('time_', '').trim();
-        console.log('⏰ Time selected via text:', selectedTime);
-      } else {
-        await sendWhatsAppMessage(
-          company,
-          message.from,
-          getTranslation('invalidOption', session.language)
-        );
-        // Resend time slot buttons
-        await sendWhatsAppButtons(
-          company,
-          message.from,
-          getTranslation('label_select_time', session.language),
-          [
-            { id: 'time_10:00', title: '🕙 10:00-11:00 AM' },
-            { id: 'time_14:00', title: '🕑 2:00-3:00 PM' },
-            { id: 'time_16:00', title: '🕓 4:00-5:00 PM' }
-          ]
-        );
-        return;
-      }
-      
-      console.log('⏰ Time selected:', { buttonId, userInput, selectedTime });
-      
-      session.data.appointmentTime = selectedTime;
-      
-      // Show confirmation
+      // Show confirmation (day only; time to be confirmed by admin)
       const confirmDate = new Date(session.data.appointmentDate);
       const dateDisplay = confirmDate.toLocaleDateString(session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN', { 
         timeZone: IST_TIMEZONE,
@@ -1664,22 +1615,14 @@ async function continueAppointmentFlow(
         month: 'long', 
         day: 'numeric' 
       });
-      
-      // Format time for display in 12-hour format
-      const formatTimeForDisplay = (time: string) => {
-        const [hours, minutes] = time.split(':').map(Number);
-        const period = hours >= 12 ? 'PM' : 'AM';
-        const displayHours = hours % 12 || 12;
-        return `${displayHours}:${String(minutes || 0).padStart(2, '0')} ${period}`;
-      };
-      const timeDisplay = formatTimeForDisplay(selectedTime);
+      const timeDisplayPlaceholder = getTranslation('timeToBeConfirmed', session.language);
       
       const confirmMessage = `${getTranslation('appointmentConfirm', session.language)}\n\n` +
         `*${getTranslation('label_citizen', session.language)}:* ${session.data.citizenName}\n` +
         `*${getTranslation('label_department', session.language)}:* CEO - Zilla Parishad Amravati\n` +
         `*${getTranslation('label_purpose', session.language)}:* ${session.data.purpose}\n` +
         `*${getTranslation('label_date', session.language)}:* ${dateDisplay}\n` +
-        `*${getTranslation('label_time', session.language)}:* ${timeDisplay}\n\n` +
+        `*${getTranslation('label_time', session.language)}:* ${timeDisplayPlaceholder}\n\n` +
         `*${getTranslation('grievanceConfirm', session.language).split('\n').pop()}*`;
       
       await sendWhatsAppButtons(
@@ -1742,36 +1685,28 @@ async function continueAppointmentFlow(
       } else {
         // Invalid input - ask again
         console.log('⚠️ Invalid confirmation input, asking again');
-        const confirmDate = new Date(session.data.appointmentDate);
-        const dateDisplay = confirmDate.toLocaleDateString(session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN', { 
+        const confirmDateRetry = new Date(session.data.appointmentDate);
+        const dateDisplayRetry = confirmDateRetry.toLocaleDateString(session.language === 'en' ? 'en-IN' : session.language === 'hi' ? 'hi-IN' : 'mr-IN', { 
           timeZone: IST_TIMEZONE,
           weekday: 'long', 
           year: 'numeric', 
           month: 'long', 
           day: 'numeric' 
         });
+        const timeDisplayPlaceholderRetry = getTranslation('timeToBeConfirmed', session.language);
         
-        // Format time for display in 12-hour format
-        const formatTime12Hr = (time: string) => {
-          const [hours, minutes] = time.split(':').map(Number);
-          const period = hours >= 12 ? 'PM' : 'AM';
-          const displayHours = hours % 12 || 12;
-          return `${displayHours}:${String(minutes || 0).padStart(2, '0')} ${period}`;
-        };
-        const timeDisplay = formatTime12Hr(session.data.appointmentTime);
-        
-        const confirmMessage = `${getTranslation('appointmentConfirm', session.language)}\n\n` +
+        const confirmMessageRetry = `${getTranslation('appointmentConfirm', session.language)}\n\n` +
           `*${getTranslation('label_citizen', session.language)}:* ${session.data.citizenName}\n` +
           `*${getTranslation('label_department', session.language)}:* CEO - Zilla Parishad Amravati\n` +
           `*${getTranslation('label_purpose', session.language)}:* ${session.data.purpose}\n` +
-          `*${getTranslation('label_date', session.language)}:* ${dateDisplay}\n` +
-          `*${getTranslation('label_time', session.language)}:* ${timeDisplay}\n\n` +
+          `*${getTranslation('label_date', session.language)}:* ${dateDisplayRetry}\n` +
+          `*${getTranslation('label_time', session.language)}:* ${timeDisplayPlaceholderRetry}\n\n` +
           `*${getTranslation('grievanceConfirm', session.language).split('\n').pop()}*`;
         
         await sendWhatsAppButtons(
           company,
           message.from,
-          confirmMessage,
+          confirmMessageRetry,
           [
             { id: 'appt_confirm_yes', title: getTranslation('btn_confirm_book', session.language) },
             { id: 'appt_confirm_no', title: getTranslation('btn_cancel', session.language) }
@@ -1818,7 +1753,7 @@ async function createAppointment(
       purpose: session.data.purpose,
       appointmentDate: appointmentDate,
       appointmentTime: appointmentTime,
-      status: AppointmentStatus.REQUESTED // Changed to REQUESTED - waiting for admin approval
+      status: AppointmentStatus.SCHEDULED
     };
 
     console.log('📝 Appointment data:', JSON.stringify(appointmentData, null, 2));
@@ -1864,15 +1799,16 @@ async function createAppointment(
     };
     const timeDisplay = formatTime12HrDisplay(appointmentTime);
 
-    // Send "REQUESTED" message instead of "CONFIRMED"
-    const requestedMessage = getTranslation('aptRequested', session.language)
+    // Send "Scheduled" confirmation message
+    const scheduledMessage = getTranslation('aptScheduled', session.language)
       .replace('{id}', appointment.appointmentId)
       .replace('{name}', session.data.citizenName)
       .replace('{date}', dateDisplay)
       .replace('{time}', timeDisplay)
-      .replace('{purpose}', session.data.purpose);
+      .replace('{purpose}', session.data.purpose)
+      .replace('{remarks}', '—');
 
-    await sendWhatsAppMessage(company, message.from, requestedMessage);
+    await sendWhatsAppMessage(company, message.from, scheduledMessage);
 
     // End chat after successful submission
     await sendWhatsAppMessage(company, message.from, getTranslation('goodbye', session.language));

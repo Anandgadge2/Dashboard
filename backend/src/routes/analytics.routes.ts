@@ -42,6 +42,7 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
     const pendingGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.PENDING, isDeleted: { $ne: true } });
     const resolvedGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.RESOLVED, isDeleted: { $ne: true } });
     const assignedGrievancesCount = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.ASSIGNED, isDeleted: { $ne: true } });
+    const cancelledGrievances = await Grievance.countDocuments({ ...baseQuery, status: GrievanceStatus.CANCELLED, isDeleted: { $ne: true } });
 
     // Get appointment statistics (exclude deleted)
     const totalAppointments = await Appointment.countDocuments({ ...baseQuery, isDeleted: { $ne: true } });
@@ -247,6 +248,7 @@ router.get('/dashboard', requirePermission(Permission.VIEW_ANALYTICS), async (re
           assigned: assignedGrievances,
           inProgress: assignedGrievancesCount, // For backward compatibility
           resolved: resolvedGrievances,
+          cancelled: cancelledGrievances,
           last7Days: grievancesLast7Days,
           last30Days: grievancesLast30Days,
           resolutionRate: parseFloat(resolutionRate),
@@ -731,7 +733,7 @@ router.get('/category', requirePermission(Permission.VIEW_ANALYTICS), async (req
     }
 
     const categoryDistribution = await Grievance.aggregate([
-      { $match: { ...baseQuery, category: { $exists: true, $ne: null } } },
+      { $match: { ...baseQuery, category: { $exists: true, $ne: null }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: '$category',

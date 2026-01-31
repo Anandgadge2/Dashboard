@@ -80,6 +80,7 @@ interface DashboardStats {
     inProgress: number;
     resolved: number;
     closed?: number;
+    cancelled?: number;
     last7Days: number;
     last30Days: number;
     resolutionRate: number;
@@ -93,6 +94,8 @@ interface DashboardStats {
   appointments: {
     total: number;
     pending: number;
+    requested?: number;
+    scheduled?: number;
     confirmed: number;
     completed: number;
     cancelled?: number;
@@ -439,12 +442,15 @@ function DashboardContent() {
 
   const fetchCategoryData = async () => {
     try {
-      const response = await apiClient.get('/analytics/category');
-      if (response.success) {
+      const response = await apiClient.get<{ success: boolean; data: Array<{ category: string; count: number; resolved: number }> }>('/analytics/category');
+      if (response?.success && Array.isArray(response.data)) {
         setCategoryData(response.data);
+      } else {
+        setCategoryData([]);
       }
     } catch (error: any) {
       console.error('Failed to fetch category data:', error);
+      setCategoryData([]);
     }
   };
 
@@ -2797,8 +2803,10 @@ function DashboardContent() {
                                     setSelectedAppointmentForStatus(appointment);
                                     setShowAppointmentStatusModal(true);
                                   }}
-                                  className={`px-3 py-1.5 text-[10px] font-bold border border-gray-200 rounded bg-white hover:border-purple-400 hover:bg-purple-50 focus:outline-none focus:ring-1 focus:ring-purple-500 uppercase tracking-tight transition-all ${
-                                    updatingAppointmentStatus.has(appointment._id) ? 'opacity-50 cursor-wait' : ''
+                                  className={`px-3 py-1.5 text-[10px] font-bold border border-gray-200 rounded uppercase tracking-tight transition-all ${
+                                    updatingAppointmentStatus.has(appointment._id)
+                                      ? 'bg-white opacity-50 cursor-wait hover:border-purple-400 hover:bg-purple-50 focus:outline-none focus:ring-1 focus:ring-purple-500'
+                                      : 'bg-white hover:border-purple-400 hover:bg-purple-50 focus:outline-none focus:ring-1 focus:ring-purple-500'
                                   }`}
                                   disabled={updatingAppointmentStatus.has(appointment._id)}
                                 >
@@ -3274,180 +3282,6 @@ function DashboardContent() {
                     )}
                     */}
                     
-                    {/* Show only Appointments by Department chart */}
-                    {stats.appointments.byDepartment && stats.appointments.byDepartment.length > 0 && (
-                      <div className="grid grid-cols-1 gap-6">
-                        <Card className="rounded-2xl border border-slate-200/50 shadow-md hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm overflow-hidden">
-                          <CardHeader className="bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border-b border-slate-100 px-5 py-4">
-                            <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                              <Building className="w-5 h-5 text-amber-600" />
-                              Appointments by Department
-                            </CardTitle>
-                            <CardDescription className="text-slate-500">Distribution of appointments across departments</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <ResponsiveContainer width="100%" height={250}>
-                              <BarChart data={stats.appointments.byDepartment.map((dept: any) => ({
-                                ...dept,
-                                departmentName: dept.departmentName ? dept.departmentName.replace(/\s+Department$/i, '').trim() : 'Unknown'
-                              }))}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="departmentName" angle={-45} textAnchor="end" height={100} />
-                                <YAxis />
-                                <Tooltip />
-                                <Bar dataKey="count" fill="#00C49F" />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
-
-                    {/* Time Series Charts */}
-                    {stats.grievances.daily && stats.grievances.daily.length > 0 && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-base">Grievance Trends (Last 7 Days)</CardTitle>
-                            <CardDescription>Daily grievance creation trend</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <ResponsiveContainer width="100%" height={280}>
-                              <AreaChart data={stats.grievances.daily}>
-                                <defs>
-                                  <linearGradient id="colorGrievances" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
-                                  </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip />
-                                <Area type="monotone" dataKey="count" stroke="#8884d8" fillOpacity={1} fill="url(#colorGrievances)" />
-                              </AreaChart>
-                            </ResponsiveContainer>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-base">Appointment Trends (Last 7 Days)</CardTitle>
-                            <CardDescription>Daily appointment creation trend</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <ResponsiveContainer width="100%" height={280}>
-                              <AreaChart data={stats.appointments.daily}>
-                                <defs>
-                                  <linearGradient id="colorAppointments" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#00C49F" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#00C49F" stopOpacity={0}/>
-                                  </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip />
-                                <Area type="monotone" dataKey="count" stroke="#00C49F" fillOpacity={1} fill="url(#colorAppointments)" />
-                              </AreaChart>
-                            </ResponsiveContainer>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
-
-                    {/* Monthly Trends */}
-                    {(stats.grievances.monthly || stats.appointments.monthly) && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {stats.grievances.monthly && stats.grievances.monthly.length > 0 && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle className="text-base">Grievance Trends (Last 6 Months)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <ResponsiveContainer width="100%" height={280}>
-                                <LineChart data={stats.grievances.monthly}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="month" />
-                                  <YAxis />
-                                  <Tooltip />
-                                  <Legend />
-                                  <Line type="monotone" dataKey="count" stroke="#8884d8" name="Total" />
-                                  <Line type="monotone" dataKey="resolved" stroke="#00C49F" name="Resolved" />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        {stats.appointments.monthly && stats.appointments.monthly.length > 0 && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle className="text-base">Appointment Trends (Last 6 Months)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <ResponsiveContainer width="100%" height={280}>
-                                <LineChart data={stats.appointments.monthly}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="month" />
-                                  <YAxis />
-                                  <Tooltip />
-                                  <Legend />
-                                  <Line type="monotone" dataKey="count" stroke="#00C49F" name="Total" />
-                                  <Line type="monotone" dataKey="completed" stroke="#0088FE" name="Completed" />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            </CardContent>
-                          </Card>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Hourly Distribution */}
-                    {hourlyData && (hourlyData.grievances?.length > 0 || hourlyData.appointments?.length > 0) && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {hourlyData.grievances && hourlyData.grievances.length > 0 && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle className="text-lg">Grievance Distribution by Hour</CardTitle>
-                              <CardDescription>Peak hours for grievance submissions (Last 7 Days)</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={hourlyData.grievances}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="hour" label={{ value: 'Hour of Day', position: 'insideBottom', offset: -2 }} />
-                                  <YAxis />
-                                  <Tooltip />
-                                  <Bar dataKey="count" fill="#8884d8" />
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        {hourlyData.appointments && hourlyData.appointments.length > 0 && (
-                          <Card>
-                            <CardHeader>
-                              <CardTitle className="text-lg">Appointment Distribution by Hour</CardTitle>
-                              <CardDescription>Peak hours for appointment bookings (Last 7 Days)</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={hourlyData.appointments}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="hour" label={{ value: 'Hour of Day', position: 'insideBottom', offset: -2 }} />
-                                  <YAxis />
-                                  <Tooltip />
-                                  <Bar dataKey="count" fill="#00C49F" />
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </CardContent>
-                          </Card>
-                        )}
-                      </div>
-                    )}
-
                     {/* Performance Metrics */}
                     {performanceData && (
                       <div className="grid">
@@ -3549,59 +3383,76 @@ function DashboardContent() {
                     )}
 
                     {/* Category Distribution */}
-                    {categoryData && categoryData.length > 0 && (
-                      <Card className="rounded-2xl border border-slate-200/50 shadow-md hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm overflow-hidden">
-                        <CardHeader className="bg-gradient-to-r from-purple-50 via-fuchsia-50 to-pink-50 border-b border-slate-100">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center shadow-sm">
-                              <Building className="w-4 h-4 text-white" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-lg font-semibold text-slate-800">Grievance Distribution by Category</CardTitle>
-                              <CardDescription className="text-slate-500">Breakdown of grievances by department</CardDescription>
-                            </div>
+                    <Card className="rounded-2xl border-2 border-slate-200/80 shadow-lg hover:shadow-xl transition-shadow duration-300 bg-white overflow-hidden">
+                      <CardHeader className="bg-gradient-to-r from-purple-100 via-fuchsia-50 to-pink-50 border-b border-slate-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center shadow-md">
+                            <Building className="w-5 h-5 text-white" />
                           </div>
-                        </CardHeader>
-                        <CardContent className="pt-6">
-                          <ResponsiveContainer width="100%" height={350}>
-                            <BarChart 
+                          <div>
+                            <CardTitle className="text-lg font-bold text-slate-800">Grievance Distribution by Category</CardTitle>
+                            <CardDescription className="text-slate-600">Breakdown of grievances by department/category</CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-6 pb-6">
+                        {categoryData && categoryData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={380}>
+                            <BarChart
                               data={categoryData.map((item: any) => {
-                                const cleanName = item.category 
-                                  ? item.category.replace(/\s+Department$/i, '').replace(/\s+Dept\.?$/i, '').trim() 
-                                  : 'Unknown';
+                                const cleanName = (item.category ?? 'Unknown').toString().replace(/\s+Department$/i, '').replace(/\s+Dept\.?$/i, '').trim() || 'Other';
                                 return {
                                   ...item,
                                   category: cleanName,
-                                  shortName: cleanName.length > 12 ? cleanName.substring(0, 10) + '...' : cleanName
+                                  name: cleanName.length > 18 ? cleanName.substring(0, 16) + '…' : cleanName
                                 };
                               })}
-                              margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+                              margin={{ top: 24, right: 24, left: 8, bottom: 80 }}
+                              barCategoryGap="20%"
+                              barGap={8}
                             >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis 
-                                dataKey="shortName" 
-                                angle={-55} 
-                                textAnchor="end" 
-                                height={100}
+                              <defs>
+                                <linearGradient id="categoryBarTotal" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#8b5cf6" />
+                                  <stop offset="100%" stopColor="#7c3aed" />
+                                </linearGradient>
+                                <linearGradient id="categoryBarResolved" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#10b981" />
+                                  <stop offset="100%" stopColor="#059669" />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                              <XAxis
+                                dataKey="name"
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
                                 interval={0}
-                                tick={{ fontSize: 10, fill: '#64748b' }}
+                                tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
+                                stroke="#94a3b8"
                               />
-                              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                              <Tooltip 
+                              <YAxis
+                                tick={{ fontSize: 11, fill: '#475569' }}
+                                stroke="#94a3b8"
+                                allowDecimals={false}
+                                width={32}
+                                label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }}
+                              />
+                              <Tooltip
                                 content={({ active, payload }) => {
                                   if (active && payload && payload.length) {
-                                    const data = payload[0].payload;
+                                    const d = payload[0].payload;
                                     return (
-                                      <div className="bg-white p-3 rounded-lg shadow-lg border border-slate-200 min-w-[150px]">
-                                        <p className="font-semibold text-slate-800 mb-2 border-b border-slate-100 pb-1">{data.category}</p>
-                                        <div className="space-y-1">
-                                          <p className="text-sm flex justify-between">
-                                            <span className="text-purple-600">Total:</span> 
-                                            <span className="font-medium">{data.count}</span>
+                                      <div className="bg-white p-4 rounded-xl shadow-xl border-2 border-slate-200 min-w-[180px]">
+                                        <p className="font-bold text-slate-800 mb-2 pb-2 border-b border-slate-200">{d.category}</p>
+                                        <div className="space-y-1.5 text-sm">
+                                          <p className="flex justify-between gap-4">
+                                            <span className="text-purple-600 font-medium">Total:</span>
+                                            <span className="font-bold text-slate-800">{d.count}</span>
                                           </p>
-                                          <p className="text-sm flex justify-between">
-                                            <span className="text-emerald-600">Resolved:</span> 
-                                            <span className="font-medium">{data.resolved}</span>
+                                          <p className="flex justify-between gap-4">
+                                            <span className="text-emerald-600 font-medium">Resolved:</span>
+                                            <span className="font-bold text-slate-800">{d.resolved}</span>
                                           </p>
                                         </div>
                                       </div>
@@ -3609,33 +3460,24 @@ function DashboardContent() {
                                   }
                                   return null;
                                 }}
+                                cursor={{ fill: '#f1f5f9' }}
                               />
-                              <Legend 
-                                verticalAlign="top" 
-                                height={36}
-                                wrapperStyle={{ paddingBottom: '10px' }}
-                              />
-                              <Bar dataKey="count" fill="url(#purpleGradient)" name="Total" radius={[4, 4, 0, 0]}>
-                                <defs>
-                                  <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#8b5cf6" />
-                                    <stop offset="100%" stopColor="#a855f7" />
-                                  </linearGradient>
-                                </defs>
-                              </Bar>
-                              <Bar dataKey="resolved" fill="url(#greenGradient)" name="Resolved" radius={[4, 4, 0, 0]}>
-                                <defs>
-                                  <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#10b981" />
-                                    <stop offset="100%" stopColor="#34d399" />
-                                  </linearGradient>
-                                </defs>
-                              </Bar>
+                              <Legend verticalAlign="top" height={40} wrapperStyle={{ paddingBottom: 8 }} />
+                              <Bar dataKey="count" fill="url(#categoryBarTotal)" name="Total" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                              <Bar dataKey="resolved" fill="url(#categoryBarResolved)" name="Resolved" radius={[6, 6, 0, 0]} maxBarSize={48} />
                             </BarChart>
                           </ResponsiveContainer>
-                        </CardContent>
-                      </Card>
-                    )}
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-16 px-4">
+                            <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                              <Building className="w-8 h-8 text-slate-400" />
+                            </div>
+                            <p className="text-slate-600 font-medium text-center">No grievance data by category yet</p>
+                            <p className="text-slate-500 text-sm text-center mt-1">When grievances are filed with a category, they will appear here.</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
                     {/* Summary Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3656,14 +3498,9 @@ function DashboardContent() {
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
-                              <div className="flex flex-col p-3 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200">
-                                <span className="text-xs font-semibold text-yellow-700 mb-1">Pending:</span>
-                                <span className="font-bold text-xl text-yellow-800">{stats.grievances.pending}</span>
-                              </div>
-                              
                               <div className="flex flex-col p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
-                                <span className="text-xs font-semibold text-blue-700 mb-1">In Progress:</span>
-                                <span className="font-bold text-xl text-blue-800">{stats.grievances.inProgress}</span>
+                                <span className="text-xs font-semibold text-blue-700 mb-1">Assigned:</span>
+                                <span className="font-bold text-xl text-blue-800">{stats.grievances.assigned ?? stats.grievances.inProgress ?? 0}</span>
                               </div>
                               
                               <div className="flex flex-col p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
@@ -3671,12 +3508,10 @@ function DashboardContent() {
                                 <span className="font-bold text-xl text-green-800">{stats.grievances.resolved}</span>
                               </div>
                               
-                              {stats.grievances.closed !== undefined && (
-                                <div className="flex flex-col p-3 bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg border border-gray-200">
-                                  <span className="text-xs font-semibold text-gray-700 mb-1">Closed:</span>
-                                  <span className="font-bold text-xl text-gray-800">{stats.grievances.closed}</span>
-                                </div>
-                              )}
+                              <div className="flex flex-col p-3 bg-gradient-to-br from-red-50 to-rose-50 rounded-lg border border-red-200">
+                                <span className="text-xs font-semibold text-red-700 mb-1">Cancelled:</span>
+                                <span className="font-bold text-xl text-red-800">{stats.grievances.cancelled ?? 0}</span>
+                              </div>
                             </div>
                             
                             <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
@@ -3722,9 +3557,9 @@ function DashboardContent() {
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
-                              <div className="flex flex-col p-3 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200">
-                                <span className="text-xs font-semibold text-yellow-700 mb-1">Pending:</span>
-                                <span className="font-bold text-xl text-yellow-800">{stats.appointments.pending}</span>
+                              <div className="flex flex-col p-3 bg-gradient-to-br from-indigo-50 to-violet-50 rounded-lg border border-indigo-200">
+                                <span className="text-xs font-semibold text-indigo-700 mb-1">Scheduled:</span>
+                                <span className="font-bold text-xl text-indigo-800">{stats.appointments.scheduled ?? 0}</span>
                               </div>
                               
                               <div className="flex flex-col p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
@@ -3737,12 +3572,10 @@ function DashboardContent() {
                                 <span className="font-bold text-xl text-green-800">{stats.appointments.completed}</span>
                               </div>
                               
-                              {stats.appointments.cancelled !== undefined && (
-                                <div className="flex flex-col p-3 bg-gradient-to-br from-red-50 to-rose-50 rounded-lg border border-red-200">
-                                  <span className="text-xs font-semibold text-red-700 mb-1">Cancelled:</span>
-                                  <span className="font-bold text-xl text-red-800">{stats.appointments.cancelled}</span>
-                                </div>
-                              )}
+                              <div className="flex flex-col p-3 bg-gradient-to-br from-red-50 to-rose-50 rounded-lg border border-red-200">
+                                <span className="text-xs font-semibold text-red-700 mb-1">Cancelled:</span>
+                                <span className="font-bold text-xl text-red-800">{stats.appointments.cancelled ?? 0}</span>
+                              </div>
                             </div>
                             
                             <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
@@ -4563,7 +4396,6 @@ function DashboardContent() {
           metric={selectedMetric}
         />
 
-        {/* Availability Calendar */}
         <AvailabilityCalendar
           isOpen={showAvailabilityCalendar}
           onClose={() => setShowAvailabilityCalendar(false)}
@@ -4589,6 +4421,8 @@ function DashboardContent() {
             setShowAppointmentStatusModal(false);
             setSelectedAppointmentForStatus(null);
           }}
+          appointmentDate={selectedAppointmentForStatus?.appointmentDate}
+          appointmentTime={selectedAppointmentForStatus?.appointmentTime}
         />
 
         <StatusUpdateModal

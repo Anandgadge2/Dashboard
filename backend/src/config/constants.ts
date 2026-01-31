@@ -178,7 +178,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 export enum GrievanceStatus {
   PENDING = 'PENDING',
   ASSIGNED = 'ASSIGNED',
-  RESOLVED = 'RESOLVED'
+  RESOLVED = 'RESOLVED',
+  CANCELLED = 'CANCELLED'
 }
 
 // ================================

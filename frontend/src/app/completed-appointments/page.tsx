@@ -202,7 +202,7 @@ export default function CompletedAppointmentsPage() {
             </div>
             <div className="flex items-center gap-4">
               <Link
-                href="/appointments"
+                href="/dashboard?tab=appointments"
                 className="flex items-center gap-2 px-4 py-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all border border-white/30 backdrop-blur-sm"
               >
                 <ArrowLeft className="w-5 h-5" />
