@@ -113,21 +113,21 @@ const AppointmentDetailDialog: React.FC<AppointmentDetailDialogProps> = ({ isOpe
   const formattedTime = formatTime12Hour(appointment.appointmentTime);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl bg-white animate-in fade-in zoom-in duration-200 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto md:p-4">
+      <div className="w-full md:max-w-3xl h-[100dvh] md:h-auto md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-2xl shadow-2xl bg-white animate-in slide-in-from-bottom md:zoom-in duration-300 flex flex-col">
         {/* Gradient Header */}
-        <div className={`bg-gradient-to-r ${statusConfig.gradient} p-5 relative overflow-hidden flex-shrink-0`}>
+        <div className={`bg-gradient-to-r ${statusConfig.gradient} p-4 md:p-5 relative overflow-hidden flex-shrink-0`}>
           {/* Background pattern */}
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdjJoLTYweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA4KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIvPjwvc3ZnPg==')] opacity-50"></div>
           
           <div className="relative">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
-                  <Calendar className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+                  {React.cloneElement(statusConfig.icon as React.ReactElement, { className: 'w-5 h-5 md:w-6 md:h-6' })}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold text-white">Appointment Details</h2>
+                  <h2 className="text-base md:text-lg font-bold text-white leading-tight">Appointment Details</h2>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="px-2 py-0.5 bg-white/20 rounded-full text-[11px] font-bold text-white backdrop-blur-sm">
                       {appointment.appointmentId}
@@ -156,17 +156,17 @@ const AppointmentDetailDialog: React.FC<AppointmentDetailDialogProps> = ({ isOpe
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+        <div className="overflow-y-auto flex-1 p-4 md:p-5 space-y-4 md:space-y-5">
 
            {/* Citizen Information */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-5 py-4 border-b border-slate-100">
-              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-600" />
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-4 md:px-5 py-3 md:py-4 border-b border-slate-100">
+              <h3 className="text-sm md:text-base font-bold text-slate-800 flex items-center gap-2">
+                <User className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
                 Citizen Information
               </h3>
             </div>
-            <div className="p-5">
+            <div className="p-4 md:p-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                   <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -204,7 +204,7 @@ const AppointmentDetailDialog: React.FC<AppointmentDetailDialogProps> = ({ isOpe
           </div>
 
           {/* Quick Info Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {/* <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-100">
               <div className="flex items-center gap-2 mb-1.5">
                 <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">

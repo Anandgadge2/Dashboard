@@ -3,9 +3,51 @@
 import React from 'react';
 import { Grievance } from '@/lib/api/grievance';
 import { Appointment } from '@/lib/api/appointment';
-import { X, MapPin, Phone, Calendar, Image as ImageIcon, FileText, User, MessageCircle, Tag, Clock } from 'lucide-react';
+import { X, MapPin, Phone, Calendar, Image as ImageIcon, FileText, User, MessageCircle, Tag, Clock, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { format, formatDistanceToNow } from 'date-fns';
+
+// Helper function to detect document type
+const getDocumentType = (url: string): { isDocument: boolean; type: string; icon: string; color: string } => {
+  const ext = url.split('.').pop()?.toLowerCase();
+  
+  // PDF
+  if (ext === 'pdf' || url.toLowerCase().includes('pdf')) {
+    return { isDocument: true, type: 'PDF Document', icon: 'file-text', color: 'red' };
+  }
+  
+  // Word
+  if (['doc', 'docx'].includes(ext || '') || url.match(/\.(doc|docx)$/i)) {
+    return { isDocument: true, type: 'Word Document', icon: 'file-text', color: 'blue' };
+  }
+  
+  // Excel
+  if (['xls', 'xlsx', 'csv'].includes(ext || '') || url.match(/\.(xls|xlsx|csv)$/i)) {
+    return { isDocument: true, type: 'Excel Sheet', icon: 'file-spreadsheet', color: 'green' };
+  }
+  
+  // PowerPoint
+  if (['ppt', 'pptx'].includes(ext || '') || url.match(/\.(ppt|pptx)$/i)) {
+    return { isDocument: true, type: 'PowerPoint', icon: 'presentation', color: 'orange' };
+  }
+  
+  // Archive
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext || '') || url.match(/\.(zip|rar|7z|tar|gz)$/i)) {
+    return { isDocument: true, type: 'Archive File', icon: 'file-archive', color: 'purple' };
+  }
+  
+  // Text
+  if (ext === 'txt' || url.match(/\.txt$/i)) {
+    return { isDocument: true, type: 'Text File', icon: 'file-text', color: 'gray' };
+  }
+  
+  // Default for documents (if we reached here it's likely a document based on how it's stored)
+  if (url.includes('/raw/upload/') || !url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
+     return { isDocument: true, type: 'Document', icon: 'file', color: 'slate' };
+  }
+
+  return { isDocument: false, type: 'Image', icon: 'image', color: '' };
+};
 
 // Helper function to fix Cloudinary URLs for PDFs and documents
 const fixCloudinaryUrl = (url: string): string => {
@@ -63,21 +105,21 @@ export default function CitizenDetailsModal({
   const statusConfig = getStatusConfig();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl bg-white animate-in fade-in zoom-in duration-200 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto md:p-4">
+      <div className="w-full md:max-w-4xl h-[100dvh] md:h-auto md:max-h-[90vh] overflow-hidden rounded-t-3xl md:rounded-2xl shadow-2xl bg-white animate-in slide-in-from-bottom md:zoom-in duration-300 flex flex-col">
         {/* Gradient Header */}
-        <div className={`bg-gradient-to-r ${statusConfig.gradient} p-5 relative overflow-hidden flex-shrink-0`}>
+        <div className={`bg-gradient-to-r ${statusConfig.gradient} p-4 md:p-5 relative overflow-hidden flex-shrink-0`}>
           {/* Background pattern */}
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdjJoLTYweiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA4KSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIvPjwvc3ZnPg==')] opacity-50"></div>
           
           <div className="relative">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
-                  {statusConfig.icon}
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+                  {React.cloneElement(statusConfig.icon as React.ReactElement, { className: 'w-5 h-5 md:w-6 md:h-6' })}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold text-white">Citizen Details</h2>
+                  <h2 className="text-base md:text-lg font-bold text-white leading-tight">Citizen Details</h2>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="px-2 py-0.5 bg-white/20 rounded-full text-[11px] font-bold text-white backdrop-blur-sm">
                       {type} ID: {id}
@@ -98,9 +140,9 @@ export default function CitizenDetailsModal({
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+        <div className="overflow-y-auto flex-1 p-4 md:p-5 space-y-4 md:space-y-5">
           {/* Quick Info Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -162,14 +204,14 @@ export default function CitizenDetailsModal({
 
           {/* Citizen Information */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-6 py-5 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <User className="w-6 h-6 text-blue-600" />
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-4 md:px-6 py-3 md:py-5 border-b border-slate-100">
+              <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
+                <User className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                 Citizen Information
               </h3>
             </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="p-4 md:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-5">
                 <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
                   <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
                     <User className="w-6 h-6 text-blue-600" />
@@ -335,21 +377,38 @@ export default function CitizenDetailsModal({
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {grievance.media.map((media: any, index: number) => {
                     const fixedUrl = fixCloudinaryUrl(media.url);
-                    const isPDF = media.url?.toLowerCase().endsWith('.pdf');
+                    const docInfo = getDocumentType(media.url);
+                    
+                    // Color mapping for different document types
+                    const colorMap: Record<string, { from: string; to: string; text: string; hover: string }> = {
+                      red: { from: 'from-red-50', to: 'to-orange-50', text: 'text-red-700', hover: 'hover:from-red-100 hover:to-orange-100' },
+                      blue: { from: 'from-blue-50', to: 'to-indigo-50', text: 'text-blue-700', hover: 'hover:from-blue-100 hover:to-indigo-100' },
+                      green: { from: 'from-green-50', to: 'to-emerald-50', text: 'text-green-700', hover: 'hover:from-green-100 hover:to-emerald-100' },
+                      orange: { from: 'from-orange-50', to: 'to-amber-50', text: 'text-orange-700', hover: 'hover:from-orange-100 hover:to-amber-100' },
+                      purple: { from: 'from-purple-50', to: 'to-fuchsia-50', text: 'text-purple-700', hover: 'hover:from-purple-100 hover:to-fuchsia-100' },
+                      gray: { from: 'from-gray-50', to: 'to-slate-50', text: 'text-gray-700', hover: 'hover:from-gray-100 hover:to-slate-100' },
+                      slate: { from: 'from-slate-100', to: 'to-slate-200', text: 'text-slate-700', hover: 'hover:from-slate-200 hover:to-slate-300' },
+                    };
+                    
+                    const colors = colorMap[docInfo.color] || colorMap.slate;
                     
                     return (
-                      <div key={index} className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-video">
-                        {isPDF ? (
-                          // PDF Preview
+                      <div 
+                        key={index} 
+                        className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-video cursor-pointer"
+                        onClick={() => !docInfo.isDocument && window.open(fixedUrl, '_blank')}
+                      >
+                        {docInfo.isDocument ? (
+                          // Document Preview (PDF, Word, Excel, PowerPoint, etc.)
                           <a
                             href={fixedUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex flex-col items-center justify-center w-full h-full bg-gradient-to-br from-red-50 to-orange-50 hover:from-red-100 hover:to-orange-100 transition-all cursor-pointer"
+                            className={`flex flex-col items-center justify-center w-full h-full bg-gradient-to-br ${colors.from} ${colors.to} ${colors.hover} transition-all`}
                           >
-                            <FileText className="w-12 h-12 text-red-600 mb-2" />
-                            <span className="text-xs font-bold text-red-700">PDF Document</span>
-                            <span className="text-[10px] text-red-500 mt-1">Click to view</span>
+                            <FileText className={`w-12 h-12 ${colors.text} mb-2`} />
+                            <span className={`text-xs font-bold ${colors.text}`}>{docInfo.type}</span>
+                            <span className={`text-[10px] ${colors.text} opacity-70 mt-1 uppercase tracking-wider font-semibold`}>View Document</span>
                           </a>
                         ) : (
                           // Image Preview
@@ -359,10 +418,13 @@ export default function CitizenDetailsModal({
                               alt={`Evidence ${index + 1}`}
                               fill
                               sizes="(max-width: 768px) 50vw, 33vw"
-                              className="object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
-                              onClick={() => window.open(fixedUrl, '_blank')}
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-md p-2 rounded-full">
+                                <ExternalLink className="w-5 h-5 text-white" />
+                              </div>
+                            </div>
                           </>
                         )}
                       </div>
