@@ -57,9 +57,12 @@ export async function uploadWhatsAppMediaToCloudinary(
       } else if (mimeType.startsWith('video/')) {
         resourceType = 'video';
         logger.info('🎥 Detected as VIDEO');
+      } else if (mimeType === 'application/pdf') {
+        // PDF files - Cloudinary can handle PDF as 'image' type
+        // This avoids the 'untrusted' error that occurs with 'raw' for many accounts
+        resourceType = 'image';
+        logger.info('📄 Detected as PDF - using resource_type: image for better compatibility');
       } else if (
-        // PDF files
-        mimeType === 'application/pdf' ||
         // Microsoft Word
         mimeType === 'application/msword' ||
         mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
