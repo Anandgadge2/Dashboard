@@ -26,6 +26,51 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 
+// Helper function to detect document type
+const getDocumentType = (url: string): { isDocument: boolean; type: string; icon: string; color: string } => {
+  if (!url) return { isDocument: false, type: 'unknown', icon: 'file', color: 'slate' };
+  
+  const urlLower = url.toLowerCase();
+  
+  // PDF
+  if (urlLower.endsWith('.pdf')) {
+    return { isDocument: true, type: 'PDF Document', icon: 'pdf', color: 'red' };
+  }
+  
+  // Microsoft Word
+  if (urlLower.match(/\.(doc|docx)$/)) {
+    return { isDocument: true, type: 'Word Document', icon: 'word', color: 'blue' };
+  }
+  
+  // Microsoft Excel
+  if (urlLower.match(/\.(xls|xlsx|csv)$/)) {
+    return { isDocument: true, type: 'Excel Spreadsheet', icon: 'excel', color: 'green' };
+  }
+  
+  // Microsoft PowerPoint
+  if (urlLower.match(/\.(ppt|pptx)$/)) {
+    return { isDocument: true, type: 'PowerPoint', icon: 'powerpoint', color: 'orange' };
+  }
+  
+  // Text files
+  if (urlLower.match(/\.(txt|log)$/)) {
+    return { isDocument: true, type: 'Text File', icon: 'text', color: 'gray' };
+  }
+  
+  // Archives
+  if (urlLower.match(/\.(zip|rar|7z|tar|gz)$/)) {
+    return { isDocument: true, type: 'Archive', icon: 'archive', color: 'purple' };
+  }
+  
+  // Images
+  if (urlLower.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/)) {
+    return { isDocument: false, type: 'image', icon: 'image', color: 'pink' };
+  }
+  
+  // Default for other documents
+  return { isDocument: true, type: 'Document', icon: 'file', color: 'slate' };
+};
+
 // Helper function to fix Cloudinary URLs for PDFs and documents
 const fixCloudinaryUrl = (url: string): string => {
   if (!url) return url;
@@ -35,11 +80,9 @@ const fixCloudinaryUrl = (url: string): string => {
     return url; // Return as-is if not a Cloudinary URL
   }
   
-  // Check if it's a PDF or document file
-  const isPDF = url.toLowerCase().endsWith('.pdf');
-  const isDoc = url.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i);
+  const docInfo = getDocumentType(url);
   
-  if (isPDF || isDoc) {
+  if (docInfo.isDocument) {
     // For Cloudinary URLs, add fl_attachment to force download
     if (url.includes('/upload/')) {
       // Check if fl_attachment is already present
@@ -290,7 +333,7 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
           </div>
 
           {/* Location Information */}
-          {grievance.location && (grievance.location.address || grievance.location.coordinates) && (
+          {/* {grievance.location && (grievance.location.address || grievance.location.coordinates) && (
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="bg-gradient-to-r from-slate-50 to-emerald-50 px-5 py-4 border-b border-slate-100">
                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
@@ -327,7 +370,7 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Media/Photos */}
           {grievance.media && grievance.media.length > 0 && (
@@ -345,27 +388,36 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {grievance.media.map((media: any, index: number) => {
                     const fixedUrl = fixCloudinaryUrl(media.url);
-                    const isPDF = media.url?.toLowerCase().endsWith('.pdf');
-                    const isImage = !isPDF && (
-                      media.type === 'image' || 
-                      media.url?.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i)
-                    );
+                    const docInfo = getDocumentType(media.url);
+                    
+                    // Color mapping for different document types
+                    const colorMap: Record<string, { from: string; to: string; text: string; hover: string }> = {
+                      red: { from: 'from-red-50', to: 'to-orange-50', text: 'text-red-700', hover: 'hover:from-red-100 hover:to-orange-100' },
+                      blue: { from: 'from-blue-50', to: 'to-indigo-50', text: 'text-blue-700', hover: 'hover:from-blue-100 hover:to-indigo-100' },
+                      green: { from: 'from-green-50', to: 'to-emerald-50', text: 'text-green-700', hover: 'hover:from-green-100 hover:to-emerald-100' },
+                      orange: { from: 'from-orange-50', to: 'to-amber-50', text: 'text-orange-700', hover: 'hover:from-orange-100 hover:to-amber-100' },
+                      purple: { from: 'from-purple-50', to: 'to-fuchsia-50', text: 'text-purple-700', hover: 'hover:from-purple-100 hover:to-fuchsia-100' },
+                      gray: { from: 'from-gray-50', to: 'to-slate-50', text: 'text-gray-700', hover: 'hover:from-gray-100 hover:to-slate-100' },
+                      slate: { from: 'from-slate-100', to: 'to-slate-200', text: 'text-slate-700', hover: 'hover:from-slate-200 hover:to-slate-300' },
+                    };
+                    
+                    const colors = colorMap[docInfo.color] || colorMap.slate;
                     
                     return (
                       <div key={index} className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-video">
-                        {isPDF ? (
-                          // PDF Preview
+                        {docInfo.isDocument ? (
+                          // Document Preview (PDF, Word, Excel, PowerPoint, etc.)
                           <a
                             href={fixedUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex flex-col items-center justify-center w-full h-full bg-gradient-to-br from-red-50 to-orange-50 hover:from-red-100 hover:to-orange-100 transition-all cursor-pointer"
+                            className={`flex flex-col items-center justify-center w-full h-full bg-gradient-to-br ${colors.from} ${colors.to} ${colors.hover} transition-all cursor-pointer`}
                           >
-                            <FileText className="w-12 h-12 text-red-600 mb-2" />
-                            <span className="text-xs font-bold text-red-700">PDF Document</span>
-                            <span className="text-[10px] text-red-500 mt-1">Click to view</span>
+                            <FileText className={`w-12 h-12 ${colors.text} mb-2`} />
+                            <span className={`text-xs font-bold ${colors.text}`}>{docInfo.type}</span>
+                            <span className={`text-[10px] ${colors.text} opacity-70 mt-1`}>Click to view/download</span>
                           </a>
-                        ) : isImage ? (
+                        ) : (
                           // Image Preview
                           <>
                             <Image
@@ -377,18 +429,6 @@ const GrievanceDetailDialog: React.FC<GrievanceDetailDialogProps> = ({ isOpen, g
                             />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                           </>
-                        ) : (
-                          // Other Document Types
-                          <a
-                            href={fixedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex flex-col items-center justify-center w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 hover:from-slate-200 hover:to-slate-300 transition-all cursor-pointer"
-                          >
-                            <FileText className="w-8 h-8 text-slate-400 mb-2" />
-                            <span className="text-xs text-slate-500">Document</span>
-                            <span className="text-[10px] text-slate-400 mt-1">Click to view</span>
-                          </a>
                         )}
                       </div>
                     );

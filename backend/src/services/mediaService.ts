@@ -53,21 +53,40 @@ export async function uploadWhatsAppMediaToCloudinary(
     if (mimeType) {
       if (mimeType.startsWith('image/')) {
         resourceType = 'image';
+        logger.info('🖼️  Detected as IMAGE');
       } else if (mimeType.startsWith('video/')) {
         resourceType = 'video';
+        logger.info('🎥 Detected as VIDEO');
       } else if (
+        // PDF files
         mimeType === 'application/pdf' ||
+        // Microsoft Word
+        mimeType === 'application/msword' ||
+        mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        // Microsoft Excel
+        mimeType === 'application/vnd.ms-excel' ||
+        mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        // Microsoft PowerPoint
+        mimeType === 'application/vnd.ms-powerpoint' ||
+        mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+        // Text files
+        mimeType === 'text/plain' ||
+        mimeType === 'text/csv' ||
+        // Archives
+        mimeType === 'application/zip' ||
+        mimeType === 'application/x-zip-compressed' ||
+        mimeType === 'application/x-rar-compressed' ||
+        // Generic document types (but not too broad)
         mimeType.includes('document') ||
         mimeType.includes('word') ||
         mimeType.includes('excel') ||
         mimeType.includes('spreadsheet') ||
-        mimeType.includes('officedocument') ||
-        mimeType === 'application/vnd.ms-excel' ||
-        mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        mimeType === 'application/msword'
+        mimeType.includes('officedocument')
       ) {
-        resourceType = 'raw'; // Use 'raw' for documents
+        resourceType = 'raw'; // Use 'raw' for all documents
+        logger.info('📄 Detected as DOCUMENT - using resource_type: raw');
+      } else {
+        logger.info(`⚠️  Unknown MIME type: ${mimeType} - using auto detection`);
       }
     }
     
