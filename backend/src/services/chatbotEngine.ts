@@ -939,6 +939,9 @@ async function continueGrievanceFlow(
         
         const offset = session.data.deptOffset || 0;
         const showLoadMore = departments.length > offset + 9;
+        
+        console.log(`📋 Initial - Total: ${departments.length}, Offset: ${offset}, Range: ${offset}-${offset + 9}`);
+        
         const deptRows = departments.slice(offset, offset + 9).map(dept => {
           // Try to translate department name
           const translatedName = getTranslation(`dept_${dept.name}`, session.language);
@@ -1037,6 +1040,8 @@ async function continueGrievanceFlow(
         if (departments.length > 0) {
           const offset = session.data.deptOffset || 0;
           const showLoadMore = departments.length > offset + 9;
+          
+          console.log(`📊 Load More - Total: ${departments.length}, Offset: ${offset}, Range: ${offset}-${offset + 9}`);
           const deptRows = departments.slice(offset, offset + 9).map(dept => {
             const translatedName = getTranslation(`dept_${dept.name}`, session.language);
             const displayName = translatedName !== `dept_${dept.name}` ? translatedName : dept.name;
@@ -1060,12 +1065,15 @@ async function continueGrievanceFlow(
           if (showLoadMore) {
             const remainingCount = departments.length - offset - 9;
             if (remainingCount > 0) {
+              console.log(`➕ Load More: ${remainingCount} remaining`);
               deptRows.push({
                 id: 'grv_load_more',
                 title: getTranslation('btn_load_more', session.language),
                 description: `${remainingCount} ${getTranslation('msg_more_depts_available', session.language)}`
               });
             }
+          } else {
+            console.log(`✅ All ${departments.length} departments shown`);
           }
           
           const sections = [{
@@ -1080,6 +1088,9 @@ async function continueGrievanceFlow(
             getTranslation('btn_select_dept', session.language),
             sections
           );
+          
+          // Save session to persist offset
+          await updateSession(session);
         }
         return;
       }
