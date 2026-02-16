@@ -322,7 +322,7 @@ export default function AppointmentsPage() {
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-purple-700 uppercase tracking-wide">Citizen Info</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-purple-700 uppercase tracking-wide">Dept & Purpose</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-purple-700 uppercase tracking-wide">Scheduled At</th>
-                  <th className="px-6 py-4 text-left text-[11px] font-bold text-purple-700 uppercase tracking-wide">Assigned To</th>
+
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-purple-700 uppercase tracking-wide">Status</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-purple-700 uppercase tracking-wide">Created</th>
                   <th className="px-6 py-4 text-center text-[11px] font-bold text-purple-700 uppercase tracking-wide sticky right-0 bg-fuchsia-50 z-10 border-l border-purple-100 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">Actions</th>
@@ -412,24 +412,7 @@ export default function AppointmentsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {appointment.assignedTo ? (
-                        <div className="flex flex-col">
-                          <div className="flex items-center">
-                            <UserPlus className="w-3.5 h-3.5 mr-1.5 text-green-600" />
-                            <span className="text-sm font-semibold text-gray-900">
-                              {typeof appointment.assignedTo === 'object' 
-                                ? `${appointment.assignedTo.firstName} ${appointment.assignedTo.lastName}`
-                                : appointment.assignedTo}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="inline-flex items-center text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-100 whitespace-nowrap">
-                          Pending Assignment
-                        </span>
-                      )}
-                    </td>
+
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-[11px] font-bold border uppercase tracking-wider ${getStatusColor(appointment.status)}`}>
                         {appointment.status.replace('_', ' ')}

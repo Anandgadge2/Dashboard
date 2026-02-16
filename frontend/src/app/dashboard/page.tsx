@@ -2682,7 +2682,7 @@ function DashboardContent() {
                               <ArrowUpDown className={`w-3.5 h-3.5 transition-colors ${sortConfig.key === 'appointmentDate' ? 'text-purple-600' : 'text-purple-300 group-hover:text-purple-400'}`} />
                             </button>
                           </th>
-                          <th className="px-4 py-4 text-left text-[11px] font-bold text-purple-600 uppercase tracking-wider">Assigned</th>
+
                           <th className="px-4 py-4 text-left text-[11px] font-bold text-purple-600 uppercase tracking-wider">Status</th>
                           <th className="px-4 py-4 text-center text-[11px] font-bold text-purple-600 uppercase tracking-wider sticky right-0 bg-fuchsia-50/90 backdrop-blur-sm z-10 border-l border-slate-200 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">Actions</th>
                         </tr>
